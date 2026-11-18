@@ -1,39 +1,132 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
+type Modo = "entrar" | "criar";
+
+/** Mensagens do Supabase traduzidas para a voz do Rumo. */
+function traduzir(mensagem: string, modo: Modo): string {
+  const m = mensagem.toLowerCase();
+  if (m.includes("invalid login credentials")) return "E-mail ou senha não conferem.";
+  if (m.includes("already registered") || m.includes("already been registered")) return "Já existe uma conta com este e-mail. Entre com a sua senha.";
+  if (m.includes("email not confirmed")) return "Este e-mail ainda não foi confirmado. Abra a mensagem de confirmação que o Supabase enviou.";
+  if (m.includes("password") && (m.includes("at least") || m.includes("weak") || m.includes("short"))) return "A senha precisa ter pelo menos 8 caracteres.";
+  if (m.includes("signups not allowed") || m.includes("signup is disabled")) return "Novos cadastros estão fechados.";
+  if (m.includes("rate limit") || m.includes("too many")) return "Muitas tentativas seguidas. Espere um minuto e tente de novo.";
+  if (m.includes("invalid") && m.includes("email")) return "Confira o e-mail digitado.";
+  return modo === "entrar" ? "Não foi possível entrar. Tente de novo." : "Não foi possível criar a conta. Tente de novo.";
+}
+
 export default function LoginPage() {
+  const router = useRouter();
+  const [modo, setModo] = useState<Modo>("entrar");
   const [email, setEmail] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [senha, setSenha] = useState("");
+  const [ver, setVer] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+
+  function trocar(novo: Modo) {
+    setModo(novo);
+    setErro(null);
+    setAviso(null);
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setState("sending");
+    setErro(null);
+    setAviso(null);
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      setErro("Confira o e-mail digitado.");
+      return;
+    }
+    if (!senha) {
+      setErro("Digite a sua senha.");
+      return;
+    }
+    if (modo === "criar" && senha.length < 8) {
+      setErro("A senha precisa ter pelo menos 8 caracteres.");
+      return;
+    }
+    setEnviando(true);
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    });
-    setState(error ? "error" : "sent");
+    const { data, error } =
+      modo === "entrar"
+        ? await supabase.auth.signInWithPassword({ email: email.trim(), password: senha })
+        : await supabase.auth.signUp({ email: email.trim(), password: senha, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
+    setEnviando(false);
+
+    if (error) {
+      setErro(traduzir(error.message, modo));
+      return;
+    }
+    if (data.session) {
+      router.replace("/hoje");
+      router.refresh();
+      return;
+    }
+    // Conta criada, mas o Supabase ainda pede confirmação por e-mail
+    setAviso("Conta criada. Falta confirmar o e-mail: abra a mensagem que chegou e depois entre aqui com a sua senha.");
+    setModo("entrar");
   }
 
   return (
     <main className="auth">
-      <form className="auth__card" onSubmit={onSubmit}>
-        <img src="/brand/rumo-logo-horizontal.svg" alt="Rumo" className="logo-light" />
-        <img src="/brand/rumo-logo-horizontal-light.svg" alt="Rumo" className="logo-dark" />
-        <h1>Clareza para o seu próximo passo.</h1>
-        <p>Entre com o seu e-mail. Mandamos um link de acesso, sem senha.</p>
+      <section className="auth__brand" aria-hidden>
+        <img src="/brand/rumo-logo-horizontal-light.svg" alt="" />
+        <p className="auth__promise">Clareza para o seu próximo passo.</p>
+        <p className="auth__sub">Tudo o que depende de você, em um só lugar.</p>
+      </section>
+
+      <form className="auth__card" onSubmit={onSubmit} noValidate>
+        <img src="/brand/rumo-logo-horizontal.svg" alt="Rumo" className="auth__logo logo-light" />
+        <img src="/brand/rumo-logo-horizontal-light.svg" alt="Rumo" className="auth__logo logo-dark" />
+        <h1>{modo === "entrar" ? "Entrar no Rumo" : "Criar sua conta"}</h1>
+
+        <div className="seg auth__tabs" role="tablist" aria-label="Entrar ou criar conta">
+          {(["entrar", "criar"] as const).map((m) => (
+            <label key={m}>
+              <input type="radio" name="modo" checked={modo === m} onChange={() => trocar(m)} />
+              <span>{m === "entrar" ? "Entrar" : "Criar conta"}</span>
+            </label>
+          ))}
+        </div>
+
         <label className="field">
           E-mail
-          <input className="input" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="input" type="email" required autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setErro(null); }} />
         </label>
-        <button className="btn" type="submit" disabled={state === "sending"}>
-          {state === "sending" ? "Enviando…" : "Receber link de acesso"}
+
+        <div className="field">
+          <label htmlFor="senha">Senha</label>
+          <span className="password">
+            <input
+              id="senha"
+              className="input"
+              type={ver ? "text" : "password"}
+              required
+              minLength={modo === "criar" ? 8 : undefined}
+              autoComplete={modo === "entrar" ? "current-password" : "new-password"}
+              value={senha}
+              onChange={(e) => { setSenha(e.target.value); setErro(null); }}
+            />
+            <button type="button" className="icon-btn" onClick={() => setVer(!ver)} aria-label={ver ? "Esconder senha" : "Mostrar senha"}>
+              {ver ? <EyeOff size={17} /> : <Eye size={17} />}
+            </button>
+          </span>
+          {modo === "criar" && <span className="field__hint">Pelo menos 8 caracteres.</span>}
+        </div>
+
+        <button className="btn" type="submit" disabled={enviando}>
+          {enviando ? (modo === "entrar" ? "Entrando…" : "Criando…") : modo === "entrar" ? "Entrar" : "Criar conta"}
         </button>
-        {state === "sent" && <p className="note" role="status">Link enviado. Abra o e-mail neste aparelho para entrar.</p>}
-        {state === "error" && <p className="note note--err" role="alert">Não foi possível enviar o link. Confira o e-mail e tente de novo.</p>}
+
+        {aviso && <p className="note" role="status">{aviso}</p>}
+        {erro && <p className="note note--err" role="alert">{erro}</p>}
       </form>
     </main>
   );

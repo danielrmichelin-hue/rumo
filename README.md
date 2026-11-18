@@ -9,7 +9,7 @@ A referência de marca e produto é o *Rumo · Brand & Product Book v1.0*.
 ## Tecnologia
 
 - Next.js (App Router) + TypeScript, como app instalável (PWA) no celular e no computador
-- Supabase: banco Postgres, login por link no e-mail e segurança por usuário (RLS)
+- Supabase: banco Postgres, login com e-mail e senha e segurança por usuário (RLS)
 - Vercel: publicação automática a cada envio para a branch `main`
 
 ## Rodar no computador

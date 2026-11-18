@@ -23,7 +23,7 @@ adaptativo, vários usuários na interface, sincronização com Google Agenda, c
 
 | Fase | Entrega | Situação |
 | --- | --- | --- |
-| 0 · Fundação | Login por link (Supabase), banco com RLS, PWA instalável, casca de navegação | Feita |
+| 0 · Fundação | Login com e-mail e senha (Supabase), banco com RLS, PWA instalável, casca de navegação | Feita |
 | 1 · Capturar | Captura que lê o texto, Inbox, Responsabilidades, Contextos | Em revisão com o Daniel |
 | 2 · Hoje | Tela Hoje, follow-up e cobrança, notificações | Próxima |
 | 3 · Completar o Core | Projetos, Calendário, Busca, visão por contexto | — |
@@ -69,6 +69,8 @@ O teste com o Daniel começa quando a fase 2 estiver pronta. Cada fase termina c
 ## Tecnologia
 
 - Next.js 15 (App Router, `src/`), TypeScript, CSS próprio (sem Tailwind), ícones `lucide-react`.
+- Login: cadastro e entrada com e-mail e senha (`src/app/login/page.tsx`), sem link por e-mail. No Supabase,
+  "Confirm email" deve ficar desligado para a conta valer na hora.
 - Supabase via `@supabase/ssr`: `src/lib/supabase/{client,server,middleware}.ts`; `src/middleware.ts`
   protege as rotas (públicas: `/login`, `/auth`).
 - Banco: projeto Supabase `rumo` (região São Paulo). `supabase/migrations/0001_core.sql` (contexts, people, projects,
