@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
+import { BotaoNova } from "@/components/ProximoPasso";
 import { CAMPOS_LISTA, type Responsabilidade } from "@/lib/tipos";
 
 export const metadata = { title: "Inbox" };
@@ -8,34 +9,37 @@ export const metadata = { title: "Inbox" };
 export default async function Page() {
   const supabase = await createClient();
   const [{ data: itens }, { data: contextos }] = await Promise.all([
-    supabase
-      .from("responsibilities")
-      .select(CAMPOS_LISTA)
-      .is("context_id", null)
-      .neq("state", "concluida")
-      .order("created_at", { ascending: false }),
-    supabase.from("contexts").select("id, name, color").eq("archived", false).order("position"),
+    supabase.from("responsibilities").select(CAMPOS_LISTA).is("context_id", null).neq("state", "concluida").order("created_at", { ascending: false }),
+    supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
   ]);
   const lista = (itens ?? []) as Responsabilidade[];
   const ctx = contextos ?? [];
 
   return (
     <div className="page">
-      <p className="page__k">Capturado, a organizar</p>
-      <h1 className="page__t">Inbox{lista.length > 0 && <span className="page__n">{lista.length}</span>}</h1>
+      <div className="page__head">
+        <div>
+          <h1 className="page__t">Inbox</h1>
+          <p className="page__sub">
+            {lista.length === 0
+              ? "Nada a organizar."
+              : <><b>{lista.length}</b> {lista.length === 1 ? "item capturado espera" : "itens capturados esperam"} um contexto.</>}
+          </p>
+        </div>
+        <div className="page__actions hide-mobile"><BotaoNova /></div>
+      </div>
 
       {lista.length === 0 ? (
         <div className="empty">
-          <b>Nada a organizar</b>
-          Tudo o que você capturou já tem um contexto. Para anotar algo, aperte <kbd>C</kbd> ou o botão Capturar.
+          <b>Nada pendente nesta etapa.</b>
+          O que você capturar sem #contexto espera aqui até ganhar um lugar.
         </div>
       ) : (
         <>
-          <p className="page__lead">
-            Dê um contexto a cada item
-            {ctx.length === 0 && <> depois de <Link href="/contextos" className="link">criar seus contextos</Link></>}.
-          </p>
-          <ListaResponsabilidades itens={lista} contextos={ctx} organizavel />
+          {ctx.length === 0 && (
+            <p className="note" style={{ marginBottom: 16 }}>Para organizar, <Link href="/contextos" className="link">crie seus contextos</Link>.</p>
+          )}
+          <ListaResponsabilidades itens={lista} contextos={ctx} comContexto={false} organizavel />
         </>
       )}
     </div>

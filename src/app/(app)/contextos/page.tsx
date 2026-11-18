@@ -16,11 +16,12 @@ export default async function Page() {
 
   return (
     <div className="page page--narrow">
-      <p className="page__k">Onde as coisas moram</p>
-      <h1 className="page__t">Contextos</h1>
-      <p className="page__lead">
-        Empresas e áreas da sua vida. Na captura, escreva <code>#nome</code> para guardar direto num contexto.
-      </p>
+      <div className="page__head">
+        <div>
+          <h1 className="page__t">Contextos</h1>
+          <p className="page__sub">Empresas e áreas da sua vida. Na captura, escreva <code>#nome</code> para guardar direto num contexto.</p>
+        </div>
+      </div>
       <GerirContextos contextos={(contextos ?? []) as Contexto[]} abertas={contagem} />
     </div>
   );

@@ -24,10 +24,10 @@ export function GerirContextos({ contextos, abertas }: { contextos: Contexto[]; 
   return (
     <div className="ctx">
       {contextos.length === 0 && (
-        <div className="empty">
-          <b>Comece pelos seus</b>
-          Crie Iter Mídia, Rumo e Casa de uma vez. Dá para renomear, mudar a cor e criar outros depois.
-          <div style={{ marginTop: 14 }}>
+        <div className="empty empty--box">
+          <b>Nenhum contexto ainda.</b>
+          <span>Crie Iter Mídia, Rumo e Casa de uma vez. Dá para renomear, mudar a cor e criar outros depois.</span>
+          <div style={{ marginTop: 10 }}>
             <button className="btn btn--sm" type="button" disabled={pendente} onClick={() => iniciar(() => criarContextosSugeridos())}>
               {pendente ? "Criando…" : "Criar Iter Mídia, Rumo e Casa"}
             </button>
@@ -39,12 +39,12 @@ export function GerirContextos({ contextos, abertas }: { contextos: Contexto[]; 
         <ul className="ctx__list">
           {ativos.map((c, i) =>
             editando === c.id ? (
-              <li key={c.id} className="ctx__item ctx__item--edit" style={{ "--c": c.color } as React.CSSProperties}>
+              <li key={c.id} className="ctx__item ctx__item--edit">
                 <FormContexto contexto={c} aoTerminar={() => setEditando(null)} abertas={abertas[c.id] ?? 0} />
               </li>
             ) : (
-              <li key={c.id} className="ctx__item" style={{ "--c": c.color } as React.CSSProperties}>
-                <i className="dot dot--lg" style={{ background: c.color }} />
+              <li key={c.id} className="ctx__item">
+                <i className="dot" style={{ background: c.color }} />
                 <div className="ctx__body">
                   <Link href={`/contexto/${c.id}`} className="ctx__name">{c.name}</Link>
                   <span className="props">
@@ -65,8 +65,8 @@ export function GerirContextos({ contextos, abertas }: { contextos: Contexto[]; 
         </ul>
       )}
 
-      <section className="ctx__new">
-        <h2 className="group__t">Novo contexto</h2>
+      <section className="card">
+        <h2 className="card__t">Novo contexto</h2>
         <FormContexto />
       </section>
 
@@ -76,7 +76,7 @@ export function GerirContextos({ contextos, abertas }: { contextos: Contexto[]; 
           <ul className="ctx__list">
             {arquivados.map((c) => (
               <li key={c.id} className="ctx__item">
-                <i className="dot dot--lg" style={{ background: c.color, opacity: 0.5 }} />
+                <i className="dot" style={{ background: c.color, opacity: 0.5 }} />
                 <div className="ctx__body">
                   <span className="ctx__name">{c.name}</span>
                   <span className="props"><span className="prop">{abertas[c.id] ? `${abertas[c.id]} em aberto` : "Nada em aberto"}</span></span>
@@ -152,7 +152,7 @@ function FormContexto({ contexto, aoTerminar, abertas = 0 }: { contexto?: Contex
       {resultado.erro && <p className="note note--err" role="alert">{resultado.erro}</p>}
       <div className="ctx__formfoot">
         <button className="btn btn--sm" type="submit" disabled={pendente}>{pendente ? "Guardando…" : contexto ? "Guardar" : "Criar contexto"}</button>
-        {aoTerminar && <button className="btn-quiet" type="button" onClick={aoTerminar}>Cancelar</button>}
+        {aoTerminar && <button className="btn btn--ghost btn--sm" type="button" onClick={aoTerminar}>Cancelar</button>}
         {contexto && (
           <span style={{ marginLeft: "auto" }}><BotaoApagar contexto={contexto} abertas={abertas} /></span>
         )}

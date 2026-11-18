@@ -54,13 +54,13 @@ export function useTema() {
 const OPCOES: Array<{ v: Tema; r: string; Icon: typeof Sun }> = [
   { v: "claro", r: "Claro", Icon: Sun },
   { v: "escuro", r: "Escuro", Icon: Moon },
-  { v: "auto", r: "Auto", Icon: Monitor },
+  { v: "auto", r: "Automático", Icon: Monitor },
 ];
 
 export function SeletorTema() {
   const { tema, escolher } = useTema();
   return (
-    <div className="theme" role="group" aria-label="Tema">
+    <div className="seg" role="group" aria-label="Tema">
       {OPCOES.map(({ v, r, Icon }) => (
         <button key={v} type="button" aria-pressed={tema === v} onClick={() => escolher(v)} title={v === "auto" ? "Segue o aparelho" : undefined}>
           <Icon aria-hidden />{r}

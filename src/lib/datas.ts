@@ -83,3 +83,43 @@ export function rotuloHora(hora: string): string {
 export function estaAtrasada(item: { due_date: string | null; state: string }, hoje: string = hojeISO()): boolean {
   return item.state !== "concluida" && !!item.due_date && item.due_date < hoje;
 }
+
+/** "Venceu ontem", "Venceu em 12/11", "Venceu às 10h" (hoje, com hora já passada) */
+export function rotuloVencido(iso: string, hora: string | null, hoje: string = hojeISO()): string {
+  if (iso === hoje) return hora ? `Venceu às ${rotuloHora(hora)}` : "Vence hoje";
+  if (diferencaDias(hoje, iso) === -1) return "Venceu ontem";
+  return `Venceu em ${rotuloData(iso, hoje)}`;
+}
+
+/** Prazo passou? Considera a hora quando o prazo é hoje. */
+export function prazoPassou(item: { due_date: string | null; due_time: string | null; state: string }, hoje: string = hojeISO(), agora: string = agoraHora()): boolean {
+  if (item.state === "concluida" || !item.due_date) return false;
+  if (item.due_date < hoje) return true;
+  return item.due_date === hoje && !!item.due_time && item.due_time.slice(0, 5) < agora;
+}
+
+/** "há 3 dias", "hoje", "ontem" a partir de um timestamp */
+export function haQuanto(timestamp: string, hoje: string = hojeISO()): string {
+  const dias = diferencaDias(hojeISO(new Date(timestamp)), hoje);
+  if (dias <= 0) return "hoje";
+  if (dias === 1) return "ontem";
+  return `há ${dias} dias`;
+}
+
+const SEMANA_LONGA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+/** "quarta, 18 de novembro" */
+export function dataPorExtenso(iso: string): string {
+  const [, m, d] = iso.split("-").map(Number);
+  return `${SEMANA_LONGA[diaDaSemana(iso)]}, ${d} de ${MESES[m - 1]}`;
+}
+
+/** "Bom dia", "Boa tarde", "Boa noite" no fuso de São Paulo */
+export function saudacao(agora: string = agoraHora()): string {
+  const h = Number(agora.slice(0, 2));
+  if (h < 5) return "Boa noite";
+  if (h < 12) return "Bom dia";
+  if (h < 18) return "Boa tarde";
+  return "Boa noite";
+}

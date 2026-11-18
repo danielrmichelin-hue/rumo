@@ -2,10 +2,11 @@
 
 import { useOptimistic, useTransition } from "react";
 import Link from "next/link";
-import { Check, Clock, CornerDownRight, FileText, Hourglass, Scale } from "lucide-react";
-import { concluir, organizar } from "@/app/(app)/acoes";
-import { estaAtrasada, hojeISO, rotuloData, rotuloHora } from "@/lib/datas";
+import { Check, Clock, FileText, Folder, Hourglass, Scale } from "lucide-react";
+import { cobrar, concluir, organizar, restaurarData } from "@/app/(app)/acoes";
+import { agoraHora, hojeISO, prazoPassou, rotuloData, rotuloHora, rotuloVencido } from "@/lib/datas";
 import type { Responsabilidade } from "@/lib/tipos";
+import { useAvisar } from "./Avisos";
 import type { ContextItem } from "./Shell";
 
 type Props = {
@@ -15,89 +16,139 @@ type Props = {
   comContexto?: boolean;
   /** Inbox: mostra o seletor "Organizar em…" */
   organizavel?: boolean;
+  /** Hoje: retornos no dia de cobrar ganham a ação "Cobrar" */
+  cobravel?: boolean;
+  /** Nome do projeto, quando houver (id → nome) */
+  projetos?: Record<string, string>;
+  /** Na seção Hoje do Hoje, a palavra "Hoje" em cada linha sobra */
+  semHoje?: boolean;
 };
 
-export function ListaResponsabilidades({ itens, contextos, comContexto = false, organizavel = false }: Props) {
+export function ListaResponsabilidades({ itens, contextos, comContexto = true, organizavel = false, cobravel = false, projetos, semHoje = false }: Props) {
   const hoje = hojeISO();
+  const agora = agoraHora();
   return (
     <ul className="list">
       {itens.map((item) => (
-        <Linha key={item.id} item={item} contextos={contextos} comContexto={comContexto} organizavel={organizavel} hoje={hoje} />
+        <Linha key={item.id} item={item} contextos={contextos} comContexto={comContexto} organizavel={organizavel} cobravel={cobravel} semHoje={semHoje} hoje={hoje} agora={agora} projeto={item.project_id ? projetos?.[item.project_id] : undefined} />
       ))}
     </ul>
   );
 }
 
-function Linha({ item, contextos, comContexto, organizavel, hoje }: { item: Responsabilidade; contextos: ContextItem[]; comContexto: boolean; organizavel: boolean; hoje: string }) {
+type LinhaProps = {
+  item: Responsabilidade;
+  contextos: ContextItem[];
+  comContexto: boolean;
+  organizavel: boolean;
+  cobravel: boolean;
+  semHoje: boolean;
+  hoje: string;
+  agora: string;
+  projeto?: string;
+};
+
+function Linha({ item, contextos, comContexto, organizavel, cobravel, semHoje, hoje, agora, projeto }: LinhaProps) {
   const [, iniciar] = useTransition();
   const [feita, setFeita] = useOptimistic(item.state === "concluida");
   const [saiu, setSaiu] = useOptimistic(false);
+  const avisar = useAvisar();
   const contexto = contextos.find((c) => c.id === item.context_id);
-  const atrasada = !feita && estaAtrasada(item, hoje);
+  const aguardando = item.state === "aguardando";
+  const vencida = !feita && prazoPassou(item, hoje, agora);
+  const cobrarHoje = aguardando && !!item.follow_up_on && item.follow_up_on <= hoje;
 
   function alternar() {
+    const agoraFeita = !feita;
     iniciar(async () => {
-      setFeita(!feita);
-      await concluir(item.id, !feita);
+      setFeita(agoraFeita);
+      await concluir(item.id, agoraFeita);
     });
+    if (agoraFeita) {
+      avisar({ texto: "Concluída.", acao: { rotulo: "Desfazer", fazer: () => iniciar(() => concluir(item.id, false)) } });
+    }
   }
 
   function mover(contextId: string) {
     if (!contextId) return;
+    const destino = contextos.find((c) => c.id === contextId)?.name ?? "o contexto";
     iniciar(async () => {
       setSaiu(true);
       await organizar(item.id, contextId);
+    });
+    avisar({ texto: `Organizada em ${destino}.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => organizar(item.id, null)) } });
+  }
+
+  function registrarCobranca() {
+    iniciar(async () => {
+      setSaiu(true);
+      const r = await cobrar(item.id);
+      avisar({
+        texto: `Cobrança registrada. A próxima fica para ${rotuloData(r.depois, hoje)}.`,
+        acao: { rotulo: "Desfazer", fazer: () => iniciar(() => restaurarData(item.id, "follow_up_on", r.antes)) },
+      });
     });
   }
 
   if (saiu) return null;
 
   return (
-    <li className="item" data-feita={feita || undefined} style={contexto ? ({ "--c": contexto.color } as React.CSSProperties) : undefined}>
+    <li className="row" data-feita={feita || undefined}>
       <button
         type="button"
-        className="check"
+        className={`check${aguardando && !feita ? " check--wait" : ""}`}
         role="checkbox"
         aria-checked={feita}
         aria-label={feita ? `Reabrir: ${item.title}` : `Concluir: ${item.title}`}
         onClick={alternar}
       >
-        {feita && <Check size={13} strokeWidth={3} />}
+        {feita && <Check aria-hidden />}
       </button>
-      <div className="item__body">
-        <Link href={`/responsabilidades/${item.id}`} className="item__title">{item.title}</Link>
+      <div className="row__body">
+        <Link href={`/responsabilidades/${item.id}`} className="row__t">{item.title}</Link>
         <span className="props">
-          {item.kind === "decidir" && <span className="prop"><Scale size={13} aria-hidden />Decidir</span>}
           {comContexto && contexto && (
             <span className="prop"><i className="dot" style={{ background: contexto.color }} />{contexto.name}</span>
           )}
-          {item.due_date && (
-            <span className={`prop${atrasada ? " prop--late" : item.due_date === hoje && !feita ? " prop--hoje" : ""}`}>
-              {atrasada ? `Prazo era ${rotuloData(item.due_date, hoje)}` : rotuloData(item.due_date, hoje)}
+          {projeto && <span className="prop"><Folder aria-hidden />{projeto}</span>}
+          {item.kind === "decidir" && <span className="prop"><Scale aria-hidden />Decisão</span>}
+          {aguardando ? (
+            <span className={`prop${cobrarHoje ? " prop--warn" : ""}`}>
+              <Hourglass aria-hidden />
+              {item.waiting_note ? `${item.waiting_note} · ` : ""}
+              {cobrarHoje ? (item.follow_up_on === hoje ? "cobrar hoje" : `cobrar desde ${rotuloData(item.follow_up_on!, hoje)}`) : `cobrar ${rotuloData(item.follow_up_on!, hoje)}`}
             </span>
+          ) : item.due_date && vencida ? (
+            <span className="prop prop--late"><Clock aria-hidden />{rotuloVencido(item.due_date, item.due_time, hoje)}</span>
+          ) : (
+            <>
+              {item.due_date && !(semHoje && item.due_date === hoje) && (
+                <span className={`prop${item.due_date === hoje && !feita ? " prop--today" : ""}`}>
+                  {item.due_date === hoje ? "Hoje" : rotuloData(item.due_date, hoje)}
+                </span>
+              )}
+              {item.due_time && <span className="prop"><Clock aria-hidden />{rotuloHora(item.due_time)}</span>}
+            </>
           )}
-          {item.due_time && <span className="prop"><Clock size={13} aria-hidden />{rotuloHora(item.due_time)}</span>}
-          {item.state === "aguardando" && (
-            <span className="prop">
-              <Hourglass size={13} aria-hidden />
-              {item.waiting_note}
-              {item.follow_up_on && <> · cobrar {rotuloData(item.follow_up_on, hoje)}</>}
-            </span>
-          )}
-          {item.note && <span className="prop" title="Tem nota"><FileText size={13} aria-label="Tem nota" /></span>}
-          {feita && item.done_at && <span className="prop">Concluída {rotuloData(hojeISO(new Date(item.done_at)), hoje)}</span>}
+          {item.note && <span className="prop" title="Tem nota"><FileText aria-label="Tem nota" /></span>}
         </span>
       </div>
-      {organizavel && contextos.length > 0 && (
-        <label className="organize">
-          <CornerDownRight size={14} aria-hidden />
-          <span className="sr-only">Organizar em</span>
-          <select defaultValue="" onChange={(e) => mover(e.target.value)} aria-label={`Organizar "${item.title}" em um contexto`}>
-            <option value="" disabled>Organizar em…</option>
-            {contextos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </label>
-      )}
+      {(organizavel && contextos.length > 0) || (cobravel && cobrarHoje) ? (
+        <div className="row__r">
+          {cobravel && cobrarHoje && (
+            <button type="button" className="btn btn--line btn--sm" onClick={registrarCobranca}>Cobrar</button>
+          )}
+          {organizavel && contextos.length > 0 && (
+            <label className="organize">
+              <span className="sr-only">Organizar em</span>
+              <select defaultValue="" onChange={(e) => mover(e.target.value)} aria-label={`Organizar "${item.title}" em um contexto`}>
+                <option value="" disabled>Organizar em…</option>
+                {contextos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
+          )}
+        </div>
+      ) : null}
     </li>
   );
 }

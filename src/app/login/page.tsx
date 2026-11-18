@@ -78,16 +78,17 @@ export default function LoginPage() {
     <main className="auth">
       <section className="auth__brand" aria-hidden>
         <img src="/brand/rumo-logo-horizontal-light.svg" alt="" />
+        <img src="/brand/rumo-symbol-light.svg" alt="" className="auth__symbol" />
         <p className="auth__promise">Clareza para o seu próximo passo.</p>
-        <p className="auth__sub">Tudo o que depende de você, em um só lugar.</p>
       </section>
 
       <form className="auth__card" onSubmit={onSubmit} noValidate>
         <img src="/brand/rumo-logo-horizontal.svg" alt="Rumo" className="auth__logo logo-light" />
         <img src="/brand/rumo-logo-horizontal-light.svg" alt="Rumo" className="auth__logo logo-dark" />
-        <h1>{modo === "entrar" ? "Entrar no Rumo" : "Criar sua conta"}</h1>
+        <h1>{modo === "entrar" ? "Que bom te ver de novo." : "Boas-vindas ao Rumo."}</h1>
+        <p>{modo === "entrar" ? "Continue de onde parou." : "Crie sua conta com e-mail e senha."}</p>
 
-        <div className="seg auth__tabs" role="tablist" aria-label="Entrar ou criar conta">
+        <div className="seg" role="radiogroup" aria-label="Entrar ou criar conta">
           {(["entrar", "criar"] as const).map((m) => (
             <label key={m}>
               <input type="radio" name="modo" checked={modo === m} onChange={() => trocar(m)} />
@@ -121,7 +122,7 @@ export default function LoginPage() {
           {modo === "criar" && <span className="field__hint">Pelo menos 8 caracteres.</span>}
         </div>
 
-        <button className="btn" type="submit" disabled={enviando}>
+        <button className="btn btn--lg" type="submit" disabled={enviando}>
           {enviando ? (modo === "entrar" ? "Entrando…" : "Criando…") : modo === "entrar" ? "Entrar" : "Criar conta"}
         </button>
 

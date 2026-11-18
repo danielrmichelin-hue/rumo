@@ -16,6 +16,8 @@ export type Leitura = {
   kind: "fazer" | "decidir";
   /** Trechos que viraram propriedade, para a prévia */
   trechos: { data?: string; hora?: string; contexto?: string };
+  /** Onde estão esses trechos no texto digitado (para marcar na própria caixa) */
+  marcas: { inicio: number; fim: number }[];
   /** #tag que não corresponde a nenhum contexto (fica no título) */
   tagDesconhecida: string | null;
 };
@@ -161,7 +163,8 @@ function tirar(texto: string, trechos: Achado[]): string {
 }
 
 export function lerCaptura(texto: string, contextos: ContextoParaCaptura[], hoje: string): Leitura {
-  const original = texto.replace(/\s+/g, " ").trim();
+  // As posições valem para o texto como foi digitado; o título sai sem espaços sobrando
+  const original = texto;
   const usados: Achado[] = [];
   const trechos: Leitura["trechos"] = {};
 
@@ -179,7 +182,7 @@ export function lerCaptura(texto: string, contextos: ContextoParaCaptura[], hoje
   if (hora) { usados.push(hora.achado); trechos.hora = original.slice(hora.achado.inicio, hora.achado.fim); }
 
   let title = tirar(original, usados);
-  if (!title) title = original;
+  if (!title) title = original.replace(/\s+/g, " ").trim();
   title = (title.charAt(0).toLocaleUpperCase("pt-BR") + title.slice(1)).slice(0, 300);
 
   return {
@@ -189,6 +192,7 @@ export function lerCaptura(texto: string, contextos: ContextoParaCaptura[], hoje
     context_id: ctx.contexto?.id ?? null,
     kind: /^decidir(?![\p{L}\p{N}])/iu.test(title) ? "decidir" : "fazer",
     trechos,
+    marcas: usados.map(({ inicio, fim }) => ({ inicio, fim })).sort((a, b) => a.inicio - b.inicio),
     tagDesconhecida: ctx.desconhecida,
   };
 }

@@ -8,7 +8,7 @@ import type { Contexto, Estado, Responsabilidade } from "@/lib/tipos";
 
 const ESTADOS: Array<{ v: Estado; r: string }> = [
   { v: "a_fazer", r: "A fazer" },
-  { v: "aguardando", r: "Aguardando" },
+  { v: "aguardando", r: "Aguardando alguém" },
   { v: "concluida", r: "Concluída" },
 ];
 
@@ -50,7 +50,7 @@ export function FormResponsabilidade({ item, contextos, pessoas, voltar }: { ite
         <input type="hidden" name="id" value={item.id} />
         <textarea name="title" className="detail__title" defaultValue={item.title} rows={1} required maxLength={300} aria-label="Título" />
 
-        <div className="seg-row">
+        <div className="detail__row">
           <fieldset className="seg seg--state" aria-label="Estado">
             {ESTADOS.map((e) => (
               <label key={e.v}>
@@ -59,11 +59,11 @@ export function FormResponsabilidade({ item, contextos, pessoas, voltar }: { ite
               </label>
             ))}
           </fieldset>
-          <fieldset className="seg seg--quiet" aria-label="Tipo">
+          <fieldset className="seg" aria-label="Tipo">
             {(["fazer", "decidir"] as const).map((k) => (
               <label key={k}>
                 <input type="radio" name="kind" value={k} checked={tipo === k} onChange={() => setTipo(k)} />
-                <span>{k === "fazer" ? "Fazer" : "Decidir"}</span>
+                <span>{k === "fazer" ? "Fazer" : "Decisão"}</span>
               </label>
             ))}
           </fieldset>
@@ -104,6 +104,11 @@ export function FormResponsabilidade({ item, contextos, pessoas, voltar }: { ite
           </label>
         </div>
 
+        <label className="field" style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 400 }}>
+          <input type="checkbox" name="today" defaultChecked={item.today} style={{ width: 18, height: 18, accentColor: "var(--accent)" }} />
+          Marcar para hoje, mesmo sem prazo
+        </label>
+
         <label className="field">
           {rotuloNota}
           <textarea name="note" className="input input--area" defaultValue={item.note ?? ""} rows={6} placeholder="Contexto, links, o que foi combinado…" />
@@ -128,7 +133,7 @@ export function FormResponsabilidade({ item, contextos, pessoas, voltar }: { ite
       >
         <input type="hidden" name="id" value={item.id} />
         <input type="hidden" name="voltar" value={voltar} />
-        <button type="submit" className="btn-quiet"><Trash2 size={15} aria-hidden />Apagar</button>
+        <button type="submit" className="btn btn--ghost btn--sm"><Trash2 aria-hidden />Apagar</button>
       </form>
     </>
   );
