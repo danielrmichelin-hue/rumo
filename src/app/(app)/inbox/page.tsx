@@ -22,7 +22,7 @@ export default async function Page() {
   return (
     <div className="page">
       <p className="page__k">Capturado, a organizar</p>
-      <h1 className="page__t">Inbox</h1>
+      <h1 className="page__t">Inbox{lista.length > 0 && <span className="page__n">{lista.length}</span>}</h1>
 
       {lista.length === 0 ? (
         <div className="empty">
@@ -32,7 +32,7 @@ export default async function Page() {
       ) : (
         <>
           <p className="page__lead">
-            {lista.length === 1 ? "1 item sem contexto." : `${lista.length} itens sem contexto.`} Dê um lugar a cada um
+            Dê um contexto a cada item
             {ctx.length === 0 && <> depois de <Link href="/contextos" className="link">criar seus contextos</Link></>}.
           </p>
           <ListaResponsabilidades itens={lista} contextos={ctx} organizavel />

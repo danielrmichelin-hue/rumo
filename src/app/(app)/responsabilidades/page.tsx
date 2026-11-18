@@ -18,11 +18,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
   const supabase = await createClient();
   let consulta = supabase.from("responsibilities").select(CAMPOS_LISTA).not("context_id", "is", null).eq("state", aba.estado);
   consulta = aba.estado === "concluida" ? consulta.order("done_at", { ascending: false }).limit(100) : consulta;
-  const [{ data: itens }, { data: contextos }] = await Promise.all([
+  const contar = (estado: Estado) =>
+    supabase.from("responsibilities").select("id", { count: "exact", head: true }).not("context_id", "is", null).eq("state", estado);
+  const [{ data: itens }, { data: contextos }, { count: nAFazer }, { count: nAguardando }] = await Promise.all([
     consulta,
     // Inclui os arquivados: o que ainda está aberto neles não pode sumir
     supabase.from("contexts").select("id, name, color, archived").order("archived").order("position"),
+    contar("a_fazer"),
+    contar("aguardando"),
   ]);
+  const contagem: Partial<Record<Estado, number>> = { a_fazer: nAFazer ?? 0, aguardando: nAguardando ?? 0 };
 
   const lista = (itens ?? []) as Responsabilidade[];
   const ctx = contextos ?? [];
@@ -48,6 +53,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
         {ABAS.map((a) => (
           <Link key={a.estado} href={a.estado === "a_fazer" ? "/responsabilidades" : `/responsabilidades?estado=${a.estado}`} aria-current={a === aba ? "page" : undefined}>
             {a.rotulo}
+            {!!contagem[a.estado] && <span className="tabs__n">{contagem[a.estado]}</span>}
           </Link>
         ))}
       </nav>
@@ -61,10 +67,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
         <div className="empty"><b>Tudo em dia</b>{aba.vazio}</div>
       ) : aba.estado === "a_fazer" ? (
         grupos.map((g) => (
-          <section key={g.contexto.id} className="group">
+          <section key={g.contexto.id} className="group" style={{ "--c": g.contexto.color } as React.CSSProperties}>
             <h2 className="group__t">
               <Link href={`/contexto/${g.contexto.id}`}><i className="dot" style={{ background: g.contexto.color }} />{g.contexto.name}</Link>
-              <span>{g.itens.length}</span>
+              <span className="group__n">{g.itens.length}</span>
             </h2>
             <ListaResponsabilidades itens={g.itens} contextos={ctx} />
           </section>

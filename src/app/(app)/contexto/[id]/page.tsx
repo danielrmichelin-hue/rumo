@@ -31,7 +31,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         {contexto.kind === "empresa" ? "Empresa" : "Área"}
         {contexto.archived && " · arquivado"} · <Link href="/contextos" className="link">editar</Link>
       </p>
-      <h1 className="page__t page__t--ctx"><i className="dot dot--lg" style={{ background: contexto.color }} />{contexto.name}</h1>
+      <h1 className="page__t page__t--ctx" style={{ "--c": contexto.color } as React.CSSProperties}><i className="dot" style={{ background: contexto.color }} />{contexto.name}</h1>
 
       {lista.length === 0 ? (
         <div className="empty">
@@ -41,14 +41,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       ) : (
         <>
           {aFazer.length > 0 && (
-            <section className="group">
-              <h2 className="group__t"><span>A fazer</span><span>{aFazer.length}</span></h2>
+            <section className="group" style={{ "--c": contexto.color } as React.CSSProperties}>
+              <h2 className="group__t"><span>A fazer</span><span className="group__n">{aFazer.length}</span></h2>
               <ListaResponsabilidades itens={aFazer} contextos={ctx} />
             </section>
           )}
           {aguardando.length > 0 && (
-            <section className="group">
-              <h2 className="group__t"><span>Aguardando alguém</span><span>{aguardando.length}</span></h2>
+            <section className="group" style={{ "--c": contexto.color } as React.CSSProperties}>
+              <h2 className="group__t"><span>Aguardando alguém</span><span className="group__n">{aguardando.length}</span></h2>
               <ListaResponsabilidades itens={aguardando} contextos={ctx} />
             </section>
           )}

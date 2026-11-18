@@ -53,7 +53,7 @@ function Linha({ item, contextos, comContexto, organizavel, hoje }: { item: Resp
   if (saiu) return null;
 
   return (
-    <li className="item" data-feita={feita || undefined}>
+    <li className="item" data-feita={feita || undefined} style={contexto ? ({ "--c": contexto.color } as React.CSSProperties) : undefined}>
       <button
         type="button"
         className="check"
@@ -72,7 +72,7 @@ function Linha({ item, contextos, comContexto, organizavel, hoje }: { item: Resp
             <span className="prop"><i className="dot" style={{ background: contexto.color }} />{contexto.name}</span>
           )}
           {item.due_date && (
-            <span className={`prop${atrasada ? " prop--late" : ""}`}>
+            <span className={`prop${atrasada ? " prop--late" : item.due_date === hoje && !feita ? " prop--hoje" : ""}`}>
               {atrasada ? `Prazo era ${rotuloData(item.due_date, hoje)}` : rotuloData(item.due_date, hoje)}
             </span>
           )}

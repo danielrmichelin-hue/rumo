@@ -39,11 +39,11 @@ export function GerirContextos({ contextos, abertas }: { contextos: Contexto[]; 
         <ul className="ctx__list">
           {ativos.map((c, i) =>
             editando === c.id ? (
-              <li key={c.id} className="ctx__item ctx__item--edit">
+              <li key={c.id} className="ctx__item ctx__item--edit" style={{ "--c": c.color } as React.CSSProperties}>
                 <FormContexto contexto={c} aoTerminar={() => setEditando(null)} abertas={abertas[c.id] ?? 0} />
               </li>
             ) : (
-              <li key={c.id} className="ctx__item">
+              <li key={c.id} className="ctx__item" style={{ "--c": c.color } as React.CSSProperties}>
                 <i className="dot dot--lg" style={{ background: c.color }} />
                 <div className="ctx__body">
                   <Link href={`/contexto/${c.id}`} className="ctx__name">{c.name}</Link>

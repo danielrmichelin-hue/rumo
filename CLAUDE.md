@@ -54,6 +54,12 @@ O teste com o Daniel começa quando a fase 2 estiver pronta. Cada fase termina c
 - Fonte Inter (local em `public/fonts`). Paleta: Deep `#2B1E4B`, Purple `#6C4ED9`, Lavender `#DCCEF6`,
   Warm `#F8F7F4`, Charcoal `#1F1F1F`, Gray `#A7A0B3` (Gray nunca em texto: contraste baixo).
 - Tokens em `src/app/globals.css`, com tema claro e escuro (escuro tem paleta própria, não é inversão).
+  O tema vem de `data-theme` no `<html>`; a pessoa escolhe Claro, Escuro ou Auto (segue o aparelho), guardado
+  no navegador (`src/lib/tema.ts`, `src/components/Tema.tsx`).
+- Direção visual aprovada pelo Daniel (nov/2026): lateral e barra do celular sempre em Deep com o logo claro
+  grande; títulos grandes e firmes; cada contexto é um trilho vertical na sua cor (bolinha, linha e caixas de
+  seleção); captura num painel Deep com o que foi entendido em etiquetas; botão principal com o degradê do logo.
+  Evitar cartões brancos flutuando com sombra (cara de modelo pronto).
 - Logo: só os SVGs oficiais em `public/brand` (pacote rumo-brand-assets-v1). Nunca redesenhar ou recriar o logo.
 - Direção das telas (Book, cap. 11): hierarquia por tipografia e espaço, um destaque por tela, propriedades
   em linha (contexto, prazo, origem) em vez de colunas, cor de contexto (bolinha) e roxo só para ação,

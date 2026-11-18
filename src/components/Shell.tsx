@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sun, Inbox, CalendarDays, ListChecks, FolderKanban, Search, Plus, LogOut, Settings2 } from "lucide-react";
 import { Captura, useAtalhoCaptura } from "./Captura";
+import { BotaoTema, SeletorTema } from "./Tema";
 
 export type ContextItem = { id: string; name: string; color: string };
 
@@ -37,10 +38,9 @@ export function Shell({
   return (
     <div className="shell">
       <aside className="side" aria-label="Navegação">
-        <div className="side__brand">
-          <img src="/brand/rumo-logo-horizontal.svg" alt="Rumo" className="logo-light" />
-          <img src="/brand/rumo-logo-horizontal-light.svg" alt="Rumo" className="logo-dark" />
-        </div>
+        <Link href="/hoje" className="side__brand" aria-label="Rumo, ir para Hoje">
+          <img src="/brand/rumo-logo-horizontal-light.svg" alt="Rumo" />
+        </Link>
         <Link href="/busca" className="side__search"><Search size={16} aria-hidden />Buscar<kbd>⌘ K</kbd></Link>
         {CORE.map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href} className="nav" aria-current={on(href)}>
@@ -59,10 +59,17 @@ export function Shell({
           </Link>
         ))}
         <div className="side__foot">
-          <span title={email}>{email.split("@")[0]}</span>
-          <form action="/auth/sair" method="post"><button type="submit" aria-label="Sair"><LogOut size={16} /></button></form>
+          <SeletorTema />
+          <div className="side__user">
+            <span title={email}>{email}</span>
+            <form action="/auth/sair" method="post"><button type="submit" aria-label="Sair" title="Sair"><LogOut size={16} /></button></form>
+          </div>
         </div>
       </aside>
+      <header className="topbar">
+        <Link href="/hoje" aria-label="Rumo, ir para Hoje"><img src="/brand/rumo-logo-horizontal-light.svg" alt="Rumo" /></Link>
+        <BotaoTema />
+      </header>
       <main className="main">{children}</main>
       <button className="capture-fab" type="button" onClick={abrir} aria-keyshortcuts="C">
         <Plus aria-hidden />Capturar<kbd>C</kbd>

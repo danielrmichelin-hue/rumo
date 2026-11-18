@@ -100,17 +100,17 @@ export function Captura({ aberta, abrir, fechar, contextos }: { aberta: boolean;
               {leitura ? (
                 <>
                   <span className="capture__title">{leitura.title}</span>
-                  <span className="props">
-                    {leitura.kind === "decidir" && <span className="prop"><Scale size={14} aria-hidden />Decisão</span>}
+                  <span className="chips">
                     {contexto ? (
-                      <span className="prop"><i className="dot" style={{ background: contexto.color }} />{contexto.name}</span>
+                      <span className="chip" style={{ "--c": contexto.color } as React.CSSProperties}><i className="dot" />{contexto.name}</span>
                     ) : (
-                      <span className="prop"><Inbox size={14} aria-hidden />Inbox</span>
+                      <span className="chip chip--quiet"><Inbox size={14} aria-hidden />Inbox</span>
                     )}
                     {leitura.due_date && (
-                      <span className="prop"><CalendarDays size={14} aria-hidden />{rotuloData(leitura.due_date, hoje)}</span>
+                      <span className="chip"><CalendarDays size={14} aria-hidden />{rotuloData(leitura.due_date, hoje)}</span>
                     )}
-                    {leitura.due_time && <span className="prop"><Clock size={14} aria-hidden />{rotuloHora(leitura.due_time)}</span>}
+                    {leitura.due_time && <span className="chip"><Clock size={14} aria-hidden />{rotuloHora(leitura.due_time)}</span>}
+                    {leitura.kind === "decidir" && <span className="chip"><Scale size={14} aria-hidden />Decisão</span>}
                   </span>
                   {leitura.tagDesconhecida && (
                     <span className="capture__hint">#{leitura.tagDesconhecida} não é um contexto seu e fica no título.</span>

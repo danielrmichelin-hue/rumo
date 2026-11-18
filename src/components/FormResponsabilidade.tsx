@@ -51,7 +51,7 @@ export function FormResponsabilidade({ item, contextos, pessoas, voltar }: { ite
         <textarea name="title" className="detail__title" defaultValue={item.title} rows={1} required maxLength={300} aria-label="Título" />
 
         <div className="seg-row">
-          <fieldset className="seg" aria-label="Estado">
+          <fieldset className="seg seg--state" aria-label="Estado">
             {ESTADOS.map((e) => (
               <label key={e.v}>
                 <input type="radio" name="state" value={e.v} checked={estado === e.v} onChange={() => escolherEstado(e.v)} />
