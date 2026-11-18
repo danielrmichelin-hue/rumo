@@ -39,15 +39,28 @@ horizontal (serve a qualquer pessoa com muitas responsabilidades); a entrada no 
 
 ## Como o produto se organiza
 
+O Rumo é **modular**: um Core igual para todos e módulos que se ligam conforme a vida de cada pessoa.
+Quem decide os módulos são **as perguntas do começo** ("O que você quer organizar com o Rumo?"). A
+explicação completa, com a jornada da pessoa, está em **`docs/rumo-completo.md`**. Leia antes de construir.
+
+- **Perguntas do começo (onboarding adaptativo)**: na primeira vez, a pessoa marca o que quer organizar
+  (Trabalho, Meus negócios, Estudos, Vida pessoal, Rotinas e hábitos, Objetivos e metas, Projetos
+  pessoais) e responde uma pergunta curta para cada escolha. O Rumo liga os módulos, cria os contextos e
+  monta a barra lateral. Especificação em `docs/onboarding.md`; imagem em
+  `docs/telas/onboarding-perguntas.png`.
 - **Core**, igual para todos: Hoje, Inbox, Calendário, Responsabilidades, Projetos, Busca.
-  É o que o MVP constrói.
 - **Contextos**: cada empresa ou área da vida (Iter Mídia, Rumo, Casa…) tem uma cor. Toda
   responsabilidade pertence a um contexto; sem contexto, ela fica na Inbox.
 - **Follow-up é um estado, não uma tela.** "Aguardando alguém" tem pessoa e data de cobrança; no dia, a
   responsabilidade volta ao Hoje.
-- **Módulos** (Negócios, Estudos, Rotinas, Notas, Rotas), **Connect** (receber itens de outros sistemas,
-  como o Vértice, que organiza a Iter) e IA são a visão futura. **Não entram no MVP.** Eles aparecem no
-  Book e nas telas conceituais; ignore essas partes ao construir.
+- **Módulos**: Negócios, Estudos, Rotinas & Hábitos, Notas, Rotas. Tudo o que um módulo cria vira item do
+  Core e chega ao Hoje. Módulo desligado não deixa rastro.
+- **Connect** (receber itens de outros sistemas, como o Vértice, que organiza a Iter) e **IA/MCP** são
+  visão futura.
+
+No MVP entram as perguntas do começo, o Core inteiro e as formas mínimas de Negócios (contextos tipo
+empresa) e Notas (campo de texto). Estudos, Rotinas, Rotas, Connect e IA ainda não, mas o código deve
+nascer pronto para eles (lista de módulos, navegação montada pelo perfil).
 
 ## O coração: a tela Hoje
 
@@ -116,6 +129,8 @@ humano. Informa e oferece escolha; nunca julga.
 
 | Para… | Leia |
 | --- | --- |
+| O Rumo inteiro: camadas, jornada, módulos, o que o MVP constrói | `docs/rumo-completo.md` |
+| As perguntas do começo (onboarding) | `docs/onboarding.md` |
 | Escopo, telas, dados, regras e fases do MVP | `docs/mvp.md` |
 | Marca, voz, vocabulário, microcopy por estado | `docs/book/01-marca.md` |
 | O problema, os seis verbos, o que o Rumo não é | `docs/book/02-estrategia.md` |
@@ -127,5 +142,6 @@ humano. Informa e oferece escolha; nunca julga.
 | O Book completo e interativo (abrir no navegador) | `docs/brand-book/index.html` |
 | Tokens oficiais (cor, tipo, espaço, raio, sombra) | `docs/brand-book/tokens/tokens.css` |
 
-Os capítulos 05 a 09 e 12 a 14 do Book (arquitetura, módulos, Rotas, Connect, onboarding, mercado,
-futuro) são contexto de longo prazo. Leia para entender a visão, não para construir agora.
+Os capítulos 05 (arquitetura), 06 (módulos) e 09 (experiência e onboarding) explicam como o Rumo se monta
+para cada pessoa: leia para entender o produto. Os capítulos 07 (Rotas), 08 (Connect), 12 (mercado) e 13
+(futuro) são visão de longo prazo.

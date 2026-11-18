@@ -6,8 +6,8 @@ Dono do produto: Daniel. Toda a comunicação, interface e textos do app são em
 
 ## Antes de qualquer tarefa
 
-1. Leia **`docs/LEIA-PRIMEIRO.md`**: quem é o Rumo, o problema, a tela Hoje, como deve parecer e soar,
-   e o mapa dos outros documentos.
+1. Leia **`docs/LEIA-PRIMEIRO.md`** (quem é o Rumo, a tela Hoje, como deve parecer e soar) e
+   **`docs/rumo-completo.md`** (o produto inteiro: perguntas do começo, Core, módulos, jornada da pessoa).
 2. Para construir ou mudar uma tela, abra a imagem correspondente em `docs/telas/` (Hoje, visão por
    contexto, calendário, mobile e componentes) e compare o resultado com ela.
 3. Para escopo, dados e regras, leia `docs/mvp.md`. Para marca e voz, `docs/book/01-marca.md`.
@@ -20,11 +20,14 @@ em texto em `docs/book/`) e a *Especificação do MVP* (`docs/mvp.md`). Este arq
 O Core para o **uso diário do Daniel**, num teste de 90 dias. A hipótese: ele passa a confiar no Rumo
 como o lugar onde mora tudo o que depende dele e abre o Hoje todo dia.
 
-Entra: Hoje · Captura rápida + Inbox · Responsabilidades com follow-up · Contextos (Iter Mídia, Rumo, Casa…)
+Entra: Perguntas do começo (onboarding adaptativo, `docs/onboarding.md`) · Hoje · Captura rápida + Inbox · Responsabilidades com follow-up · Contextos (Iter Mídia, Rumo, Casa…)
 · Projetos · Calendário simples · Busca · nota de texto em responsabilidades e projetos.
 
-**Fica fora (não construir sem o Daniel pedir):** Rotas, Estudos, Rotinas, Connect, IA/MCP, onboarding
-adaptativo, vários usuários na interface, sincronização com Google Agenda, captura pelo WhatsApp.
+O Rumo é **modular**: as perguntas do começo ligam os módulos e criam os contextos de cada pessoa. Entenda o
+todo em `docs/rumo-completo.md` antes de construir qualquer parte, e construa pronto para os módulos entrarem
+(lista de módulos em código, barra lateral montada pelo perfil).
+
+**Fica fora (não construir sem o Daniel pedir):** os módulos Rotas, Estudos e Rotinas, Connect, IA/MCP, vários usuários na interface, sincronização com Google Agenda, captura pelo WhatsApp.
 
 ## Fases
 
@@ -32,6 +35,7 @@ adaptativo, vários usuários na interface, sincronização com Google Agenda, c
 | --- | --- | --- |
 | 0 · Fundação | Login com e-mail e senha (Supabase), banco com RLS, PWA instalável, casca de navegação | Feita |
 | 1 · Capturar | Captura que lê o texto, Inbox, Responsabilidades, Contextos | Em revisão com o Daniel |
+| 1b · Começo | Perguntas do começo: o que organizar, contextos e módulos, barra lateral montada pelo perfil (`docs/onboarding.md`) | A fazer |
 | 2 · Hoje | Tela Hoje, follow-up e cobrança, notificações | Próxima |
 | 3 · Completar o Core | Projetos, Calendário, Busca, visão por contexto | — |
 

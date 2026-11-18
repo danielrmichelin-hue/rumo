@@ -24,7 +24,8 @@ dele, e abre o Hoje todo dia. Tudo o que não ajuda a provar isso fica fora.
 | Notas | Entra, mínimo | Um campo de texto em cada responsabilidade e projeto |
 | Rotas, Estudos, Rotinas | Fica fora | Bons, mas não provam a hipótese principal |
 | Connect, IA, MCP | Fica fora | Visão futura do Book |
-| Onboarding adaptativo, vários usuários | Fica fora | O teste é só com o Daniel |
+| Perguntas do começo (onboarding adaptativo) | Entra | O Rumo se monta pela vida da pessoa: liga módulos e cria contextos (`docs/onboarding.md`) |
+| Vários usuários na interface | Fica fora | O teste é só com o Daniel |
 
 ## Plataforma e tecnologia
 
@@ -44,7 +45,7 @@ usuários beta não exige refazer nada.
 
 ## Telas
 
-Oito telas, todas seguindo as telas conceituais do Book (capítulo 11; imagens em `docs/telas/`).
+Oito telas, mais as perguntas do começo (`docs/onboarding.md`), todas seguindo as telas conceituais do Book (capítulo 11; imagens em `docs/telas/`).
 
 1. **Hoje**: responde "o que precisa da minha atenção agora?". No topo, o próximo passo em destaque.
    Abaixo: Atenção (atrasadas e follow-ups vencidos), Hoje (com prazo ou marcado para hoje), Agenda do dia
@@ -66,7 +67,7 @@ Oito telas, todas seguindo as telas conceituais do Book (capítulo 11; imagens e
 
 ## Dados
 
-Cinco tabelas no Supabase (`supabase/migrations/`). Toda tabela tem dono (`user_id`), RLS e datas de
+Cinco tabelas no Supabase (`supabase/migrations/`), mais o perfil (`profiles`: nome, módulos ligados e respostas do começo; ver `docs/onboarding.md`). Toda tabela tem dono (`user_id`), RLS e datas de
 criação e alteração.
 
 | Tabela | Campos principais | Observação |
@@ -105,7 +106,7 @@ O Hoje se monta sempre nesta ordem:
 | Fase | Entrega | Semana (estimativa) |
 | --- | --- | --- |
 | 0 · Fundação | Login, banco com RLS, PWA instalável, casca de navegação | 1 |
-| 1 · Capturar | Captura que lê o texto, Inbox, Responsabilidades, Contextos | 2 a 3 |
+| 1 · Capturar | Captura que lê o texto, Inbox, Responsabilidades, Contextos, perguntas do começo | 2 a 3 |
 | 2 · Hoje | Tela Hoje, follow-up e cobrança, notificações | 4 |
 | 3 · Completar o Core | Projetos, Calendário, Busca, visão por contexto | 5 a 6 |
 
