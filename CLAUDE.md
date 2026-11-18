@@ -6,11 +6,14 @@ Dono do produto: Daniel. Toda a comunicação, interface e textos do app são em
 
 ## Antes de qualquer tarefa
 
-1. Leia **`docs/LEIA-PRIMEIRO.md`** (quem é o Rumo, a tela Hoje, como deve parecer e soar) e
-   **`docs/rumo-completo.md`** (o produto inteiro: perguntas do começo, Core, módulos, jornada da pessoa).
+1. Leia **`docs/rumo-completo.md` inteiro**. É a explicação completa do Rumo: marca e voz, problema e
+   estratégia, público, Core (Hoje, Inbox, Responsabilidades, Calendário, Projetos, Busca), arquitetura
+   modular, cada módulo, Rotas, Connect, as perguntas do começo, identidade visual, interface e
+   componentes, mercado, futuro e o que o MVP constrói. Sem entender o todo, não construa nenhuma parte.
 2. Para construir ou mudar uma tela, abra a imagem correspondente em `docs/telas/` (Hoje, visão por
    contexto, calendário, mobile e componentes) e compare o resultado com ela.
-3. Para escopo, dados e regras, leia `docs/mvp.md`. Para marca e voz, `docs/book/01-marca.md`.
+3. Para escopo, dados e regras, `docs/mvp.md`; para as perguntas do começo, `docs/onboarding.md`;
+   resumo rápido em `docs/LEIA-PRIMEIRO.md`.
 
 Tudo isso está no repositório: o *Brand & Product Book v1.0* (interativo em `docs/brand-book/index.html`,
 em texto em `docs/book/`) e a *Especificação do MVP* (`docs/mvp.md`). Este arquivo resume o essencial.

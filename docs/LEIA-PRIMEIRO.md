@@ -1,7 +1,7 @@
 # O Rumo em uma página
 
-Leia isto antes de qualquer tarefa neste repositório. Aqui está quem é o Rumo, para quem ele existe e
-como ele deve parecer e soar. Os detalhes estão nos arquivos listados no fim.
+Resumo de entrada. **A explicação completa do Rumo está em `docs/rumo-completo.md`, e ela é leitura
+obrigatória antes de construir qualquer coisa.** Este arquivo serve para relembrar o essencial.
 
 ## O que é
 
@@ -129,15 +129,10 @@ humano. Informa e oferece escolha; nunca julga.
 
 | Para… | Leia |
 | --- | --- |
-| O Rumo inteiro: camadas, jornada, módulos, o que o MVP constrói | `docs/rumo-completo.md` |
+| **O Rumo completo**: marca, estratégia, público, Core, módulos, Rotas, Connect, onboarding, identidade, interface, mercado, futuro e MVP | `docs/rumo-completo.md` |
 | As perguntas do começo (onboarding) | `docs/onboarding.md` |
 | Escopo, telas, dados, regras e fases do MVP | `docs/mvp.md` |
-| Marca, voz, vocabulário, microcopy por estado | `docs/book/01-marca.md` |
-| O problema, os seis verbos, o que o Rumo não é | `docs/book/02-estrategia.md` |
-| Público e personas | `docs/book/03-publico.md` |
-| Core: Hoje, Responsabilidades, follow-up, Inbox, captura, Calendário | `docs/book/04-produto.md` |
-| Cor, tipografia, forma, ícones, movimento | `docs/book/10-identidade.md` |
-| Direção das telas e componentes | `docs/book/11-interface.md` |
+| Texto bruto de cada capítulo do Book (extraído do HTML, com sobras das telas) | `docs/book/*.md` |
 | Como as telas conceituais e os componentes parecem | `docs/telas/*.png` |
 | O Book completo e interativo (abrir no navegador) | `docs/brand-book/index.html` |
 | Tokens oficiais (cor, tipo, espaço, raio, sombra) | `docs/brand-book/tokens/tokens.css` |
