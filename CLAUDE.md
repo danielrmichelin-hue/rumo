@@ -4,9 +4,16 @@ Rumo é um **sistema operacional pessoal modular**. Promessa: **Clareza para o s
 Proposta comercial: *Tudo o que depende de você, em um só lugar.*
 Dono do produto: Daniel. Toda a comunicação, interface e textos do app são em **português do Brasil**.
 
-Referências (fora do repositório, com o Daniel):
-- *Rumo · Brand & Product Book v1.0* (HTML): marca, estratégia, telas conceituais, componentes.
-- *Rumo · Especificação do MVP* (documento): escopo, telas, dados, regras, fases. Este arquivo resume o essencial.
+## Antes de qualquer tarefa
+
+1. Leia **`docs/LEIA-PRIMEIRO.md`**: quem é o Rumo, o problema, a tela Hoje, como deve parecer e soar,
+   e o mapa dos outros documentos.
+2. Para construir ou mudar uma tela, abra a imagem correspondente em `docs/telas/` (Hoje, visão por
+   contexto, calendário, mobile e componentes) e compare o resultado com ela.
+3. Para escopo, dados e regras, leia `docs/mvp.md`. Para marca e voz, `docs/book/01-marca.md`.
+
+Tudo isso está no repositório: o *Brand & Product Book v1.0* (interativo em `docs/brand-book/index.html`,
+em texto em `docs/book/`) e a *Especificação do MVP* (`docs/mvp.md`). Este arquivo resume o essencial.
 
 ## O que é o MVP
 

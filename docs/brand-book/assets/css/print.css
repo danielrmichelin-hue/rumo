@@ -1,0 +1,21 @@
+/* =========================================================
+   Impressão / PDF (Ctrl+P no navegador, versão local)
+   ========================================================= */
+@media print {
+  @page { size: A4 landscape; margin: 14mm; }
+  html, body { background: #fff !important; }
+  .book { display: block; }
+  .toc, .topbar, .scrim, .doc-toast, .toolbar, .comp-head, .copy-btn, .play, .seg, .apps__tabs, .scale-editor { display: none !important; }
+  .view[hidden], .sec[hidden], .sub[hidden], [data-px-view][hidden], [data-persona-view][hidden] { display: block !important; }
+  .sec-tabs, .sub-tabs, .sec-next-wrap, .sub-next-wrap, .px-bar__ctl, .ch-foot, .palette, .cover__ctas, .cover__quick { display: none !important; }
+  .sec { break-before: page; animation: none !important; }
+  .chapter { break-before: page; padding: 0 !important; border: 0; }
+  .cover { min-height: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; break-after: page; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: none !important; }
+  .block, .comp, .panel, .frame, .swatch, .dd__item { break-inside: avoid; }
+  .apps__panel[hidden] { display: block !important; break-before: page; }
+  a { color: inherit; text-decoration: none; }
+  .sub { break-before: page; animation: none !important; }
+  .px-stage { overflow: visible !important; }
+  .comp__stage, .frame__stage, .matrix-wrap, .table-wrap, .eco, .prop-fig { overflow: visible !important; }
+}

@@ -1,0 +1,90 @@
+/* =========================================================
+   RUMO — Design tokens v1.0
+   Fonte única de verdade para cor, tipo, forma e movimento.
+   Tokens marcados com [proposta] aguardam validação.
+   ========================================================= */
+:root {
+  /* ---------- Paleta oficial ---------- */
+  --rumo-deep:     #2B1E4B;
+  --rumo-purple:   #6C4ED9;
+  --rumo-lavender: #DCCEF6;
+  --rumo-warm:     #F8F7F4;
+  --rumo-charcoal: #1F1F1F;
+  --rumo-gray:     #A7A0B3;
+
+  /* ---------- Derivados [proposta] ---------- */
+  --rumo-white:        #FFFFFF;
+  --rumo-ink-2:        #5F586B; /* texto secundário: 6,3:1 sobre Warm */
+  --rumo-line:         #E6E2EA; /* bordas e divisores */
+  --rumo-line-strong:  #D3CDDB;
+  --rumo-warm-2:       #F1EFEA; /* superfície recuada */
+  --rumo-lavender-50:  #F3EEFC; /* hover suave */
+  --rumo-lavender-100: #EBE3FA; /* selecionado */
+  --rumo-purple-600:   #5B3EC9; /* hover do primário */
+  --rumo-purple-700:   #4B31AE; /* pressionado */
+  --rumo-deep-2:       #3A2B62; /* hover sobre Deep */
+  --rumo-deep-3:       #46366F; /* ativo sobre Deep */
+
+  /* ---------- Funcionais [proposta] ---------- */
+  --rumo-success:    #2E7556;  --rumo-success-bg: #E6F1EB;
+  --rumo-warning:    #8F5B10;  --rumo-warning-bg: #F8EEDB;  --rumo-warning-mark: #D9952B;
+  --rumo-danger:     #A3343A;  --rumo-danger-bg:  #F6E4E4;
+  --rumo-info:       #2F64A8;  --rumo-info-bg:    #E5EDF7;
+
+  /* ---------- Papéis semânticos ---------- */
+  --bg:            var(--rumo-warm);
+  --surface:       var(--rumo-white);
+  --surface-sunk:  var(--rumo-warm-2);
+  --text:          var(--rumo-charcoal);
+  --text-strong:   var(--rumo-deep);
+  --text-2:        var(--rumo-ink-2);
+  --text-muted:    var(--rumo-gray);   /* apenas decorativo / desativado */
+  --border:        var(--rumo-line);
+  --accent:        var(--rumo-purple);
+  --selected:      var(--rumo-lavender-100);
+  --focus:         var(--rumo-purple);
+  --focus-on-dark: var(--rumo-lavender);
+
+  /* ---------- Tipografia ---------- */
+  --font: "Inter", "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600;
+
+  /* Escala do produto (tamanho / entrelinha / tracking) */
+  --t-display: 600 3.5rem/1.05 var(--font);    --tr-display: -0.028em;
+  --t-h1:      600 2.5rem/1.1 var(--font);     --tr-h1: -0.022em;
+  --t-h2:      600 1.75rem/1.2 var(--font);    --tr-h2: -0.016em;
+  --t-h3:      600 1.25rem/1.4 var(--font);    --tr-h3: -0.01em;
+  --t-sub:     500 1.0625rem/1.55 var(--font); --tr-sub: -0.005em;
+  --t-body:    400 0.9375rem/1.6 var(--font);  --tr-body: 0;
+  --t-small:   400 0.8125rem/1.5 var(--font);
+  --t-label:   500 0.8125rem/1.3 var(--font);
+  --t-meta:    400 0.75rem/1.35 var(--font);
+  --t-overline:600 0.6875rem/1.3 var(--font);  --tr-overline: 0.14em;
+
+  /* ---------- Espaçamento (base 4) [proposta] ---------- */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 20px;
+  --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-16: 64px; --s-20: 80px; --s-24: 96px;
+
+  /* ---------- Raios ---------- */
+  --r-xs: 6px;   /* controles pequenos: checkbox, tag */
+  --r-sm: 8px;   /* botões, inputs */
+  --r-md: 10px;  /* inputs grandes, popovers */
+  --r-lg: 12px;  /* cards */
+  --r-xl: 16px;  /* grandes superfícies, modais */
+  --r-full: 999px; /* somente badges e avatares */
+
+  /* ---------- Elevação ---------- */
+  --shadow-0: none;
+  --shadow-1: 0 1px 2px rgba(43, 30, 75, 0.06), 0 1px 1px rgba(43, 30, 75, 0.04);
+  --shadow-2: 0 6px 16px -6px rgba(43, 30, 75, 0.14), 0 2px 4px rgba(43, 30, 75, 0.05);
+  --shadow-3: 0 24px 48px -16px rgba(43, 30, 75, 0.24), 0 4px 10px rgba(43, 30, 75, 0.06);
+
+  /* ---------- Movimento [proposta] ---------- */
+  --dur-instant: 80ms;   /* pressionar */
+  --dur-fast:    120ms;  /* hover, foco */
+  --dur-base:    180ms;  /* seleção, expansão, conclusão */
+  --dur-panel:   240ms;  /* painéis, modais, popovers */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter:    cubic-bezier(0, 0, 0, 1);
+  --ease-exit:     cubic-bezier(0.4, 0, 1, 1);
+}

@@ -1,0 +1,19 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="128" y1="96" x2="880" y2="920" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#332456"/>
+      <stop offset="1" stop-color="#1B132C"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="300" y1="270" x2="725" y2="755" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F0E9FF"/>
+      <stop offset="0.52" stop-color="#C8B7F4"/>
+      <stop offset="1" stop-color="#8467E4"/>
+    </linearGradient>
+  </defs>
+  <rect x="72" y="72" width="880" height="880" rx="214" fill="url(#bg)"/>
+  <g transform="translate(224 220) scale(4.5)">
+    <path d="M18 19H75.5C90.7 19 102 30.1 102 44.8C102 59.3 90.7 70 75.7 70H52.1L18 19Z" fill="url(#mark)"/>
+    <path d="M44.75 68.01L42.78 68.13L41.13 68.35L39.51 68.67L38.56 68.90L37.63 69.17L36.10 69.69L34.63 70.30L33.21 71.00L32.38 71.45L31.58 71.94L30.28 72.81L29.53 73.37L28.81 73.95L27.65 74.98L26.99 75.64L26.35 76.31L25.74 77.01L25.16 77.73L24.25 78.98L23.74 79.76L23.26 80.56L22.53 81.93L22.01 83.07L21.54 84.23L21.13 85.43L20.87 86.34L20.56 87.58L20.32 88.85L20.15 90.14L20.06 91.12L20.00 92.78L20.00 116.71L20.02 116.98L46.70 97.27L46.80 97.00L46.80 88.04L46.05 87.00L45.21 85.69L44.49 84.37L43.87 83.03L43.35 81.67L42.95 80.30L42.67 78.92L42.50 77.53L42.45 76.19L42.48 75.23L42.62 73.89L42.79 72.98L43.14 71.62L43.62 70.28L44.22 68.96Z" fill="url(#mark)"/>
+    <path d="M46.4 68H69.8L108.5 116.5H79.3C74.7 116.5 71.3 114.8 68.4 111.4L48.8 88.3C43.3 81.8 42.2 74.4 46.4 68Z" fill="url(#mark)"/>
+  </g>
+</svg>
