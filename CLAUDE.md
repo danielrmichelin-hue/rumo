@@ -38,8 +38,8 @@ todo em `docs/rumo-completo.md` antes de construir qualquer parte, e construa pr
 | --- | --- | --- |
 | 0 · Fundação | Login com e-mail e senha (Supabase), banco com RLS, PWA instalável, casca de navegação | Feita |
 | 1 · Capturar | Captura que lê o texto, Inbox, Responsabilidades, Contextos | Em revisão com o Daniel |
-| 1b · Começo | Perguntas do começo: o que organizar, contextos e módulos, barra lateral montada pelo perfil (`docs/onboarding.md`) | A fazer |
-| 2 · Hoje | Tela Hoje, follow-up e cobrança, notificações | Próxima |
+| 1b · Começo | Perguntas do começo: o que organizar, contextos e módulos, barra lateral montada pelo perfil (`docs/onboarding.md`) | Em revisão com o Daniel |
+| 2 · Hoje | Tela Hoje, follow-up e cobrança, notificações | Em revisão (falta: notificações) |
 | 3 · Completar o Core | Projetos, Calendário, Busca, visão por contexto | — |
 
 O teste com o Daniel começa quando a fase 2 estiver pronta. Cada fase termina com algo que ele usa e aprova.
@@ -70,10 +70,12 @@ O teste com o Daniel começa quando a fase 2 estiver pronta. Cada fase termina c
 - Tokens em `src/app/globals.css`, com tema claro e escuro (escuro tem paleta própria, não é inversão).
   O tema vem de `data-theme` no `<html>`; a pessoa escolhe Claro, Escuro ou Auto (segue o aparelho), guardado
   no navegador (`src/lib/tema.ts`, `src/components/Tema.tsx`).
-- Direção visual aprovada pelo Daniel (nov/2026): lateral e barra do celular sempre em Deep com o logo claro
-  grande; títulos grandes e firmes; cada contexto é um trilho vertical na sua cor (bolinha, linha e caixas de
-  seleção); captura num painel Deep com o que foi entendido em etiquetas; botão principal com o degradê do logo.
-  Evitar cartões brancos flutuando com sombra (cara de modelo pronto).
+- Direção visual: a do Book. Os estilos seguem os tokens oficiais (`docs/brand-book/tokens/tokens.css`) e as
+  telas conceituais (`docs/brand-book/assets/css/product.css`, "Direção 2026": menos caixas, hierarquia por tipo
+  e espaço). Lateral e barra do celular em Deep (componente Sidebar do Book), item ativo em Purple; título de
+  tela 28/600; linhas leves sem cartão; o Próximo passo é o único bloco com destaque; captura num painel claro
+  (folha no celular) com os trechos entendidos marcados no próprio texto. Sem brilhos de fundo, sem degradê
+  fora da lateral e do item ativo, sem peso 700.
 - Logo: só os SVGs oficiais em `public/brand` (pacote rumo-brand-assets-v1). Nunca redesenhar ou recriar o logo.
 - Direção das telas (Book, cap. 11): hierarquia por tipografia e espaço, um destaque por tela, propriedades
   em linha (contexto, prazo, origem) em vez de colunas, cor de contexto (bolinha) e roxo só para ação,
@@ -89,9 +91,14 @@ O teste com o Daniel começa quando a fase 2 estiver pronta. Cada fase termina c
   protege as rotas (públicas: `/login`, `/auth`).
 - Banco: projeto Supabase `rumo` (região São Paulo). `supabase/migrations/0001_core.sql` (contexts, people, projects,
   responsibilities, events, todas com `user_id` e RLS "dono lê/cria/altera/apaga"); 0002 (pg_trgm no schema
-  `extensions`, search_path fixo no gatilho) e 0003 (índices das chaves estrangeiras) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
+  `extensions`, search_path fixo no gatilho), 0003 (índices das chaves estrangeiras) e 0004 (`profiles`: nome,
+  módulos e respostas do começo) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
-- Rotas do app em `src/app/(app)/…`; a casca (`src/components/Shell.tsx`) carrega os contextos na lateral.
+- Rotas do app em `src/app/(app)/…`; o layout manda para `/comecar` quem ainda não respondeu as perguntas do
+  começo. A casca (`src/components/Shell.tsx`) monta a lateral pelo perfil e pelos contextos (Negócios = tipo
+  empresa, Áreas = tipo área). Módulos em `src/lib/modulos.ts`; o Hoje é montado por `src/lib/hoje.ts`.
+- Publicação: a Vercel publica a `main` em produção (rumo-iter-midia.vercel.app). O Daniel autorizou levar à
+  `main` cada etapa terminada e conferida.
 - Variáveis: `.env.local` com `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`).
 
 ## Como trabalhar neste repositório
