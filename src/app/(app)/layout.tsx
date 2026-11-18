@@ -7,14 +7,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data } = await supabase
-    .from("contexts")
-    .select("id, name, color")
-    .eq("archived", false)
-    .order("position", { ascending: true });
+  const [{ data }, { count }] = await Promise.all([
+    supabase.from("contexts").select("id, name, color").eq("archived", false).order("position", { ascending: true }),
+    supabase
+      .from("responsibilities")
+      .select("id", { count: "exact", head: true })
+      .is("context_id", null)
+      .neq("state", "concluida"),
+  ]);
 
   return (
-    <Shell contexts={(data ?? []) as ContextItem[]} email={user.email ?? ""}>
+    <Shell contexts={(data ?? []) as ContextItem[]} email={user.email ?? ""} inbox={count ?? 0}>
       {children}
     </Shell>
   );

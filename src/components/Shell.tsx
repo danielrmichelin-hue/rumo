@@ -1,8 +1,10 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sun, Inbox, CalendarDays, ListChecks, FolderKanban, Search, Plus, LogOut } from "lucide-react";
+import { Sun, Inbox, CalendarDays, ListChecks, FolderKanban, Search, Plus, LogOut, Settings2 } from "lucide-react";
+import { Captura, useAtalhoCaptura } from "./Captura";
 
 export type ContextItem = { id: string; name: string; color: string };
 
@@ -14,9 +16,23 @@ const CORE = [
   { href: "/projetos", label: "Projetos", icon: FolderKanban },
 ];
 
-export function Shell({ contexts, email, children }: { contexts: ContextItem[]; email: string; children: React.ReactNode }) {
+export function Shell({
+  contexts,
+  email,
+  inbox,
+  children,
+}: {
+  contexts: ContextItem[];
+  email: string;
+  inbox: number;
+  children: React.ReactNode;
+}) {
   const path = usePathname();
   const on = (href: string) => (path === href || path.startsWith(href + "/") ? "page" : undefined);
+  const [captura, setCaptura] = useState(false);
+  const abrir = useCallback(() => setCaptura(true), []);
+  const fechar = useCallback(() => setCaptura(false), []);
+  useAtalhoCaptura(abrir);
 
   return (
     <div className="shell">
@@ -27,10 +43,16 @@ export function Shell({ contexts, email, children }: { contexts: ContextItem[]; 
         </div>
         <Link href="/busca" className="side__search"><Search size={16} aria-hidden />Buscar<kbd>⌘ K</kbd></Link>
         {CORE.map(({ href, label, icon: Icon }) => (
-          <Link key={href} href={href} className="nav" aria-current={on(href)}><Icon aria-hidden />{label}</Link>
+          <Link key={href} href={href} className="nav" aria-current={on(href)}>
+            <Icon aria-hidden />{label}
+            {href === "/inbox" && inbox > 0 && <span className="nav__count" aria-label={`${inbox} a organizar`}>{inbox}</span>}
+          </Link>
         ))}
-        <p className="side__group">Contextos</p>
-        {contexts.length === 0 && <p className="nav" style={{ color: "var(--text-3)" }}>Nenhum ainda</p>}
+        <div className="side__group">
+          <span>Contextos</span>
+          <Link href="/contextos" aria-label="Organizar contextos" title="Organizar contextos" aria-current={on("/contextos")}><Settings2 size={14} /></Link>
+        </div>
+        {contexts.length === 0 && <Link href="/contextos" className="nav nav--quiet"><Plus aria-hidden />Criar contextos</Link>}
         {contexts.map((c) => (
           <Link key={c.id} href={`/contexto/${c.id}`} className="nav" aria-current={on(`/contexto/${c.id}`)}>
             <i className="nav__dot" style={{ background: c.color }} />{c.name}
@@ -42,14 +64,19 @@ export function Shell({ contexts, email, children }: { contexts: ContextItem[]; 
         </div>
       </aside>
       <main className="main">{children}</main>
-      <button className="capture-fab" type="button"><Plus aria-hidden />Capturar</button>
+      <button className="capture-fab" type="button" onClick={abrir} aria-keyshortcuts="C">
+        <Plus aria-hidden />Capturar<kbd>C</kbd>
+      </button>
       <nav className="tabbar" aria-label="Navegação">
         <Link href="/hoje" aria-current={on("/hoje")} aria-label="Hoje"><Sun /></Link>
-        <Link href="/calendario" aria-current={on("/calendario")} aria-label="Calendário"><CalendarDays /></Link>
-        <button type="button" className="add" aria-label="Capturar"><Plus /></button>
-        <Link href="/inbox" aria-current={on("/inbox")} aria-label="Inbox"><Inbox /></Link>
+        <Link href="/responsabilidades" aria-current={on("/responsabilidades")} aria-label="Responsabilidades"><ListChecks /></Link>
+        <button type="button" className="add" aria-label="Capturar" onClick={abrir}><Plus /></button>
+        <Link href="/inbox" aria-current={on("/inbox")} aria-label={inbox ? `Inbox, ${inbox} a organizar` : "Inbox"} className="tabbar__inbox">
+          <Inbox />{inbox > 0 && <span className="tabbar__badge" aria-hidden />}
+        </Link>
         <Link href="/busca" aria-current={on("/busca")} aria-label="Buscar"><Search /></Link>
       </nav>
+      <Captura aberta={captura} abrir={abrir} fechar={fechar} contextos={contexts} />
     </div>
   );
 }
