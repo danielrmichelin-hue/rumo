@@ -65,8 +65,9 @@ O teste com o Daniel começa quando a fase 2 estiver pronta. Cada fase termina c
 - Next.js 15 (App Router, `src/`), TypeScript, CSS próprio (sem Tailwind), ícones `lucide-react`.
 - Supabase via `@supabase/ssr`: `src/lib/supabase/{client,server,middleware}.ts`; `src/middleware.ts`
   protege as rotas (públicas: `/login`, `/auth`).
-- Banco: `supabase/migrations/0001_core.sql` (contexts, people, projects, responsibilities, events, todas com
-  `user_id` e RLS "dono lê/cria/altera/apaga"). Mudanças de banco = **nova migração numerada**, nunca editar
+- Banco: projeto Supabase `rumo` (região São Paulo). `supabase/migrations/0001_core.sql` (contexts, people, projects,
+  responsibilities, events, todas com `user_id` e RLS "dono lê/cria/altera/apaga"); 0002 (pg_trgm no schema
+  `extensions`, search_path fixo no gatilho) e 0003 (índices das chaves estrangeiras) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`; a casca (`src/components/Shell.tsx`) carrega os contextos na lateral.
 - Variáveis: `.env.local` com `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`).

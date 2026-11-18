@@ -17,7 +17,8 @@ A referência de marca e produto é o *Rumo · Brand & Product Book v1.0*.
 1. Instale o Node 20 ou mais novo.
 2. `npm install`
 3. Copie `.env.example` para `.env.local` e preencha com os dados do projeto no Supabase.
-4. Aplique o banco: rode `supabase/migrations/0001_core.sql` no SQL Editor do Supabase (ou `supabase db push`).
+4. Banco: o projeto Supabase `rumo` (São Paulo) já está criado com as migrações 0001 a 0003 aplicadas.
+   Num projeto novo, rode os arquivos de `supabase/migrations/` em ordem no SQL Editor (ou `supabase db push`).
 5. `npm run dev` e abra http://localhost:3000
 
 No Supabase, em Authentication → URL Configuration, cadastre `http://localhost:3000/auth/callback`
