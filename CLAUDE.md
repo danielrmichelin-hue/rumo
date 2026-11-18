@@ -24,8 +24,8 @@ adaptativo, vários usuários na interface, sincronização com Google Agenda, c
 | Fase | Entrega | Situação |
 | --- | --- | --- |
 | 0 · Fundação | Login por link (Supabase), banco com RLS, PWA instalável, casca de navegação | Feita |
-| 1 · Capturar | Captura que lê o texto, Inbox, Responsabilidades, Contextos | Próxima |
-| 2 · Hoje | Tela Hoje, follow-up e cobrança, notificações | — |
+| 1 · Capturar | Captura que lê o texto, Inbox, Responsabilidades, Contextos | Em revisão com o Daniel |
+| 2 · Hoje | Tela Hoje, follow-up e cobrança, notificações | Próxima |
 | 3 · Completar o Core | Projetos, Calendário, Busca, visão por contexto | — |
 
 O teste com o Daniel começa quando a fase 2 estiver pronta. Cada fase termina com algo que ele usa e aprova.

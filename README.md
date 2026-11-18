@@ -29,7 +29,7 @@ e o endereço publicado (`https://<seu-app>.vercel.app/auth/callback`).
 | Fase | O que entrega | Situação |
 | --- | --- | --- |
 | 0 · Fundação | Login, banco, app instalável, identidade do Rumo | Feita |
-| 1 · Capturar | Captura que lê o texto, Inbox, Responsabilidades, Contextos | A seguir |
+| 1 · Capturar | Captura que lê o texto, Inbox, Responsabilidades, Contextos | Em revisão |
 | 2 · Hoje | Tela Hoje, follow-up e cobrança, notificações | — |
 | 3 · Completar o Core | Projetos, Calendário, Busca, visão por contexto | — |
 
