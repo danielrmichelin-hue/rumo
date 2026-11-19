@@ -58,6 +58,7 @@ export function montarHoje(abertas: Responsabilidade[], concluidasHoje: Responsa
 
   const agenda = [...eventos].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   const proximoEvento = agenda.find((e) => {
+    if (e.done_at) return false;
     const m = minutosEntre(agoraData, new Date(e.starts_at));
     return m >= 0 && m < 120;
   });

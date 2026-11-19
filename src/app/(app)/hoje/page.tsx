@@ -8,6 +8,7 @@ import { CAMPOS_LISTA, type Compromisso, type Responsabilidade } from "@/lib/tip
 import Link from "next/link";
 import { Anel, Caminho } from "@/components/Caminho";
 import { CAMPOS_ROTA, normalizar, resumirRota, type Marco } from "@/lib/rotas";
+import { AZUL_ESTUDO } from "@/lib/estudos";
 
 export const metadata = { title: "Hoje" };
 
@@ -25,7 +26,7 @@ export default async function Page() {
     supabase.from("projects").select("id, name"),
     supabase.from("responsibilities").select(CAMPOS_LISTA).neq("state", "concluida"),
     supabase.from("responsibilities").select(CAMPOS_LISTA).eq("state", "concluida").gte("done_at", inicio).order("done_at"),
-    supabase.from("events").select("id, title, context_id, starts_at, ends_at, location").gte("starts_at", inicio).lte("starts_at", fim).order("starts_at"),
+    supabase.from("events").select("id, title, context_id, starts_at, ends_at, location, course_id, done_at").gte("starts_at", inicio).lte("starts_at", fim).order("starts_at"),
     supabase.from("routes").select(CAMPOS_ROTA).eq("status", "ativa").order("created_at"),
     supabase.from("route_milestones").select("id, route_id, title, position, due_date, done_at"),
   ]);
@@ -43,7 +44,7 @@ export default async function Page() {
   const primeiroNome = nome.split(/\s+/)[0];
   const doDiaComFeitas = [...dia.doDia, ...dia.concluidasHoje];
   const vazio = !dia.proximo && !dia.atencao.length && !doDiaComFeitas.length;
-  const proximoEvento = dia.agenda.find((e) => horaSP(e.starts_at) >= agora);
+  const proximoEvento = dia.agenda.find((e) => !e.done_at && horaSP(e.starts_at) >= agora);
 
   return (
     <div className="page page--wide">
@@ -115,15 +116,18 @@ export default async function Page() {
                 {dia.agenda.map((e) => {
                   const hora = horaSP(e.starts_at);
                   const c = ctx.find((x) => x.id === e.context_id);
-                  const passou = (e.ends_at ? horaSP(e.ends_at) : hora) < agora;
+                  const passou = (e.ends_at ? horaSP(e.ends_at) : hora) < agora || !!e.done_at;
+                  const estudo = !!e.course_id;
                   return (
                     <div key={e.id}>
                       {e.id === proximoEvento?.id && <div className="nowline" aria-hidden />}
                       <div className={`ag${e.id === proximoEvento?.id ? " ag--next" : ""}${passou ? " ag--past" : ""}`}>
                         <time>{hora}</time>
                         <div>
-                          <b>{e.title}</b>
-                          {(c || e.location) && <small>{c && <><i className="dot" style={{ background: c.color }} />{c.name}</>}{e.location && ` · ${e.location}`}</small>}
+                          {estudo ? <Link href={`/estudos/${e.course_id}`}><b>{e.title}</b></Link> : <b>{e.title}</b>}
+                          {estudo ? (
+                            <small><i className="dot" style={{ background: AZUL_ESTUDO }} />Estudo{e.done_at ? " · concluída" : ""}</small>
+                          ) : (c || e.location) && <small>{c && <><i className="dot" style={{ background: c.color }} />{c.name}</>}{e.location && ` · ${e.location}`}</small>}
                         </div>
                       </div>
                     </div>

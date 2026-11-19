@@ -31,7 +31,7 @@ todo em `docs/rumo-completo.md` antes de construir qualquer parte, e construa pr
 (lista de módulos em código, barra lateral montada pelo perfil).
 
 **Fica fora (não construir sem o Daniel pedir):** Connect, IA/MCP, vários usuários na interface, sincronização com
-Google Agenda, captura pelo WhatsApp. (Rotas, Estudos, Rotinas e Notas: o Daniel pediu, ver as fases 4 a 7.)
+Google Agenda, captura pelo WhatsApp. (Rotas, Estudos, Contextos sob medida, Rotinas e Notas: o Daniel pediu, ver as fases 4 a 8.)
 
 ## Fases
 
@@ -43,11 +43,12 @@ Google Agenda, captura pelo WhatsApp. (Rotas, Estudos, Rotinas e Notas: o Daniel
 | 2 · Hoje | Tela Hoje, follow-up e cobrança, notificações | Em revisão (falta: notificações) |
 | 3 · Completar o Core | Projetos, Calendário, Busca, visão por contexto | Em revisão com o Daniel |
 | 4 · Rotas | Destino → ritmo → marcos → próximo passo no Hoje; recalcula sem culpa (`docs/plano-modulos.md`) | Em revisão com o Daniel |
-| 5 · Estudos | Matérias, ciclos, sessões no calendário e no Hoje, progresso | — |
-| 6 · Rotinas e hábitos | Recorrências que aparecem no Hoje na hora certa, semana sem culpa | — |
-| 7 · Notas | Notas e decisões vinculadas | — |
+| 5 · Estudos | Matérias, ciclos, sessões no calendário e no Hoje, progresso | Em revisão com o Daniel |
+| 6 · Contextos sob medida | Cada empresa e área com a própria cara: modelo, números, seções, atalhos e frentes | — |
+| 7 · Rotinas e hábitos | Recorrências que aparecem no Hoje na hora certa, semana sem culpa | — |
+| 8 · Notas | Notas e decisões vinculadas | — |
 
-Decisão do Daniel (19/11/2026): construir os módulos (fases 4 a 7) antes do teste de 90 dias, começando pelas
+Decisão do Daniel (19/11/2026): construir os módulos (fases 4 a 8) antes do teste de 90 dias, começando pelas
 Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termina com algo que ele usa e aprova.
 
 ## Regras do produto
@@ -98,15 +99,17 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
 - Banco: projeto Supabase `rumo` (região São Paulo). `supabase/migrations/0001_core.sql` (contexts, people, projects,
   responsibilities, events, todas com `user_id` e RLS "dono lê/cria/altera/apaga"); 0002 (pg_trgm no schema
   `extensions`, search_path fixo no gatilho), 0003 (índices das chaves estrangeiras) e 0004 (`profiles`: nome,
-  módulos e respostas do começo) e 0005 (Rotas: `routes`, `route_milestones`, `route_entries`, e `route_id`/`milestone_id`
-  em responsibilities) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
+  módulos e respostas do começo) 0005 (Rotas: `routes`, `route_milestones`, `route_entries`, e `route_id`/`milestone_id`
+  em responsibilities) e 0006 (Estudos: `study_courses`, `study_subjects`; `course_id`, `subject_id` e `done_at` em events;
+  `course_id` em routes) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`; o layout manda para `/comecar` quem ainda não respondeu as perguntas do
   começo. A casca (`src/components/Shell.tsx`) monta a lateral pelo perfil e pelos contextos (Negócios = tipo
   empresa, Áreas = tipo área). Módulos em `src/lib/modulos.ts`; o Hoje é montado por `src/lib/hoje.ts`;
   semana do calendário em `src/lib/semana.ts`; resumo de projeto (progresso, entrega, próximo passo) em
   `src/lib/projetos.ts`; cálculo das Rotas (ritmo, previsão, recálculo, próximo passo, igual ao simulador do Book)
-  em `src/lib/rotas.ts`. Ações do servidor em `src/app/(app)/acoes.ts`.
+  em `src/lib/rotas.ts`; Estudos (semana em barras, ciclo, matérias, próxima sessão) em `src/lib/estudos.ts`, com as
+  sessões como compromissos do Core (events com `course_id`). Ações do servidor em `src/app/(app)/acoes.ts`.
 - Publicação: a Vercel publica a `main` em produção (rumo-iter-midia.vercel.app). O Daniel autorizou levar à
   `main` cada etapa terminada e conferida.
 - Variáveis: `.env.local` com `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`).

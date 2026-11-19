@@ -36,19 +36,27 @@ function numero(v: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function NovaRota({ contextos, tipoInicial, tituloInicial }: { contextos: ContextItem[]; tipoInicial: TipoRota | null; tituloInicial?: string }) {
+/** Curso ligado (módulo Estudos): a Rota de estudos parte das aulas do curso; a de leitura fica no curso */
+export type CursoDaRota = { id: string; title: string; context_id: string | null; total_lessons: number | null; done_lessons: number };
+
+export function NovaRota({ contextos, tipoInicial, tituloInicial, curso }: { contextos: ContextItem[]; tipoInicial: TipoRota | null; tituloInicial?: string; curso?: CursoDaRota | null }) {
   const router = useRouter();
   const [tipo, setTipo] = useState<TipoRota | null>(tipoInicial);
-  const [titulo, setTitulo] = useState(tituloInicial ?? "");
-  const [tituloMexido, setTituloMexido] = useState(!!tituloInicial);
+  const tituloDoCurso = curso && tipoInicial === "estudos" ? `Concluir ${curso.title}` : undefined;
+  const [titulo, setTitulo] = useState(tituloInicial ?? tituloDoCurso ?? "");
+  const [tituloMexido, setTituloMexido] = useState(!!(tituloInicial ?? tituloDoCurso));
   const inicial = padroesDo(tipoInicial);
+  if (curso && tipoInicial === "estudos") {
+    if (curso.total_lessons) inicial.alvo = String(curso.total_lessons);
+    inicial.tem = String(curso.done_lessons);
+  }
   const [alvo, setAlvo] = useState(inicial.alvo);
   const [tem, setTem] = useState(inicial.tem);
   const [prazo, setPrazo] = useState(inicial.prazo);
   const [chegada, setChegada] = useState(inicial.chegada); // AAAA-MM (negócios)
   const [marcos, setMarcos] = useState<string[]>(inicial.marcos);
   const [novoMarco, setNovoMarco] = useState("");
-  const [contexto, setContexto] = useState("");
+  const [contexto, setContexto] = useState(curso?.context_id ?? "");
   const [passoNoHoje, setPassoNoHoje] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, iniciar] = useTransition();
@@ -91,10 +99,10 @@ export function NovaRota({ contextos, tipoInicial, tituloInicial }: { contextos:
         target: tipo === "negocios" ? null : numero(alvo), current: numero(tem),
         prazo: tipo === "negocios" ? null : numero(prazo),
         target_date: tipo === "negocios" && chegada ? `${chegada}-28` : null,
-        marcos, passoNoHoje,
+        marcos, passoNoHoje, course_id: curso?.id ?? null,
       });
       if (!r.ok || !r.id) { setErro(r.erro ?? "Não foi possível criar a Rota."); return; }
-      router.push(`/rotas/${r.id}`);
+      router.push(curso ? `/estudos/${curso.id}` : `/rotas/${r.id}`);
       router.refresh();
     });
   }

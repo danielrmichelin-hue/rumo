@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Folder, Home, Inbox, ListChecks, Menu, Plus, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
+import { CalendarDays, Folder, GraduationCap, Home, Inbox, ListChecks, Menu, Plus, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
 import { AvisosProvider } from "./Avisos";
 import { Captura, useAtalhoCaptura } from "./Captura";
 
@@ -20,6 +20,8 @@ type Props = {
   negocios: boolean;
   /** Rotas ativas (null quando o módulo está desligado e não há Rotas) */
   rotas: { id: string; title: string; pct: number; rotulo: string }[] | null;
+  /** Cursos em andamento (null quando o módulo Estudos está desligado e não há cursos) */
+  estudos: { id: string; title: string; color: string }[] | null;
   children: React.ReactNode;
 };
 
@@ -37,7 +39,7 @@ export function iniciais(nome: string) {
   return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : partes[0][1] ?? "")).toUpperCase();
 }
 
-export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, rotas, children }: Props) {
+export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, rotas, estudos, children }: Props) {
   const path = usePathname();
   const router = useRouter();
   const on = (href: string) => (path === href || path.startsWith(href + "/") ? "page" : undefined);
@@ -123,6 +125,24 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
               <div className="side__group"><span>Contextos</span></div>
               <Link href="/contextos" className="nav"><Plus aria-hidden /><span className="nav__label">Criar contextos</span></Link>
             </>
+          )}
+
+          {estudos && (
+            <div>
+              <div className="side__group">
+                <span>Estudos</span>
+                <Link href="/estudos/novo" aria-label="Novo curso" title="Novo curso"><Plus size={14} /></Link>
+              </div>
+              {estudos.map((c) => (
+                <Link key={c.id} href={`/estudos/${c.id}`} className="nav" aria-current={on(`/estudos/${c.id}`)}>
+                  <i className="nav__dot" style={{ background: c.color }} />
+                  <span className="nav__label">{c.title}</span>
+                </Link>
+              ))}
+              {!estudos.length && (
+                <Link href="/estudos/novo" className="nav" aria-current={on("/estudos/novo")}><GraduationCap aria-hidden /><span className="nav__label">Primeiro curso</span></Link>
+              )}
+            </div>
           )}
 
           {rotas && (

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarClock, Check, Clock, Folder, Hourglass, MapPin } from "lucide-react";
+import { CalendarClock, Check, Clock, Folder, GraduationCap, Hourglass, MapPin } from "lucide-react";
 import { adiar, cobrar, concluir, restaurarData, type Adiamento } from "@/app/(app)/acoes";
 import { hojeISO, rotuloData } from "@/lib/datas";
 import type { ProximoPasso as Tipo } from "@/lib/hoje";
@@ -41,9 +41,10 @@ export function ProximoPasso({ proximo, contextos, projeto, rota }: { proximo: T
       <section className="next" aria-label="Próximo passo">
         <div>
           {simbolo}
-          <span className="next__t">{e.title}</span>
+          {e.course_id ? <Link href={`/estudos/${e.course_id}`} className="next__t">{e.title}</Link> : <span className="next__t">{e.title}</span>}
           <span className="props">
             <span className="prop"><CalendarClock aria-hidden />{proximo.minutos < 1 ? "Começa agora" : `Em ${proximo.minutos} min`}</span>
+            {e.course_id && <span className="prop"><GraduationCap aria-hidden />Sessão de estudo</span>}
             {ctx && <span className="prop"><i className="dot" style={{ background: ctx.color }} />{ctx.name}</span>}
             {e.location && <span className="prop"><MapPin aria-hidden />{e.location}</span>}
           </span>

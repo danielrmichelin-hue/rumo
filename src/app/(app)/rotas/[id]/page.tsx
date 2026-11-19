@@ -39,6 +39,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (!dados) notFound();
 
   const rota = normalizar(dados);
+  const { data: curso } = rota.course_id ? await supabase.from("study_courses").select("id, title").eq("id", rota.course_id).maybeSingle() : { data: null };
   const marcos = (marcosDb ?? []) as Marco[];
   const resumo = resumirRota(rota, marcos, hoje);
   const passos = ((passosDb ?? []) as unknown as (Responsabilidade & { milestone_id: string | null })[]).sort(ordenar);
@@ -65,7 +66,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       </div>
 
       <section className="route-hero">
-        <p className="route__k"><Icon aria-hidden />{resumo.destino ?? TIPOS[rota.kind].nome}{contexto && <> · <i className="dot" style={{ background: contexto.color }} />{contexto.name}</>}{rota.status === "pausada" && " · pausada"}</p>
+        <p className="route__k"><Icon aria-hidden />{resumo.destino ?? TIPOS[rota.kind].nome}{contexto && <> · <i className="dot" style={{ background: contexto.color }} />{contexto.name}</>}{curso && <> · <Link href={`/estudos/${curso.id}`}>{curso.title}</Link></>}{rota.status === "pausada" && " · pausada"}</p>
         <h1 className="page__t">{rota.title}</h1>
         {rota.kind === "negocios" ? (
           <>

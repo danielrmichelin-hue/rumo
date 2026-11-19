@@ -43,18 +43,46 @@ Do destino ao próximo passo. "Rumo não pune desvios. Rumo recalcula o caminho.
 - Lateral: grupo Rotas com o anel de progresso. Hoje: "Rotas em andamento" ao lado da agenda e os passos da
   Rota com o anel. Busca encontra Rotas.
 
-## Fase 5 · Estudos
+## Fase 5 · Estudos (em revisão com o Daniel)
 
-Matérias, ciclos, aulas, leituras, sessões e progresso (Book 6.2). Cada sessão vira um bloco no calendário e um
-item no Hoje. Tela da matéria/curso com ciclo atual, semana planejada × feita, matérias com progresso,
-próxima sessão e leituras. Uma Rota de estudos pode ficar ligada ao curso.
+Matérias, ciclos, aulas, leituras, sessões e progresso (Book 6.2; tela conceitual em
+`docs/brand-book/index.html#modulos`, aba Estudos).
 
-## Fase 6 · Rotinas e hábitos
+- **Dados (migração 0006):** `study_courses` (curso: tipo, aulas, ciclo atual e total, horas por semana, prova,
+  contexto) e `study_subjects` (matérias do ciclo, com aulas feitas e próxima aula). As **sessões são
+  compromissos do Core** (`events` ganha `course_id`, `subject_id` e `done_at`): aparecem no calendário em azul
+  de estudo, na agenda do Hoje e viram o Próximo passo quando faltam menos de 2 horas. **Leituras são Rotas de
+  leitura** e a "Rota · Concluir a pós" é uma Rota de estudos (`routes.course_id`).
+- **Tela do curso:** "Ciclo 4 de 8 · semana 2", aulas e prova, a semana em barras (horas feitas × planejadas),
+  matérias do ciclo com progresso e a próxima aula, próxima sessão com Começar/Concluir, leituras e a Rota ligada.
+- **Lateral:** grupo Estudos com cada curso. As perguntas do começo ("O que você estuda agora?") sugerem o tipo.
+
+## Fase 6 · Contextos sob medida
+
+Pedido do Daniel (19/11/2026): "não pode ser tudo igual". Cada empresa e cada área precisa ter a própria cara,
+o que entra nela e os números que importam ali. Parte do Book ("A visão pessoal de cada empresa", módulo
+Negócios) e leva a mesma ideia para as áreas da vida, sem virar ERP, CRM ou sistema da empresa: continua sendo
+só o que depende da pessoa.
+
+- **Modelo por contexto:** ao criar ou editar um contexto, escolher o que ele é (empresa, trabalho, saúde,
+  finanças, casa, família, estudos…). O modelo define os números do topo, as seções, os atalhos de criação e o
+  primeiro passo. Exemplos:
+  - Empresa (Iter Mídia, Quintal Escola, Iter Gestão Contábil): abertas, atrasadas, aguardando, próxima reunião;
+    abas Responsabilidades, Projetos, Decisões, Compromissos; atalhos Nova decisão e Cobrar retorno.
+  - Saúde: próxima consulta, exames pendentes, rotina da semana (com Rotinas); atalhos Nova consulta e Exame.
+  - Finanças: contas que vencem no mês, Rotas financeiras e quanto já foi guardado; atalhos Conta a pagar e
+    Nova reserva.
+  - Casa: contas, consertos e compras; atalhos por tipo.
+- **O que entra em cada contexto, configurável:** ligar e desligar seções, criar frentes internas (ex.: na Iter
+  Mídia, Clientes, Equipe, Comercial, Financeiro) que agrupam o que depende da pessoa, cobrança padrão e cor.
+- **Dados:** modelo e configurações no contexto (nova migração) e frentes como agrupamento leve.
+
+## Fase 7 · Rotinas e hábitos
 
 Recorrências e hábitos com horário (Book 6.3). Uma rotina aparece no Hoje quando é a hora dela e some quando
 não é. Frequência realista ("4 vezes por semana"), acompanhamento da semana sem culpa, sem sequência que zera.
 
-## Fase 7 · Notas
+## Fase 8 · Notas
 
 Notas vinculadas a uma empresa, projeto, matéria ou responsabilidade (Book 6.4). Decisões registradas com o
 que foi decidido, por quê e quando.

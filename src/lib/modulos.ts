@@ -14,7 +14,7 @@ export type Modulo = {
 
 export const MODULOS: Modulo[] = [
   { chave: "negocios", nome: "Negócios", grupo: "Negócios", disponivel: true },
-  { chave: "estudos", nome: "Estudos", grupo: "Estudos", disponivel: false },
+  { chave: "estudos", nome: "Estudos", grupo: "Estudos", disponivel: true },
   { chave: "rotinas", nome: "Rotinas & Hábitos", grupo: "Rotinas", disponivel: false },
   { chave: "notas", nome: "Notas", grupo: "Notas", disponivel: false },
   { chave: "rotas", nome: "Rotas", grupo: "Rotas", disponivel: true },

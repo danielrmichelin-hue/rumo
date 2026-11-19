@@ -1,3 +1,4 @@
+import { AZUL_ESTUDO } from "@/lib/estudos";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -27,13 +28,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   const supabase = await createClient();
   const [{ data: contextos }, { data: eventos }, { data: comPrazo }, { data: semHora }] = await Promise.all([
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
-    supabase.from("events").select("id, title, context_id, starts_at, ends_at, location").gte("starts_at", de).lte("starts_at", ate).order("starts_at"),
+    supabase.from("events").select("id, title, context_id, starts_at, ends_at, location, course_id, done_at").gte("starts_at", de).lte("starts_at", ate).order("starts_at"),
     supabase.from("responsibilities").select(CAMPOS_LISTA).gte("due_date", segunda).lte("due_date", domingo),
     supabase.from("responsibilities").select(CAMPOS_LISTA).eq("state", "a_fazer").is("due_time", null).eq("today", true),
   ]);
   const ctx = contextos ?? [];
   const cor = (id: string | null) => ctx.find((c) => c.id === id)?.color;
   const evs = (eventos ?? []) as Compromisso[];
+  // Sessões de estudo em azul de estudo (Book: módulo Estudos no calendário)
+  const corEv = (e: Compromisso) => (e.course_id ? AZUL_ESTUDO : cor(e.context_id));
   const prazos = (comPrazo ?? []) as Responsabilidade[];
 
   // Semana útil; sábado e domingo só aparecem quando têm algo (ou quando hoje é fim de semana)
@@ -107,13 +110,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
                 <Link
                   key={e.id}
                   href={`/calendario/${e.id}`}
-                  className={`ev${fim - ini < 45 ? " ev--short" : ""}${fim < minutos(agora) && d === hoje ? " is-past" : ""}`}
+                  className={`ev${fim - ini < 45 ? " ev--short" : ""}${(fim < minutos(agora) && d === hoje) || e.done_at ? " is-past" : ""}`}
                   style={{
                     top: topo(ini),
                     height: Math.max(22, topo(fim) - topo(ini) - 2),
                     left: `calc(${(col / cols) * 100}% + 3px)`,
                     width: `calc(${100 / cols}% - 6px)`,
-                    ["--c" as string]: cor(e.context_id) ?? "var(--gray)",
+                    ["--c" as string]: corEv(e) ?? "var(--gray)",
                   }}
                 >
                   {e.title}
@@ -140,7 +143,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
                   {doDia.map((e) => (
                     <Link key={e.id} href={`/calendario/${e.id}`} className="ag">
                       <time>{horaSP(e.starts_at)}</time>
-                      <div><b>{e.title}</b>{(cor(e.context_id) || e.location) && <small>{cor(e.context_id) && <i className="dot" style={{ background: cor(e.context_id) }} />}{ctx.find((c) => c.id === e.context_id)?.name}{e.location && ` · ${e.location}`}</small>}</div>
+                      <div><b>{e.title}</b>{(corEv(e) || e.location) && <small>{corEv(e) && <i className="dot" style={{ background: corEv(e) }} />}{e.course_id ? "Estudo" : ctx.find((c) => c.id === e.context_id)?.name}{e.location && ` · ${e.location}`}</small>}</div>
                     </Link>
                   ))}
                   {pz.map((p) => (

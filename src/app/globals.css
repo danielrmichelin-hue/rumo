@@ -583,3 +583,50 @@ a.route__t:hover { color: var(--accent-text); }
 .sim__next b { font-weight: 500; }
 .sim__next small { display: block; font-size: 12px; color: var(--accent-text); }
 @media (max-width: 860px) { .sim { grid-template-columns: 1fr; } }
+
+/* ---------- Estudos (Book 6.2) ---------- */
+.study-head { display: grid; gap: 6px; margin-bottom: 24px; }
+.study-head small { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
+.study-head .page__t { margin: 0; }
+.study-head p { margin: 0; font-size: 15px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; padding: 0 10px; }
+.week div { display: grid; gap: 6px; justify-items: center; font-size: 11.5px; color: var(--text-3); }
+.week i { position: relative; width: 100%; height: 44px; overflow: hidden; border-radius: 8px; background: var(--sunk); }
+.week i::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--h, 0%); border-radius: 8px; background: var(--accent); opacity: .85; }
+.week div.is-today { color: var(--accent-text); font-weight: 600; }
+.week div.is-today i { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.subj { display: grid; grid-template-columns: 10px minmax(0, 1fr) 120px 40px auto auto; gap: 4px 12px; align-items: center; padding: 8px 10px; border-radius: 9px; }
+.subj:hover { background: var(--hover); }
+.subj > .dot { width: 8px; height: 8px; }
+.subj b { font-size: 14px; font-weight: 500; }
+.subj small { display: block; margin-top: 1px; font-size: 12.5px; color: var(--text-2); }
+.subj em { font-style: normal; font-size: 12px; color: var(--text-2); text-align: right; font-variant-numeric: tabular-nums; }
+.subj__n { font-size: 12px; color: var(--text-2); }
+.subj__act { display: flex; align-items: center; gap: 2px; }
+.subj__toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+.subj__form { grid-column: 1 / -1; gap: 12px; padding: 6px 0 10px; }
+.bar2 { display: block; height: 5px; overflow: hidden; border-radius: 3px; background: var(--line); }
+.bar2 i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.course-form { display: grid; gap: 16px; max-width: 720px; padding: 22px; border-radius: var(--r-xl); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line), var(--shadow-2); }
+.fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.chip--sel { background: var(--selected); color: var(--accent-text); box-shadow: none; }
+.chip--sel button { display: grid; place-items: center; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
+.chip small { font-weight: 400; color: var(--text-2); }
+@media (max-width: 640px) {
+  .fields { grid-template-columns: 1fr 1fr; }
+  .subj { grid-template-columns: 10px minmax(0, 1fr) 36px auto auto; }
+  .subj .bar2, .subj .subj__n { display: none; }
+  .week { padding: 0; }
+}
+.study-aside { display: grid; gap: 20px; }
+@media (max-width: 960px) {
+  .study-cols { display: flex; flex-direction: column; gap: 0; }
+  .study-cols > aside { display: contents; }
+  .study-cols > aside > * { margin-bottom: 20px; }
+  .study-next { order: -1; margin-bottom: 24px; }
+}
+@media (max-width: 640px) {
+  .study-top { flex-wrap: wrap; }
+  .study-top .page__actions { width: 100%; }
+  .study-top .page__actions > * { flex: 1; justify-content: center; }
+}
