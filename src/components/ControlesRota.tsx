@@ -1,13 +1,15 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { Check, Plus, Sun, Trash2 } from "lucide-react";
+import { Check, Sun, Trash2 } from "lucide-react";
 import {
   adicionarMarco, adicionarPassoRota, apagarMarco, apagarRota, concluirMarco, criarPassoSugerido, decidirRecalculo,
   desfazerAvanco, registrarAvanco, salvarRota, type EstadoForm,
 } from "@/app/(app)/acoes";
+import { numeroBR } from "@/lib/datas";
 import { textoValor, type Rota, type TipoRota } from "@/lib/rotas";
 import { useAvisar } from "./Avisos";
+import { AdicionarRapido, CampoContexto } from "./Comuns";
 import type { ContextItem } from "./Shell";
 
 const PERGUNTA: Record<Exclude<TipoRota, "negocios">, { rotulo: string; exemplo: string }> = {
@@ -25,7 +27,7 @@ export function RegistrarAvanco({ routeId, kind }: { routeId: string; kind: Excl
       className="ask__add"
       onSubmit={(e) => {
         e.preventDefault();
-        const n = Number(valor.replace(/\./g, "").replace(",", "."));
+        const n = numeroBR(valor);
         if (!(n > 0)) return;
         iniciar(async () => {
           const r = await registrarAvanco(routeId, n);
@@ -80,27 +82,7 @@ export function PassoSugerido({ routeId, titulo, quando, atualizar = false }: { 
 }
 
 export function AdicionarPassoRota({ routeId, marcoId, exemplo }: { routeId: string; marcoId?: string | null; exemplo: string }) {
-  const [valor, setValor] = useState("");
-  const [pendente, iniciar] = useTransition();
-  const avisar = useAvisar();
-  return (
-    <form
-      className="quick-add"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const t = valor.trim();
-        if (!t) return;
-        setValor("");
-        iniciar(async () => {
-          const r = await adicionarPassoRota(routeId, t, marcoId);
-          if (!r.ok) { setValor(t); avisar({ texto: r.erro ?? "Não foi possível guardar." }); }
-        });
-      }}
-    >
-      <input className="input" value={valor} onChange={(e) => setValor(e.target.value)} placeholder={exemplo} aria-label="Novo passo" maxLength={500} />
-      <button className="btn btn--line" type="submit" disabled={!valor.trim() || pendente}><Plus aria-hidden />Adicionar</button>
-    </form>
-  );
+  return <AdicionarRapido acao={(t) => adicionarPassoRota(routeId, t, marcoId)} placeholder={exemplo} rotulo="Novo passo" />;
 }
 
 export function ConcluirMarco({ id, titulo, feito }: { id: string; titulo: string; feito: boolean }) {
@@ -122,14 +104,7 @@ export function ConcluirMarco({ id, titulo, feito }: { id: string; titulo: strin
 }
 
 export function NovoMarco({ routeId }: { routeId: string }) {
-  const [valor, setValor] = useState("");
-  const [pendente, iniciar] = useTransition();
-  return (
-    <form className="quick-add" onSubmit={(e) => { e.preventDefault(); const t = valor.trim(); if (!t) return; setValor(""); iniciar(() => adicionarMarco(routeId, t)); }}>
-      <input className="input" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="Novo marco, ex.: Documentação" aria-label="Novo marco" maxLength={120} />
-      <button className="btn btn--line" type="submit" disabled={!valor.trim() || pendente}><Plus aria-hidden />Marco</button>
-    </form>
-  );
+  return <AdicionarRapido acao={(t) => adicionarMarco(routeId, t)} placeholder="Novo marco, ex.: Documentação" rotulo="Novo marco" botao="Marco" maxLength={120} />;
 }
 
 export function ApagarMarco({ id }: { id: string }) {
@@ -161,13 +136,7 @@ export function FormRota({ rota, contextos }: { rota: Rota; contextos: ContextIt
           Chegada
           <input className="input" type="date" name="target_date" defaultValue={rota.target_date ?? ""} />
         </label>
-        <label className="field">
-          Contexto
-          <select className="input" name="context_id" defaultValue={rota.context_id ?? ""}>
-            <option value="">Sem contexto</option>
-            {contextos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </label>
+        <CampoContexto contextos={contextos} name="context_id" defaultValue={rota.context_id} />
         <label className="field">
           Estado
           <select className="input" name="status" defaultValue={rota.status}>

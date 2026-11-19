@@ -12,7 +12,9 @@ import {
   emAndamento, horas, NOME_CICLO, quandoSessao, TIPOS_CURSO, type Curso, type Materia, type Sessao, type TipoCurso,
 } from "@/lib/estudos";
 import { useAvisar } from "./Avisos";
+import { AdicionarRapido, CampoContexto, Painel } from "./Comuns";
 import type { ContextItem } from "./Shell";
+import { Logo } from "./Logo";
 
 // ---------- novo curso ----------
 
@@ -111,13 +113,7 @@ export function NovoCurso({ contextos, tipoInicial, sugeridos }: { contextos: Co
           <div className="fields">
             <label className="field">{nomeCiclo.varios}<input className="input" inputMode="numeric" value={ciclos} onChange={(e) => setCiclos(e.target.value)} placeholder="Opcional" /></label>
             <label className="field">{nomeCiclo.um} atual<input className="input" inputMode="numeric" value={ciclo} onChange={(e) => setCiclo(e.target.value)} /></label>
-            <label className="field">
-              Contexto
-              <select className="input" value={contexto} onChange={(e) => setContexto(e.target.value)}>
-                <option value="">Sem contexto</option>
-                {contextos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </label>
+            <CampoContexto contextos={contextos} value={contexto} onChange={setContexto} />
           </div>
           <div className="fields" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)" }}>
             <label className="field">Próxima prova ou entrega<input className="input" type="date" value={prova} min={hojeISO()} onChange={(e) => setProva(e.target.value)} /></label>
@@ -187,8 +183,7 @@ export function ProximaSessao({ sessao, materia }: { sessao: Sessao; materia: Ma
     <section className="next" aria-label="Próxima sessão" style={{ gridTemplateColumns: "1fr" }}>
       <div>
         <span className="next__k">
-          <img src="/brand/rumo-symbol.svg" alt="" className="logo-light" />
-          <img src="/brand/rumo-symbol-light.svg" alt="" className="logo-dark" />
+          <Logo forma="simbolo" />
           {rodando ? "Sessão em andamento" : "Próxima sessão"}
         </span>
         <span className="next__t">{sessao.title}</span>
@@ -232,7 +227,6 @@ export function ProximaSessao({ sessao, materia }: { sessao: Sessao; materia: Ma
 export function MarcarSessao({ cursoId, materias, materiaInicial, rotulo = "Marcar sessão", variante = "btn btn--line btn--sm" }: { cursoId: string; materias: Materia[]; materiaInicial?: string | null; rotulo?: string; variante?: string }) {
   const [aberto, setAberto] = useState(false);
   const [r, enviar, pendente] = useActionState<EstadoForm, FormData>(agendarSessao, {});
-  const fundo = useRef<HTMLDivElement>(null);
   const ultimo = useRef<number | undefined>(undefined);
   const avisar = useAvisar();
 
@@ -244,24 +238,11 @@ export function MarcarSessao({ cursoId, materias, materiaInicial, rotulo = "Marc
     }
   }, [r, avisar]);
 
-  useEffect(() => {
-    if (!aberto) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [aberto]);
-
   return (
     <>
       <button type="button" className={variante} onClick={() => setAberto(true)}><Plus aria-hidden />{rotulo}</button>
       {aberto && (
-        <div className="capture" ref={fundo} role="dialog" aria-modal="true" aria-label="Marcar sessão" onMouseDown={(e) => e.target === fundo.current && setAberto(false)}>
-          <div className="capture__box">
-            <i className="capture__grab" aria-hidden />
-            <div className="capture__head">
-              <b>Marcar sessão de estudo</b>
-              <button type="button" className="icon-btn" onClick={() => setAberto(false)} aria-label="Fechar"><X size={18} /></button>
-            </div>
+        <Painel titulo="Marcar sessão de estudo" fechar={() => setAberto(false)}>
             <form action={enviar} className="detail" style={{ gap: 14 }}>
               <input type="hidden" name="course_id" value={cursoId} />
               {materias.length > 0 && (
@@ -286,8 +267,7 @@ export function MarcarSessao({ cursoId, materias, materiaInicial, rotulo = "Marc
               {r.erro && <p className="note note--err" role="alert">{r.erro}</p>}
               <div className="detail__foot"><button className="btn btn--sm" type="submit" disabled={pendente}>{pendente ? "Marcando…" : "Marcar"}</button></div>
             </form>
-          </div>
-        </div>
+        </Painel>
       )}
     </>
   );
@@ -316,27 +296,7 @@ export function MaisUmaAula({ cursoId, materia }: { cursoId: string; materia: Ma
 }
 
 export function NovaMateria({ cursoId }: { cursoId: string }) {
-  const [valor, setValor] = useState("");
-  const [pendente, iniciar] = useTransition();
-  const avisar = useAvisar();
-  return (
-    <form
-      className="quick-add"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const t = valor.trim();
-        if (!t) return;
-        setValor("");
-        iniciar(async () => {
-          const r = await adicionarMateria(cursoId, t);
-          if (!r.ok) { setValor(t); avisar({ texto: r.erro ?? "Não foi possível adicionar." }); }
-        });
-      }}
-    >
-      <input className="input" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="Nova matéria, ex.: Métricas e análise" aria-label="Nova matéria" maxLength={120} />
-      <button className="btn btn--line" type="submit" disabled={!valor.trim() || pendente}><Plus aria-hidden />Matéria</button>
-    </form>
-  );
+  return <AdicionarRapido acao={(t) => adicionarMateria(cursoId, t)} placeholder="Nova matéria, ex.: Métricas e análise" rotulo="Nova matéria" botao="Matéria" maxLength={120} />;
 }
 
 /** Ajustar a matéria: próxima aula, total de aulas e ciclo. O botão ocupa a última coluna da linha e o formulário abre embaixo. */
@@ -391,7 +351,7 @@ export function AvancarCiclo({ curso }: { curso: Curso }) {
       style={{ justifySelf: "start" }}
       disabled={pendente}
       onClick={() => iniciar(async () => {
-        const r = await avancarCiclo(curso.id, 1);
+        const r = await avancarCiclo(curso.id);
         if (r.ok && r.antes) avisar({ texto: `${nome} ${curso.current_cycle + 1} começou.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => restaurarCiclo(curso.id, r.antes!.ciclo, r.antes!.inicio)) } });
       })}
     >
@@ -419,13 +379,7 @@ export function FormCurso({ curso, contextos }: { curso: Curso; contextos: Conte
         <label className="field">Horas por semana<input className="input" name="weekly_hours" inputMode="decimal" defaultValue={curso.weekly_minutes ? String(curso.weekly_minutes / 60).replace(".", ",") : ""} /></label>
         <label className="field">Próxima prova ou entrega<input className="input" type="date" name="exam_date" defaultValue={curso.exam_date ?? ""} /></label>
         <label className="field">Chamar de<input className="input" name="exam_label" defaultValue={curso.exam_label ?? ""} placeholder="prova do módulo" maxLength={60} /></label>
-        <label className="field">
-          Contexto
-          <select className="input" name="context_id" defaultValue={curso.context_id ?? ""}>
-            <option value="">Sem contexto</option>
-            {contextos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </label>
+        <CampoContexto contextos={contextos} name="context_id" defaultValue={curso.context_id} />
         <label className="field">
           Estado
           <select className="input" name="status" defaultValue={curso.status}>

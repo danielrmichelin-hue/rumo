@@ -2,7 +2,8 @@
 // (docs/brand-book/assets/js/book.js): ritmo = o que falta ÷ o tempo até a chegada.
 // "Rumo não pune desvios. Rumo recalcula o caminho."
 
-import { diaDaSemana, diferencaDias, hojeISO, montarISO, somarDias } from "./datas";
+import { BookOpen, Building2, GraduationCap, Wallet } from "lucide-react";
+import { diaDaSemana, diaMes, diferencaDias, hojeISO, mesAno, montarISO, nomeDoMes, somarDias } from "./datas";
 
 export type TipoRota = "financeiro" | "leitura" | "estudos" | "negocios";
 
@@ -22,8 +23,11 @@ export type Rota = {
   course_id?: string | null;
 };
 
+export const ICONES_ROTA: Record<TipoRota, typeof Wallet> = { financeiro: Wallet, leitura: BookOpen, estudos: GraduationCap, negocios: Building2 };
+
 export type Marco = { id: string; route_id: string; title: string; position: number; due_date: string | null; done_at: string | null };
 
+export const CAMPOS_MARCO = "id, route_id, title, position, due_date, done_at";
 export const CAMPOS_ROTA = "id, title, kind, context_id, target, current, start_value, start_date, target_date, status, note, course_id";
 
 export const TIPOS: Record<TipoRota, { nome: string; exemplo: string; informa: string; calcula: string }> = {
@@ -33,7 +37,6 @@ export const TIPOS: Record<TipoRota, { nome: string; exemplo: string; informa: s
   negocios: { nome: "Negócios", exemplo: "Abrir a segunda unidade", informa: "Os marcos até o destino", calcula: "O marco atual e os próximos passos dele" },
 };
 
-const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
 /** Números chegam do banco como número ou texto (numeric) */
 export function normalizar(r: Record<string, unknown>): Rota {
@@ -42,9 +45,6 @@ export function normalizar(r: Record<string, unknown>): Rota {
 }
 
 export const brl = (v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
-export const mesAno = (iso: string) => `${MESES[Number(iso.slice(5, 7)) - 1]} de ${iso.slice(0, 4)}`;
-export const diaMes = (iso: string) => `${Number(iso.slice(8, 10))} de ${MESES[Number(iso.slice(5, 7)) - 1]}`;
-const mesCurto = (iso: string) => MESES[Number(iso.slice(5, 7)) - 1];
 
 export function somarMeses(iso: string, meses: number): string {
   const [a, m, d] = iso.split("-").map(Number);
@@ -100,10 +100,9 @@ export type ResumoRota = {
   agora: string; // "R$ 1.200 de R$ 5.000"
   destino: string | null; // "Destino · junho de 2027"
   ritmo: string | null; // "R$ 475 por mês"
-  ritmoValor: number | null;
   previsao: string | null;
   situacao: string; // "No ritmo, com 3 semanas de folga"
-  recalculo: string | null; // "A Rota foi recalculada: …"
+  recalculo: boolean; // o ritmo necessário subiu: a tela mostra o novo e o de antes
   antes: string | null; // ritmo planejado, quando a Rota recalculou ("R$ 380")
   escolha: { manter: string; mover: string; novaData: string } | null;
   sugestao: Sugestao | null;
@@ -138,9 +137,9 @@ export function resumirRota(r: Rota, marcos: Marco[] = [], hoje: string = hojeIS
     return {
       pct, agora, concluida,
       destino: r.target_date ? `Destino · ${textoChegada(r.kind, r.target_date)}` : null,
-      ritmo: null, ritmoValor: null, previsao: null,
+      ritmo: null, previsao: null,
       situacao: concluida ? "Destino alcançado." : "Defina quando quer chegar para o Rumo calcular o ritmo.",
-      recalculo: null, antes: null, escolha: null, sugestao: null,
+      recalculo: false, antes: null, escolha: null, sugestao: null,
       linha: concluida ? "Destino alcançado" : agora,
     };
   }
@@ -162,15 +161,15 @@ export function resumirRota(r: Rota, marcos: Marco[] = [], hoje: string = hojeIS
   }
 
   // Recálculo: o ritmo necessário subiu em relação ao planejado
-  let recalculo: string | null = null;
+  let recalculo = false;
   let escolha: ResumoRota["escolha"] = null;
   if (planejado > 0 && ritmoValor > planejado * 1.02) {
-    recalculo = `A Rota foi recalculada: ${textoRitmo(r.kind, ritmoValor)}, mesmo destino. Antes eram ${textoRitmo(r.kind, planejado).replace(/ por .*/, "")}.`;
+    recalculo = true;
     situacao = "O caminho mudou. A Rota recalculou o ritmo.";
     if (ritmoValor > planejado * 1.25) {
       // Manter o ritmo planejado empurra a chegada
       const periodosNoRitmo = Math.ceil(falta / planejado);
-      const novaData = r.kind === "financeiro" ? somarMeses(hoje, periodosNoRitmo) : r.kind === "leitura" ? somarDias(hoje, periodosNoRitmo) : somarDias(hoje, periodosNoRitmo * 7);
+      const novaData = chegadaPorPrazo(r.kind, periodosNoRitmo, hoje);
       escolha = { manter: textoChegada(r.kind, r.target_date), mover: textoChegada(r.kind, novaData), novaData };
     }
   }
@@ -182,7 +181,7 @@ export function resumirRota(r: Rota, marcos: Marco[] = [], hoje: string = hojeIS
   if (avancou > 0 && diasPassados >= (r.kind === "leitura" ? 3 : r.kind === "financeiro" ? 45 : 14)) {
     const ritmoReal = avancou / passados;
     const faltam = Math.ceil(falta / ritmoReal);
-    const eta = r.kind === "financeiro" ? somarMeses(hoje, faltam) : r.kind === "leitura" ? somarDias(hoje, faltam) : somarDias(hoje, faltam * 7);
+    const eta = chegadaPorPrazo(r.kind, faltam, hoje);
     const dif = diferencaDias(eta, r.target_date);
     // Só antecipa boas notícias; quando o ritmo real está abaixo, o recálculo já mostra o novo caminho
     if (dif >= 14) previsao = `${textoChegada(r.kind, eta)} · ${Math.floor(dif / 7)} semanas antes do destino`;
@@ -203,10 +202,10 @@ export function resumirRota(r: Rota, marcos: Marco[] = [], hoje: string = hojeIS
   return {
     pct, agora, concluida: false,
     destino: `Destino · ${textoChegada(r.kind, r.target_date)}`,
-    ritmo: textoRitmo(r.kind, ritmoValor), ritmoValor,
+    ritmo: textoRitmo(r.kind, ritmoValor),
     previsao, situacao, recalculo, escolha, sugestao,
     antes: recalculo ? textoRitmo(r.kind, planejado).replace(/ por .*/, "") : null,
-    linha: `${textoRitmo(r.kind, ritmoValor)} · ${r.kind === "financeiro" ? mesCurto(r.target_date) : diaMes(r.target_date)}`,
+    linha: `${textoRitmo(r.kind, ritmoValor)} · ${r.kind === "financeiro" ? nomeDoMes(r.target_date) : diaMes(r.target_date)}`,
   };
 }
 
@@ -240,10 +239,10 @@ function resumirNegocio(r: Rota, marcos: Marco[], hoje: string): ResumoRota {
   }
 
   return {
-    pct, agora, concluida, destino, ritmo, ritmoValor: null, previsao,
+    pct, agora, concluida, destino, ritmo, previsao,
     situacao: situacao ? `${agora} · ${situacao.charAt(0).toLowerCase()}${situacao.slice(1)}` : agora,
-    recalculo: null, antes: null, escolha: null, sugestao: null,
-    linha: `${feitos}/${total} marcos${r.target_date ? ` · ${mesCurto(r.target_date)}` : ""}`,
+    recalculo: false, antes: null, escolha: null, sugestao: null,
+    linha: `${feitos}/${total} marcos${r.target_date ? ` · ${nomeDoMes(r.target_date)}` : ""}`,
   };
 }
 

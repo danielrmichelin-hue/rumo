@@ -8,8 +8,7 @@ import { NovoProjeto } from "@/components/FormsProjeto";
 import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
 import { BotaoNova } from "@/components/ProximoPasso";
 import { slug } from "@/lib/captura";
-import { agoraHora, dataPorExtenso, diferencaDias, hojeISO, prazoPassou, rotuloData, somarDias } from "@/lib/datas";
-import { horaSP } from "@/lib/hoje";
+import { agoraHora, diaMes, ehId, hojeISO, horaDe, inicioDoDia, prazoPassou, rotuloData, somarDias } from "@/lib/datas";
 import { resumirProjeto, type Projeto } from "@/lib/projetos";
 import { CAMPOS_LISTA, ordenar, type Compromisso, type Responsabilidade } from "@/lib/tipos";
 
@@ -20,7 +19,7 @@ type Aba = "responsabilidades" | "projetos" | "decisoes" | "compromissos";
 export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ aba?: string }> }) {
   const { id } = await params;
   const { aba: param } = await searchParams;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!ehId(id)) notFound();
   const aba: Aba = (["projetos", "decisoes", "compromissos"] as const).find((a) => a === param) ?? "responsabilidades";
 
   const hoje = hojeISO();
@@ -30,7 +29,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     supabase.from("contexts").select("id, name, color, kind, archived").eq("id", id).maybeSingle(),
     supabase.from("responsibilities").select(CAMPOS_LISTA).eq("context_id", id),
     supabase.from("projects").select("id, name, context_id, status, due_date, note").eq("context_id", id),
-    supabase.from("events").select("id, title, context_id, starts_at, ends_at, location").eq("context_id", id).gte("starts_at", new Date(`${hoje}T00:00:00-03:00`).toISOString()).order("starts_at").limit(30),
+    supabase.from("events").select("id, title, context_id, starts_at, ends_at, location").eq("context_id", id).gte("starts_at", inicioDoDia(hoje)).order("starts_at").limit(30),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
   ]);
   if (!contexto) notFound();
@@ -53,11 +52,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const tag = slug(contexto.name.split(/\s+/)[0]);
   const url = (a: Aba) => `/contexto/${id}${a === "responsabilidades" ? "" : `?aba=${a}`}`;
 
-  const quando = (iso: string) => {
-    const d = hojeISO(new Date(iso));
-    const dif = diferencaDias(hoje, d);
-    return `${dif === 0 ? "hoje" : dif === 1 ? "amanhã" : rotuloData(d, hoje)}, ${horaSP(iso)}`;
-  };
+  const quando = (iso: string) => `${rotuloData(hojeISO(new Date(iso)), hoje)}, ${horaDe(iso)}`;
 
   return (
     <div className="page">
@@ -132,7 +127,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                     <li key={d.id} className="row" style={{ gridTemplateColumns: "minmax(0,1fr)" }}>
                       <div className="row__body">
                         <Link href={`/responsabilidades/${d.id}`} className="row__t">{d.title}</Link>
-                        <span className="props"><span className="prop"><Scale aria-hidden />Decisão · {d.done_at ? dataPorExtenso(hojeISO(new Date(d.done_at))).split(", ")[1] : ""}</span></span>
+                        <span className="props"><span className="prop"><Scale aria-hidden />Decisão · {d.done_at ? diaMes(hojeISO(new Date(d.done_at))) : ""}</span></span>
                         {d.note ? <p className="detail__origin" style={{ whiteSpace: "pre-line" }}>{d.note}</p> : <p className="detail__origin">Sem registro do que foi decidido. <Link href={`/responsabilidades/${d.id}`} className="link">Escrever</Link></p>}
                       </div>
                     </li>

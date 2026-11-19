@@ -112,6 +112,9 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   em `src/lib/rotas.ts`; Estudos (semana em barras, ciclo, matérias, próxima sessão) em `src/lib/estudos.ts`, com as
   sessões como compromissos do Core (events com `course_id`); Rotinas (quando é dia dela, a semana em pontos, sem sequência)
   em `src/lib/rotinas.ts`. Ações do servidor em `src/app/(app)/acoes.ts`.
+- Antes de escrever de novo, reaproveite: datas, fuso de São Paulo, nomes de dias e meses, `ehId` e `numeroBR` em
+  `src/lib/datas.ts`; `CampoContexto`, `Painel` (painel por cima da tela) e `AdicionarRapido` em `src/components/Comuns.tsx`;
+  o logo oficial em `src/components/Logo.tsx`; o anel e o caminho das Rotas em `src/components/Caminho.tsx`.
 - Publicação: a Vercel publica a `main` em produção (rumo-iter-midia.vercel.app). O Daniel autorizou levar à
   `main` cada etapa terminada e conferida.
 - Variáveis: `.env.local` com `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`).

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Clock, GraduationCap, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { segundaDa } from "@/lib/semana";
-import { hojeISO } from "@/lib/datas";
+import { hojeISO, inicioDoDia } from "@/lib/datas";
 import {
   AZUL_ESTUDO, CAMPOS_CURSO, CAMPOS_SESSAO, linhaCiclo, linhaProgresso, pctCurso, proximaSessao, quandoSessao, semanaEmBarras, TIPOS_CURSO,
   type Curso, type Sessao,
@@ -13,7 +13,7 @@ export const metadata = { title: "Estudos" };
 export default async function Page() {
   const supabase = await createClient();
   const hoje = hojeISO();
-  const desde = new Date(`${segundaDa(hoje)}T00:00:00-03:00`).toISOString();
+  const desde = inicioDoDia(segundaDa(hoje));
   const [{ data: cursosDb }, { data: sessoesDb }, { data: contextos }] = await Promise.all([
     supabase.from("study_courses").select(CAMPOS_CURSO).order("created_at"),
     supabase.from("events").select(CAMPOS_SESSAO).not("course_id", "is", null).gte("starts_at", desde).order("starts_at"),

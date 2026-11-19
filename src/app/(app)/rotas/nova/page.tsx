@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { NovaRota } from "@/components/NovaRota";
 import type { TipoRota } from "@/lib/rotas";
+import { ehId } from "@/lib/datas";
 
 export const metadata = { title: "Nova Rota" };
 
@@ -22,7 +23,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
     supabase.from("profiles").select("onboarding").maybeSingle(),
     supabase.from("routes").select("id", { count: "exact", head: true }),
   ]);
-  const { data: curso } = cursoId && /^[0-9a-f-]{36}$/i.test(cursoId)
+  const { data: curso } = ehId(cursoId)
     ? await supabase.from("study_courses").select("id, title, context_id, total_lessons, done_lessons").eq("id", cursoId).maybeSingle()
     : { data: null };
   const objetivo = (perfil?.onboarding as { objetivo?: string } | null)?.objetivo ?? null;

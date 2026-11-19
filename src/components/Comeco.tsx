@@ -8,6 +8,7 @@ import {
 import { salvarComeco } from "@/app/(app)/acoes";
 import { ESCOLHAS, MODULOS, ORDEM_OPCOES, type ChaveEscolha } from "@/lib/modulos";
 import { CORES_CONTEXTO } from "@/lib/tipos";
+import { Logo } from "./Logo";
 
 const ICONES: Record<ChaveEscolha, typeof Briefcase> = {
   trabalho: Briefcase, negocios: Building2, estudos: GraduationCap, vida: HeartPulse, rotinas: Repeat, objetivos: Route, projetos: Folder,
@@ -87,8 +88,7 @@ export function Comeco({ inicial, refazendo }: { inicial: Inicial; refazendo: bo
       <section className="onb__q">
         <div className="onb__top">
           <span>
-            <img src="/brand/rumo-logo-horizontal.svg" alt="Rumo" className="logo-light" />
-            <img src="/brand/rumo-logo-horizontal-light.svg" alt="Rumo" className="logo-dark" />
+            <Logo forma="horizontal" alt="Rumo" />
           </span>
           <span className="progress" aria-label={`Passo ${feitoAte} de ${total}`}>
             {Array.from({ length: total }, (_, i) => <i key={i} className={i < feitoAte ? "on" : ""} />)}

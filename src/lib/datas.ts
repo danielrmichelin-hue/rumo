@@ -59,7 +59,7 @@ export function diferencaDias(de: string, ate: string): number {
   return Math.round((paraData(ate).getTime() - paraData(de).getTime()) / 86_400_000);
 }
 
-const SEMANA_CURTA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+export const SEMANA_CURTA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
 /** "hoje", "amanhã", "ontem", "sex, 21/11", "21/11/2027" */
 export function rotuloData(iso: string, hoje: string = hojeISO()): string {
@@ -80,10 +80,6 @@ export function rotuloHora(hora: string): string {
   return m && m !== "00" ? `${Number(h)}h${m}` : `${Number(h)}h`;
 }
 
-export function estaAtrasada(item: { due_date: string | null; state: string }, hoje: string = hojeISO()): boolean {
-  return item.state !== "concluida" && !!item.due_date && item.due_date < hoje;
-}
-
 /** "Venceu ontem", "Venceu em 12/11", "Venceu às 10h" (hoje, com hora já passada) */
 export function rotuloVencido(iso: string, hora: string | null, hoje: string = hojeISO()): string {
   if (iso === hoje) return hora ? `Venceu às ${rotuloHora(hora)}` : "Vence hoje";
@@ -98,21 +94,19 @@ export function prazoPassou(item: { due_date: string | null; due_time: string | 
   return item.due_date === hoje && !!item.due_time && item.due_time.slice(0, 5) < agora;
 }
 
-/** "há 3 dias", "hoje", "ontem" a partir de um timestamp */
-export function haQuanto(timestamp: string, hoje: string = hojeISO()): string {
-  const dias = diferencaDias(hojeISO(new Date(timestamp)), hoje);
-  if (dias <= 0) return "hoje";
-  if (dias === 1) return "ontem";
-  return `há ${dias} dias`;
-}
+export const SEMANA_LONGA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+export const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
-const SEMANA_LONGA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
-const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+/** "novembro" */
+export const nomeDoMes = (iso: string) => MESES[Number(iso.slice(5, 7)) - 1];
+/** "18 de novembro" */
+export const diaMes = (iso: string) => `${Number(iso.slice(8, 10))} de ${nomeDoMes(iso)}`;
+/** "novembro de 2026" */
+export const mesAno = (iso: string) => `${nomeDoMes(iso)} de ${iso.slice(0, 4)}`;
 
 /** "quarta, 18 de novembro" */
 export function dataPorExtenso(iso: string): string {
-  const [, m, d] = iso.split("-").map(Number);
-  return `${SEMANA_LONGA[diaDaSemana(iso)]}, ${d} de ${MESES[m - 1]}`;
+  return `${SEMANA_LONGA[diaDaSemana(iso)]}, ${diaMes(iso)}`;
 }
 
 /** "Bom dia", "Boa tarde", "Boa noite" no fuso de São Paulo */
@@ -122,4 +116,23 @@ export function saudacao(agora: string = agoraHora()): string {
   if (h < 12) return "Bom dia";
   if (h < 18) return "Boa tarde";
   return "Boa noite";
+}
+
+// Brasil sem horário de verão: o dia em São Paulo vai de 00:00 a 23:59 em -03:00
+
+/** Data e hora de São Paulo como instante ISO (UTC) */
+export const instante = (data: string, hora: string) => new Date(`${data}T${hora.slice(0, 5)}:00-03:00`).toISOString();
+export const inicioDoDia = (iso: string) => instante(iso, "00:00");
+export const fimDoDia = (iso: string) => new Date(`${iso}T23:59:59.999-03:00`).toISOString();
+
+/** "HH:MM" de um instante, em São Paulo */
+export const horaDe = (timestamp: string) => agoraHora(new Date(timestamp));
+
+/** Parâmetro de rota é um id do banco? */
+export const ehId = (v: string | undefined | null): v is string => !!v && /^[0-9a-f-]{36}$/i.test(v);
+
+/** Número digitado no jeito brasileiro: "1.234,5" → 1234.5 (NaN vira 0) */
+export function numeroBR(v: string): number {
+  const n = Number(v.replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
 }

@@ -1,5 +1,5 @@
 // Contas de semana para o calendário (datas "AAAA-MM-DD", fuso de São Paulo)
-import { diaDaSemana, somarDias } from "./datas";
+import { diaDaSemana, mesAno, somarDias } from "./datas";
 
 /** Segunda-feira da semana de uma data */
 export function segundaDa(iso: string): string {
@@ -17,14 +17,11 @@ export function numeroSemana(iso: string): number {
   return Math.ceil(((data.getTime() - inicioAno.getTime()) / 86400000 + 1) / 7);
 }
 
-const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-
-export function mesAno(iso: string): string {
-  const [a, m] = iso.split("-").map(Number);
-  return `${MESES[m - 1]} de ${a}`;
+/** "Novembro de 2026" (título do calendário) */
+export function tituloDoMes(iso: string): string {
+  const t = mesAno(iso);
+  return t[0].toUpperCase() + t.slice(1);
 }
-
-export const DIA_CURTO = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
 /** Distribui compromissos que se sobrepõem em colunas lado a lado */
 export function emColunas<T extends { ini: number; fim: number }>(itens: T[]): (T & { col: number; cols: number })[] {

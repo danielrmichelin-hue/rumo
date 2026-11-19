@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { lerCaptura } from "@/lib/captura";
-import { hojeISO, somarDias, somarDiasUteis } from "@/lib/datas";
+import { diaDaSemana, hojeISO, instante, numeroBR, somarDias, somarDiasUteis } from "@/lib/datas";
 import { ESCOLHAS, type ChaveEscolha } from "@/lib/modulos";
-import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, type TipoRota } from "@/lib/rotas";
+import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, type TipoRota, TIPOS } from "@/lib/rotas";
 import { CORES_CONTEXTO, proximaCor, type Estado } from "@/lib/tipos";
 import { CORES_MATERIA, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 import { textoFrequencia } from "@/lib/rotinas";
@@ -21,6 +21,23 @@ const texto = (v: FormDataEntryValue | null) => (typeof v === "string" ? v.trim(
 
 // ---------- captura ----------
 
+/** Lê o texto como a captura (data, hora, #contexto, "Decidir…") e guarda como responsabilidade.
+ *  `extra` liga ao projeto ou à Rota; `contextoPadrao` vale quando o texto não traz #contexto. */
+async function inserirCaptura(original: string, extra: Record<string, unknown> = {}, contextoPadrao: string | null = null) {
+  const supabase = await createClient();
+  const { data: contextos } = await supabase.from("contexts").select("id, name").eq("archived", false).order("position");
+  const leitura = lerCaptura(original, contextos ?? [], hojeISO());
+  const { data, error } = await supabase
+    .from("responsibilities")
+    .insert({
+      title: leitura.title, due_date: leitura.due_date, due_time: leitura.due_time, kind: leitura.kind,
+      context_id: leitura.context_id ?? contextoPadrao, source: "captura", raw_capture: original, ...extra,
+    })
+    .select("id")
+    .single();
+  return { leitura, contextos: contextos ?? [], id: error ? null : data?.id ?? null };
+}
+
 export type ResultadoCaptura =
   | { ok: true; id: string; title: string; due_date: string | null; due_time: string | null; contexto: string | null }
   | { ok: false; erro: string };
@@ -30,33 +47,17 @@ export async function capturar(bruto: string): Promise<ResultadoCaptura> {
   if (!original) return { ok: false, erro: "Escreva algo para guardar." };
   if (original.length > 1000) return { ok: false, erro: "Texto longo demais para uma captura." };
 
-  const supabase = await createClient();
-  const { data: contextos } = await supabase.from("contexts").select("id, name").eq("archived", false).order("position");
-  const leitura = lerCaptura(original, contextos ?? [], hojeISO());
-
-  const { data, error } = await supabase
-    .from("responsibilities")
-    .insert({
-      title: leitura.title,
-      due_date: leitura.due_date,
-      due_time: leitura.due_time,
-      context_id: leitura.context_id,
-      kind: leitura.kind,
-      source: "captura",
-      raw_capture: original,
-    })
-    .select("id")
-    .single();
-  if (error || !data) return { ok: false, erro: "Não foi possível guardar. Tente de novo." };
+  const { leitura, contextos, id } = await inserirCaptura(original);
+  if (!id) return { ok: false, erro: "Não foi possível guardar. Tente de novo." };
 
   atualizar();
   return {
     ok: true,
-    id: data.id,
+    id,
     title: leitura.title,
     due_date: leitura.due_date,
     due_time: leitura.due_time,
-    contexto: contextos?.find((c) => c.id === leitura.context_id)?.name ?? null,
+    contexto: contextos.find((c) => c.id === leitura.context_id)?.name ?? null,
   };
 }
 
@@ -235,7 +236,7 @@ export async function adiar(id: string, para: Adiamento): Promise<{ campo: "due_
   const { data } = await supabase.from("responsibilities").select("state, due_date, follow_up_on").eq("id", id).single();
   if (!data) return null;
   const hoje = hojeISO();
-  const dia = new Date(`${hoje}T12:00:00Z`).getUTCDay();
+  const dia = diaDaSemana(hoje);
   const depois = para === "amanha" ? somarDias(hoje, 1) : somarDias(hoje, ((8 - dia) % 7) || 7);
   const campo = data.state === "aguardando" ? "follow_up_on" : "due_date";
   await supabase.from("responsibilities").update({ [campo]: depois }).eq("id", id);
@@ -333,10 +334,6 @@ export async function salvarNome(_: EstadoForm, form: FormData): Promise<EstadoF
 
 // ---------- compromissos (calendário) ----------
 
-/** Junta data e hora de São Paulo num instante (Brasil sem horário de verão: -03:00) */
-function instante(data: string, hora: string) {
-  return new Date(`${data}T${hora.slice(0, 5)}:00-03:00`).toISOString();
-}
 
 function lerCompromisso(form: FormData) {
   const title = texto(form.get("title"));
@@ -437,23 +434,10 @@ export async function adicionarNoProjeto(projetoId: string, bruto: string): Prom
   const original = bruto.trim();
   if (!original) return { ok: false, erro: "Escreva a etapa." };
   const supabase = await createClient();
-  const [{ data: projeto }, { data: contextos }] = await Promise.all([
-    supabase.from("projects").select("id, context_id").eq("id", projetoId).single(),
-    supabase.from("contexts").select("id, name").eq("archived", false).order("position"),
-  ]);
+  const { data: projeto } = await supabase.from("projects").select("id, context_id").eq("id", projetoId).single();
   if (!projeto) return { ok: false, erro: "Este projeto não existe mais." };
-  const leitura = lerCaptura(original, contextos ?? [], hojeISO());
-  const { error } = await supabase.from("responsibilities").insert({
-    title: leitura.title,
-    due_date: leitura.due_date,
-    due_time: leitura.due_time,
-    context_id: leitura.context_id ?? projeto.context_id,
-    project_id: projeto.id,
-    kind: leitura.kind,
-    source: "captura",
-    raw_capture: original,
-  });
-  if (error) return { ok: false, erro: "Não foi possível guardar a etapa." };
+  const { id } = await inserirCaptura(original, { project_id: projeto.id }, projeto.context_id);
+  if (!id) return { ok: false, erro: "Não foi possível guardar a etapa." };
   atualizar();
   return { ok: true };
 }
@@ -535,7 +519,7 @@ export type DadosRota = {
 export async function criarRota(d: DadosRota): Promise<{ ok: boolean; erro?: string; id?: string }> {
   const title = d.title.trim().slice(0, 120);
   if (!title) return { ok: false, erro: "Dê um nome ao destino." };
-  if (!["financeiro", "leitura", "estudos", "negocios"].includes(d.kind)) return { ok: false, erro: "Tipo de Rota desconhecido." };
+  if (!(d.kind in TIPOS)) return { ok: false, erro: "Tipo de Rota desconhecido." };
   const hoje = hojeISO();
   let target_date: string | null = null;
   if (d.kind === "negocios") {
@@ -579,7 +563,7 @@ export async function salvarRota(_: EstadoForm, form: FormData): Promise<EstadoF
   if (!["ativa", "pausada", "concluida"].includes(status)) return { erro: "Estado desconhecido." };
   const mudancas: Record<string, unknown> = { title, target_date: due || null, status, context_id: texto(form.get("context_id")) || null, note: texto(form.get("note")) || null };
   if (alvo) {
-    const n = Number(alvo.replace(/\./g, "").replace(",", "."));
+    const n = numeroBR(alvo);
     if (!(n > 0)) return { erro: "O destino precisa ser maior que zero." };
     mudancas.target = n;
   }
@@ -599,12 +583,12 @@ export async function apagarRota(form: FormData) {
 }
 
 /** Registra um avanço ("guardei R$ 400") e atualiza quanto já tem */
-export async function registrarAvanco(routeId: string, quantia: number, nota?: string): Promise<{ ok: boolean; erro?: string; entradaId?: string }> {
+export async function registrarAvanco(routeId: string, quantia: number): Promise<{ ok: boolean; erro?: string; entradaId?: string }> {
   if (!Number.isFinite(quantia) || quantia === 0) return { ok: false, erro: "Informe quanto avançou." };
   const supabase = await createClient();
   const { data: rota } = await supabase.from("routes").select("current").eq("id", routeId).single();
   if (!rota) return { ok: false, erro: "Esta Rota não existe mais." };
-  const { data: entrada, error } = await supabase.from("route_entries").insert({ route_id: routeId, amount: quantia, note: nota?.trim().slice(0, 200) || null, happened_on: hojeISO() }).select("id").single();
+  const { data: entrada, error } = await supabase.from("route_entries").insert({ route_id: routeId, amount: quantia, happened_on: hojeISO() }).select("id").single();
   if (error || !entrada) return { ok: false, erro: "Não foi possível registrar." };
   await supabase.from("routes").update({ current: Math.max(0, Number(rota.current) + quantia) }).eq("id", routeId);
   atualizar();
@@ -654,18 +638,10 @@ export async function adicionarPassoRota(routeId: string, bruto: string, marcoId
   const original = bruto.trim();
   if (!original) return { ok: false, erro: "Escreva o passo." };
   const supabase = await createClient();
-  const [{ data: rota }, { data: contextos }] = await Promise.all([
-    supabase.from("routes").select("id, context_id").eq("id", routeId).single(),
-    supabase.from("contexts").select("id, name").eq("archived", false).order("position"),
-  ]);
+  const { data: rota } = await supabase.from("routes").select("id, context_id").eq("id", routeId).single();
   if (!rota) return { ok: false, erro: "Esta Rota não existe mais." };
-  const leitura = lerCaptura(original, contextos ?? [], hojeISO());
-  const { error } = await supabase.from("responsibilities").insert({
-    title: leitura.title, due_date: leitura.due_date, due_time: leitura.due_time, kind: leitura.kind,
-    context_id: leitura.context_id ?? rota.context_id, route_id: rota.id, milestone_id: marcoId || null,
-    source: "captura", raw_capture: original,
-  });
-  if (error) return { ok: false, erro: "Não foi possível guardar o passo." };
+  const { id } = await inserirCaptura(original, { route_id: rota.id, milestone_id: marcoId || null }, rota.context_id);
+  if (!id) return { ok: false, erro: "Não foi possível guardar o passo." };
   atualizar();
   return { ok: true };
 }
@@ -708,7 +684,6 @@ export type DadosCurso = {
   materias: string[];
 };
 
-const TIPOS_DE_CURSO = ["graduacao", "pos", "idioma", "concurso", "curso"];
 const inteiro = (v: unknown, min = 0) => {
   const n = Math.round(Number(v));
   return Number.isFinite(n) && n >= min ? n : null;
@@ -717,7 +692,7 @@ const inteiro = (v: unknown, min = 0) => {
 export async function criarCurso(d: DadosCurso): Promise<{ ok: boolean; erro?: string; id?: string }> {
   const title = d.title.trim().slice(0, 120);
   if (!title) return { ok: false, erro: "Dê um nome ao curso." };
-  if (!TIPOS_DE_CURSO.includes(d.kind)) return { ok: false, erro: "Tipo de curso desconhecido." };
+  if (!(d.kind in TIPOS_CURSO)) return { ok: false, erro: "Tipo de curso desconhecido." };
   if (d.exam_date && !DATA.test(d.exam_date)) return { ok: false, erro: "Data da prova inválida." };
   const total = inteiro(d.total_lessons, 1);
   const cycles = inteiro(d.cycles, 1);
@@ -763,7 +738,7 @@ export async function salvarCurso(_: EstadoForm, form: FormData): Promise<Estado
     .from("study_courses")
     .update({
       title,
-      kind: TIPOS_DE_CURSO.includes(texto(form.get("kind"))) ? texto(form.get("kind")) : "curso",
+      kind: texto(form.get("kind")) in TIPOS_CURSO ? texto(form.get("kind")) : "curso",
       context_id: texto(form.get("context_id")) || null,
       total_lessons: inteiro(texto(form.get("total_lessons")) || null, 1),
       cycles: inteiro(texto(form.get("cycles")) || null, 1),
@@ -858,43 +833,36 @@ export async function agendarSessao(_: EstadoForm, form: FormData): Promise<Esta
   if (!DATA.test(data)) return { erro: "Escolha o dia." };
   if (!HORA.test(inicio)) return { erro: "Escolha a hora." };
   const supabase = await createClient();
-  const [{ data: curso }, { data: materia }] = await Promise.all([
-    supabase.from("study_courses").select("title, context_id").eq("id", courseId).single(),
-    subjectId ? supabase.from("study_subjects").select("title, next_topic").eq("id", subjectId).single() : Promise.resolve({ data: null }),
-  ]);
-  if (!curso) return { erro: "Este curso não existe mais." };
-  const comeca = instante(data, inicio);
-  const { error } = await supabase.from("events").insert({
-    title: tituloSessao(curso.title, materia),
-    context_id: curso.context_id,
-    course_id: courseId,
-    subject_id: subjectId,
-    starts_at: comeca,
-    ends_at: new Date(new Date(comeca).getTime() + Math.min(minutos, 600) * 60000).toISOString(),
-  });
-  if (error) return { erro: "Não foi possível marcar a sessão." };
+  const id = await inserirSessao(supabase, courseId, subjectId, new Date(instante(data, inicio)), Math.min(minutos, 600));
+  if (!id) return { erro: "Não foi possível marcar a sessão." };
   atualizar();
   return { ok: true, em: Date.now() };
 }
 
-/** "Começar sessão": abre uma sessão agora (50 min por padrão) */
-export async function comecarSessao(courseId: string, subjectId: string | null, minutos = 50): Promise<{ ok: boolean; id?: string }> {
+/** "Começar sessão": abre uma sessão de 50 min agora */
+export async function comecarSessao(courseId: string, subjectId: string | null): Promise<{ ok: boolean; id?: string }> {
   const supabase = await createClient();
+  const agora = new Date();
+  agora.setSeconds(0, 0);
+  const id = await inserirSessao(supabase, courseId, subjectId, agora, 50);
+  if (!id) return { ok: false };
+  atualizar();
+  return { ok: true, id };
+}
+
+/** Sessão de estudo = compromisso do Core com o curso e a matéria */
+async function inserirSessao(supabase: Awaited<ReturnType<typeof createClient>>, courseId: string, subjectId: string | null, inicio: Date, minutos: number) {
   const [{ data: curso }, { data: materia }] = await Promise.all([
     supabase.from("study_courses").select("title, context_id").eq("id", courseId).single(),
     subjectId ? supabase.from("study_subjects").select("title, next_topic").eq("id", subjectId).single() : Promise.resolve({ data: null }),
   ]);
-  if (!curso) return { ok: false };
-  const agora = new Date();
-  agora.setSeconds(0, 0);
-  const { data, error } = await supabase
+  if (!curso) return null;
+  const { data } = await supabase
     .from("events")
-    .insert({ title: tituloSessao(curso.title, materia), context_id: curso.context_id, course_id: courseId, subject_id: subjectId, starts_at: agora.toISOString(), ends_at: new Date(agora.getTime() + minutos * 60000).toISOString() })
+    .insert({ title: tituloSessao(curso.title, materia), context_id: curso.context_id, course_id: courseId, subject_id: subjectId, starts_at: inicio.toISOString(), ends_at: new Date(inicio.getTime() + minutos * 60000).toISOString() })
     .select("id")
     .single();
-  if (error || !data) return { ok: false };
-  atualizar();
-  return { ok: true, id: data.id };
+  return data?.id ?? null;
 }
 
 /** Concluir a sessão conta o tempo da semana; com matéria, conta também uma aula.
@@ -914,11 +882,11 @@ export async function concluirSessao(id: string, feita: boolean, contarAula: boo
   return { ok: true, fimAntes: s.ends_at };
 }
 
-export async function avancarCiclo(courseId: string, direcao: 1 | -1 = 1): Promise<{ ok: boolean; antes?: { ciclo: number; inicio: string } }> {
+export async function avancarCiclo(courseId: string): Promise<{ ok: boolean; antes?: { ciclo: number; inicio: string } }> {
   const supabase = await createClient();
   const { data: c } = await supabase.from("study_courses").select("current_cycle, cycles, cycle_started_on").eq("id", courseId).single();
   if (!c) return { ok: false };
-  const novo = Math.max(1, c.current_cycle + direcao);
+  const novo = c.current_cycle + 1;
   if (c.cycles && novo > c.cycles) return { ok: false };
   await supabase.from("study_courses").update({ current_cycle: novo, cycle_started_on: hojeISO() }).eq("id", courseId);
   atualizar();

@@ -2,12 +2,12 @@ import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
 import { BotaoNova, ProximoPasso } from "@/components/ProximoPasso";
-import { agoraHora, dataPorExtenso, hojeISO, saudacao } from "@/lib/datas";
-import { horaSP, montarHoje, resumoDoDia } from "@/lib/hoje";
+import { agoraHora, dataPorExtenso, fimDoDia, hojeISO, horaDe, inicioDoDia, saudacao } from "@/lib/datas";
+import { montarHoje, resumoDoDia } from "@/lib/hoje";
 import { CAMPOS_LISTA, type Compromisso, type Responsabilidade } from "@/lib/tipos";
 import Link from "next/link";
 import { Anel, Caminho } from "@/components/Caminho";
-import { CAMPOS_ROTA, normalizar, resumirRota, type Marco } from "@/lib/rotas";
+import { CAMPOS_MARCO, CAMPOS_ROTA, type Marco, normalizar, resumirRota } from "@/lib/rotas";
 import { AZUL_ESTUDO } from "@/lib/estudos";
 import { CAMPOS_ROTINA, feitaEm, hora, rotinasDoDia, semanaDaRotina, type Marcacao, type Rotina } from "@/lib/rotinas";
 import { segundaDa } from "@/lib/semana";
@@ -21,8 +21,8 @@ export default async function Page() {
   const hoje = hojeISO();
   const agora = agoraHora();
   // Brasil sem horário de verão: o dia em São Paulo vai de 00:00 a 23:59 em -03:00
-  const inicio = new Date(`${hoje}T00:00:00-03:00`).toISOString();
-  const fim = new Date(`${hoje}T23:59:59.999-03:00`).toISOString();
+  const inicio = inicioDoDia(hoje);
+  const fim = fimDoDia(hoje);
 
   const [{ data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }] = await Promise.all([
     supabase.from("profiles").select("display_name").maybeSingle(),
@@ -32,7 +32,7 @@ export default async function Page() {
     supabase.from("responsibilities").select(CAMPOS_LISTA).eq("state", "concluida").gte("done_at", inicio).order("done_at"),
     supabase.from("events").select("id, title, context_id, starts_at, ends_at, location, course_id, done_at").gte("starts_at", inicio).lte("starts_at", fim).order("starts_at"),
     supabase.from("routes").select(CAMPOS_ROTA).eq("status", "ativa").order("created_at"),
-    supabase.from("route_milestones").select("id, route_id, title, position, due_date, done_at"),
+    supabase.from("route_milestones").select(CAMPOS_MARCO),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").order("position"),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", segundaDa(hoje)),
   ]);
@@ -52,7 +52,7 @@ export default async function Page() {
   const marcas = (marcasDb ?? []) as Marcacao[];
   const rotinas = rotinasDoDia((rotinasDb ?? []) as Rotina[], marcas, hoje);
   const vazio = !dia.proximo && !dia.atencao.length && !doDiaComFeitas.length && !rotinas.length;
-  const proximoEvento = dia.agenda.find((e) => !e.done_at && horaSP(e.starts_at) >= agora);
+  const proximoEvento = dia.agenda.find((e) => !e.done_at && horaDe(e.starts_at) >= agora);
 
   return (
     <div className="page page--wide">
@@ -146,9 +146,9 @@ export default async function Page() {
             ) : (
               <div className="agenda">
                 {dia.agenda.map((e) => {
-                  const hora = horaSP(e.starts_at);
+                  const hora = horaDe(e.starts_at);
                   const c = ctx.find((x) => x.id === e.context_id);
-                  const passou = (e.ends_at ? horaSP(e.ends_at) : hora) < agora || !!e.done_at;
+                  const passou = (e.ends_at ? horaDe(e.ends_at) : hora) < agora || !!e.done_at;
                   const estudo = !!e.course_id;
                   return (
                     <div key={e.id}>

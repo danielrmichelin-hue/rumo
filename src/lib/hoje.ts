@@ -24,9 +24,6 @@ export type MontagemHoje = {
 };
 
 /** "HH:MM" do horário de um timestamp no fuso de São Paulo */
-export function horaSP(timestamp: string): string {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(timestamp));
-}
 
 function minutosEntre(de: Date, ate: Date) {
   return Math.round((ate.getTime() - de.getTime()) / 60000);

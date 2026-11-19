@@ -1,6 +1,5 @@
 // Estudos: matérias, ciclos e progresso (Book 6.2). As sessões são compromissos do Core (events com course_id).
-import { diaDaSemana, diferencaDias, hojeISO, rotuloData, somarDias } from "./datas";
-import { horaSP } from "./hoje";
+import { diaDaSemana, diferencaDias, hojeISO, horaDe, rotuloData, SEMANA_CURTA, SEMANA_LONGA, somarDias } from "./datas";
 import { segundaDa } from "./semana";
 
 export type TipoCurso = "graduacao" | "pos" | "idioma" | "concurso" | "curso";
@@ -14,7 +13,7 @@ export const TIPOS_CURSO: Record<TipoCurso, string> = {
 };
 
 /** A resposta de "O que você estuda agora?" (perguntas do começo) vira o tipo */
-export const TIPO_DO_COMECO: Record<string, TipoCurso> = { "Graduação": "graduacao", "Pós": "pos", "Idiomas": "idioma", "Concurso": "concurso", "Curso livre": "curso" };
+export const TIPO_DO_COMECO = Object.fromEntries(Object.entries(TIPOS_CURSO).map(([k, v]) => [v, k])) as Record<string, TipoCurso>;
 
 export type Curso = {
   id: string;
@@ -70,9 +69,11 @@ export function horas(min: number): string {
   return r ? `${h}h${String(r).padStart(2, "0")}` : `${h}h`;
 }
 
+/** Fim da sessão; sem fim marcado, conta 50 minutos */
+const fimSessao = (s: Pick<Sessao, "starts_at" | "ends_at">) => (s.ends_at ? new Date(s.ends_at).getTime() : new Date(s.starts_at).getTime() + 50 * 60000);
+
 export function duracao(s: Pick<Sessao, "starts_at" | "ends_at">): number {
-  if (!s.ends_at) return 50;
-  return Math.max(5, Math.round((new Date(s.ends_at).getTime() - new Date(s.starts_at).getTime()) / 60000));
+  return Math.max(5, Math.round((fimSessao(s) - new Date(s.starts_at).getTime()) / 60000));
 }
 
 /** Semana do ciclo atual: "semana 2" */
@@ -115,7 +116,7 @@ export function semanaEmBarras(c: Curso, sessoes: Sessao[], hoje: string = hojeI
     const feitos = sessoes
       .filter((s) => s.course_id === c.id && s.done_at && hojeISO(new Date(s.starts_at)) === dia)
       .reduce((t, s) => t + duracao(s), 0);
-    return { dia, rotulo: ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"][i], feitos, pct: Math.min(1, feitos / metaDia), hoje: dia === hoje };
+    return { dia, rotulo: SEMANA_CURTA[diaDaSemana(dia)], feitos, pct: Math.min(1, feitos / metaDia), hoje: dia === hoje };
   });
   const total = dias.reduce((t, d) => t + d.feitos, 0);
   return { dias, total, texto: c.weekly_minutes ? `${horas(total)} de ${horas(c.weekly_minutes)} planejadas` : total ? `${horas(total)} estudadas` : "Nenhuma sessão concluída esta semana" };
@@ -125,7 +126,7 @@ export function semanaEmBarras(c: Curso, sessoes: Sessao[], hoje: string = hojeI
 export function proximaSessao(cursoId: string, sessoes: Sessao[], agora: Date = new Date()): Sessao | null {
   return (
     sessoes
-      .filter((s) => s.course_id === cursoId && !s.done_at && new Date(s.ends_at ?? s.starts_at).getTime() + (s.ends_at ? 0 : 50 * 60000) > agora.getTime())
+      .filter((s) => s.course_id === cursoId && !s.done_at && fimSessao(s) > agora.getTime())
       .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0] ?? null
   );
 }
@@ -139,8 +140,7 @@ export function linhaMateria(m: Materia, c: Curso, sessoes: Sessao[], hoje: stri
   if (m.next_topic) return `Próxima: ${m.next_topic}`;
   if (marcada) {
     const d = hojeISO(new Date(marcada.starts_at));
-    const nomes = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
-    return d === hoje ? "Sessão marcada para hoje" : `Sessão marcada para ${nomes[diaDaSemana(d)]}`;
+    return d === hoje ? "Sessão marcada para hoje" : `Sessão marcada para ${SEMANA_LONGA[diaDaSemana(d)]}`;
   }
   const seg = segundaDa(hoje);
   const nestaSemana = sessoes.filter((s) => s.subject_id === m.id && s.done_at && hojeISO(new Date(s.starts_at)) >= seg).length;
@@ -164,15 +164,14 @@ export const NOME_CICLO: Record<TipoCurso, { um: string; varios: string }> = {
 
 export function emAndamento(s: Sessao, agora: Date = new Date()): boolean {
   const ini = new Date(s.starts_at).getTime();
-  const fim = s.ends_at ? new Date(s.ends_at).getTime() : ini + 50 * 60000;
-  return !s.done_at && ini <= agora.getTime() && agora.getTime() < fim;
+  return !s.done_at && ini <= agora.getTime() && agora.getTime() < fimSessao(s);
 }
 
 /** "Hoje, 19:00 · 50 min", "Amanhã, 08:00 · 1h", "Em andamento · até 19:50" */
 export function quandoSessao(s: Sessao, agora: Date = new Date()): string {
-  if (emAndamento(s, agora)) return `Em andamento · até ${horaSP(s.ends_at ?? new Date(new Date(s.starts_at).getTime() + 50 * 60000).toISOString())}`;
+  if (emAndamento(s, agora)) return `Em andamento · até ${horaDe(new Date(fimSessao(s)).toISOString())}`;
   const dia = rotuloData(hojeISO(new Date(s.starts_at)), hojeISO(agora));
-  return `${dia[0].toUpperCase()}${dia.slice(1)}, ${horaSP(s.starts_at)} · ${horas(duracao(s))}`;
+  return `${dia[0].toUpperCase()}${dia.slice(1)}, ${horaDe(s.starts_at)} · ${horas(duracao(s))}`;
 }
 
 /** A matéria para "Começar sessão": a do ciclo com próxima aula definida, ou a menos avançada */

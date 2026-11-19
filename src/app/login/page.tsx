@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { Logo } from "@/components/Logo";
 
 type Modo = "entrar" | "criar";
 
@@ -83,8 +84,7 @@ export default function LoginPage() {
       </section>
 
       <form className="auth__card" onSubmit={onSubmit} noValidate>
-        <img src="/brand/rumo-logo-horizontal.svg" alt="Rumo" className="auth__logo logo-light" />
-        <img src="/brand/rumo-logo-horizontal-light.svg" alt="Rumo" className="auth__logo logo-dark" />
+        <Logo forma="horizontal" alt="Rumo" className="auth__logo" />
         <h1>{modo === "entrar" ? "Que bom te ver de novo." : "Boas-vindas ao Rumo."}</h1>
         <p>{modo === "entrar" ? "Continue de onde parou." : "Crie sua conta com e-mail e senha."}</p>
 

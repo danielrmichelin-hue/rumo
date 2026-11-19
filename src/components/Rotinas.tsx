@@ -3,13 +3,13 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { Check, ChevronRight, Plus, Repeat, Trash2 } from "lucide-react";
 import { apagarRotina, criarRotina, marcarRotina, salvarRotina, type DadosRotina } from "@/app/(app)/acoes";
-import { hojeISO } from "@/lib/datas";
+import { diaDaSemana, hojeISO, SEMANA_LONGA } from "@/lib/datas";
 import { hora, SEMANA, semanaDaRotina, textoFrequencia, type Marcacao, type Rotina } from "@/lib/rotinas";
 import { useAvisar } from "./Avisos";
+import { CampoContexto } from "./Comuns";
 import type { ContextItem } from "./Shell";
 
 const LETRAS = ["D", "S", "T", "Q", "Q", "S", "S"];
-const NOMES = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
 /** O círculo de concluir da rotina (Hoje e lista de rotinas) */
 export function ChecarRotina({ rotina, feita, dia }: { rotina: Pick<Rotina, "id" | "title">; feita: boolean; dia?: string }) {
@@ -46,8 +46,8 @@ export function SemanaRotina({ rotina, marcas }: { rotina: Rotina; marcas: Marca
           key={d.dia}
           type="button"
           disabled={d.futuro}
-          title={`${NOMES[new Date(`${d.dia}T12:00:00Z`).getUTCDay()]}${d.feito ? " · feito" : ""}`}
-          aria-label={`${d.feito ? "Desmarcar" : "Marcar"} ${NOMES[new Date(`${d.dia}T12:00:00Z`).getUTCDay()]}`}
+          title={`${SEMANA_LONGA[diaDaSemana(d.dia)]}${d.feito ? " · feito" : ""}`}
+          aria-label={`${d.feito ? "Desmarcar" : "Marcar"} ${SEMANA_LONGA[diaDaSemana(d.dia)]}`}
           aria-pressed={d.feito}
           className={`${d.feito ? "on" : ""}${d.previsto ? " plan" : ""}${d.hoje ? " today" : ""}`}
           onClick={() => iniciar(() => marcarRotina(rotina.id, d.dia, !d.feito))}
@@ -90,7 +90,7 @@ function CamposRotina({ v, set, contextos }: { v: Valores; set: (v: Valores) => 
         {v.modo === "dias" ? (
           <div className="chips" role="group" aria-label="Dias">
             {SEMANA.map((d) => (
-              <button key={d} type="button" className="chip chip--day" aria-pressed={v.days.includes(d)} aria-label={NOMES[d]} title={NOMES[d]} onClick={() => alternar(d)}>{LETRAS[d]}</button>
+              <button key={d} type="button" className="chip chip--day" aria-pressed={v.days.includes(d)} aria-label={SEMANA_LONGA[d]} title={SEMANA_LONGA[d]} onClick={() => alternar(d)}>{LETRAS[d]}</button>
             ))}
             <button type="button" className="btn btn--ghost btn--sm" onClick={() => set({ ...v, days: [0, 1, 2, 3, 4, 5, 6] })}>Todo dia</button>
           </div>
@@ -106,13 +106,7 @@ function CamposRotina({ v, set, contextos }: { v: Valores; set: (v: Valores) => 
       <div className="fields">
         <label className="field">Horário<input className="input" type="time" value={v.at_time} onChange={(e) => set({ ...v, at_time: e.target.value })} /></label>
         <label className="field">Duração (min)<input className="input" inputMode="numeric" value={v.duration} onChange={(e) => set({ ...v, duration: e.target.value })} placeholder="Opcional" /></label>
-        <label className="field">
-          Contexto
-          <select className="input" value={v.context_id} onChange={(e) => set({ ...v, context_id: e.target.value })}>
-            <option value="">Sem contexto</option>
-            {contextos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </label>
+        <CampoContexto contextos={contextos} value={v.context_id} onChange={(id) => set({ ...v, context_id: id })} />
       </div>
     </>
   );

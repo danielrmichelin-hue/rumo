@@ -2,14 +2,14 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, Building2, GraduationCap, Plus, Route, Wallet, X } from "lucide-react";
+import { Plus, Route, X } from "lucide-react";
 import { criarRota } from "@/app/(app)/acoes";
-import { hojeISO } from "@/lib/datas";
-import { brl, chegadaPorPrazo, resumirRota, TIPOS, type Marco, type Rota, type TipoRota } from "@/lib/rotas";
+import { hojeISO, numeroBR } from "@/lib/datas";
+import { brl, chegadaPorPrazo, ICONES_ROTA, resumirRota, TIPOS, type Marco, type Rota, type TipoRota } from "@/lib/rotas";
 import { Caminho } from "./Caminho";
+import { CampoContexto } from "./Comuns";
 import type { ContextItem } from "./Shell";
 
-const ICONES: Record<TipoRota, typeof Wallet> = { financeiro: Wallet, leitura: BookOpen, estudos: GraduationCap, negocios: Building2 };
 const MARCOS_SUGERIDOS = ["Orçamento", "Imóvel", "Contratação", "Documentação", "Implantação", "Lançamento"];
 
 const PADRAO: Record<Exclude<TipoRota, "negocios">, { alvo: number; tem: number; prazo: number; rotulos: [string, string, string]; unidadePrazo: string; passo: number }> = {
@@ -29,11 +29,6 @@ function padroesDo(t: TipoRota | null) {
   }
   const p = PADRAO[t];
   return { ...vazio, alvo: String(p.alvo), tem: String(p.tem), prazo: String(p.prazo) };
-}
-
-function numero(v: string) {
-  const n = Number(v.replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
 }
 
 /** Curso ligado (módulo Estudos): a Rota de estudos parte das aulas do curso; a de leitura fica no curso */
@@ -74,16 +69,16 @@ export function NovaRota({ contextos, tipoInicial, tituloInicial, curso }: { con
   }
 
   // Título sugerido enquanto a pessoa não escreve o dela
-  const tituloSugerido = !tipo ? "" : tipo === "financeiro" ? `Reserva de ${brl(numero(alvo) || 0)}` : tipo === "leitura" ? "Terminar o livro" : tipo === "estudos" ? `Concluir o curso de ${numero(alvo) || 0} aulas` : "Abrir a segunda unidade";
+  const tituloSugerido = !tipo ? "" : tipo === "financeiro" ? `Reserva de ${brl(numeroBR(alvo) || 0)}` : tipo === "leitura" ? "Terminar o livro" : tipo === "estudos" ? `Concluir o curso de ${numeroBR(alvo) || 0} aulas` : "Abrir a segunda unidade";
   const nomeFinal = tituloMexido ? titulo : tituloSugerido;
 
   // Prévia ao vivo, com o mesmo cálculo da Rota de verdade
   const previa = useMemo(() => {
     if (!tipo) return null;
-    const target_date = tipo === "negocios" ? (chegada ? `${chegada}-28` : null) : numero(prazo) > 0 ? chegadaPorPrazo(tipo, numero(prazo), hoje) : null;
+    const target_date = tipo === "negocios" ? (chegada ? `${chegada}-28` : null) : numeroBR(prazo) > 0 ? chegadaPorPrazo(tipo, numeroBR(prazo), hoje) : null;
     const rota: Rota = {
       id: "previa", title: nomeFinal || "Destino", kind: tipo, context_id: null,
-      target: tipo === "negocios" ? null : numero(alvo) || null, current: numero(tem), start_value: numero(tem),
+      target: tipo === "negocios" ? null : numeroBR(alvo) || null, current: numeroBR(tem), start_value: numeroBR(tem),
       start_date: hoje, target_date, status: "ativa", note: null,
     };
     const ms: Marco[] = marcos.map((m, i) => ({ id: String(i), route_id: "previa", title: m, position: i, due_date: null, done_at: null }));
@@ -96,8 +91,8 @@ export function NovaRota({ contextos, tipoInicial, tituloInicial, curso }: { con
     iniciar(async () => {
       const r = await criarRota({
         kind: tipo, title: nomeFinal, context_id: contexto || null,
-        target: tipo === "negocios" ? null : numero(alvo), current: numero(tem),
-        prazo: tipo === "negocios" ? null : numero(prazo),
+        target: tipo === "negocios" ? null : numeroBR(alvo), current: numeroBR(tem),
+        prazo: tipo === "negocios" ? null : numeroBR(prazo),
         target_date: tipo === "negocios" && chegada ? `${chegada}-28` : null,
         marcos, passoNoHoje, course_id: curso?.id ?? null,
       });
@@ -111,7 +106,7 @@ export function NovaRota({ contextos, tipoInicial, tituloInicial, curso }: { con
     return (
       <div className="opts" style={{ maxWidth: 720 }}>
         {(Object.keys(TIPOS) as TipoRota[]).map((t) => {
-          const Icon = ICONES[t];
+          const Icon = ICONES_ROTA[t];
           return (
             <button key={t} type="button" className="opt" onClick={() => escolher(t)} style={{ alignItems: "flex-start", minHeight: 96 }}>
               <Icon aria-hidden style={{ marginTop: 2 }} />
@@ -127,7 +122,7 @@ export function NovaRota({ contextos, tipoInicial, tituloInicial, curso }: { con
   }
 
   const p = tipo !== "negocios" ? PADRAO[tipo] : null;
-  const Icon = ICONES[tipo];
+  const Icon = ICONES_ROTA[tipo];
 
   return (
     <div className="sim">
@@ -187,13 +182,7 @@ export function NovaRota({ contextos, tipoInicial, tituloInicial, curso }: { con
           </>
         )}
 
-        <label className="field">
-          Contexto
-          <select className="input" value={contexto} onChange={(e) => setContexto(e.target.value)}>
-            <option value="">Sem contexto</option>
-            {contextos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </label>
+        <CampoContexto contextos={contextos} value={contexto} onChange={setContexto} />
 
         {tipo !== "negocios" && (
           <label className="field" style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 400 }}>

@@ -9,6 +9,8 @@ import { hojeISO, rotuloData } from "@/lib/datas";
 import type { ProximoPasso as Tipo } from "@/lib/hoje";
 import { useAvisar } from "./Avisos";
 import type { ContextItem } from "./Shell";
+import { Logo } from "./Logo";
+import { Anel } from "./Caminho";
 
 /** Abre a captura de qualquer lugar (a casca escuta este evento). `texto` já vem escrito na caixa. */
 export function BotaoNova({ texto, rotulo = "Nova", variante = "btn", icone }: { texto?: string; rotulo?: string; variante?: string; icone?: React.ReactNode }) {
@@ -28,8 +30,7 @@ export function ProximoPasso({ proximo, contextos, projeto, rota }: { proximo: T
 
   const simbolo = (
     <span className="next__k">
-      <img src="/brand/rumo-symbol.svg" alt="" className="logo-light" />
-      <img src="/brand/rumo-symbol-light.svg" alt="" className="logo-dark" />
+      <Logo forma="simbolo" />
       Próximo passo
     </span>
   );
@@ -89,7 +90,7 @@ export function ProximoPasso({ proximo, contextos, projeto, rota }: { proximo: T
           {aguardando && item.waiting_note && <span className="prop">{item.waiting_note}</span>}
           {ctx && <span className="prop"><i className="dot" style={{ background: ctx.color }} />{ctx.name}</span>}
           {projeto && <span className="prop"><Folder aria-hidden />{projeto}</span>}
-          {rota && <span className="prop"><i className="ring" style={{ "--p": Math.round(rota.pct * 100) } as React.CSSProperties} aria-hidden />Rota · {rota.title}</span>}
+          {rota && <span className="prop"><Anel pct={rota.pct} />Rota · {rota.title}</span>}
         </span>
       </div>
       <div className="next__act">

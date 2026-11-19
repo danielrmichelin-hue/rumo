@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { CalendarDays, Folder, GraduationCap, Home, Inbox, ListChecks, Menu, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
 import { AvisosProvider } from "./Avisos";
 import { Captura, useAtalhoCaptura } from "./Captura";
+import { Logo } from "./Logo";
+import { Anel } from "./Caminho";
 
 export type ContextItem = { id: string; name: string; color: string; kind?: "empresa" | "area" };
 
@@ -174,7 +176,7 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
               </div>
               {rotas.map((r) => (
                 <Link key={r.id} href={`/rotas/${r.id}`} className="nav" aria-current={on(`/rotas/${r.id}`)}>
-                  <i className="ring" style={{ "--p": r.pct } as React.CSSProperties} aria-hidden />
+                  <Anel pct={r.pct} />
                   <span className="nav__label">{r.title}</span>
                   <span className="nav__count">{r.rotulo}</span>
                 </Link>
@@ -196,8 +198,7 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
 
         <header className="topbar">
           <Link href="/hoje" aria-label="Rumo, ir para o Hoje">
-            <img src="/brand/rumo-symbol.svg" alt="Rumo" className="logo-light" />
-            <img src="/brand/rumo-symbol-light.svg" alt="Rumo" className="logo-dark" />
+            <Logo forma="simbolo" alt="Rumo" />
           </Link>
           <Link href="/ajustes" className="avatar" aria-label="Ajustes">{iniciais(nome)}</Link>
         </header>

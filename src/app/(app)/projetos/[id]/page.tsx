@@ -6,12 +6,13 @@ import { AdicionarEtapa, FormProjeto } from "@/components/FormsProjeto";
 import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
 import { resumirProjeto, type Projeto } from "@/lib/projetos";
 import { CAMPOS_LISTA, ordenar, type Responsabilidade } from "@/lib/tipos";
+import { ehId } from "@/lib/datas";
 
 export const metadata = { title: "Projeto" };
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!ehId(id)) notFound();
   const supabase = await createClient();
   const [{ data: projeto }, { data: etapas }, { data: contextos }] = await Promise.all([
     supabase.from("projects").select("id, name, context_id, status, due_date, note").eq("id", id).maybeSingle(),

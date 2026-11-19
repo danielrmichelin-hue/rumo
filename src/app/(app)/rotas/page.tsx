@@ -1,18 +1,17 @@
 import Link from "next/link";
-import { BookOpen, Building2, GraduationCap, Plus, Wallet } from "lucide-react";
+import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Caminho } from "@/components/Caminho";
-import { CAMPOS_ROTA, normalizar, resumirRota, TIPOS, type Marco, type TipoRota } from "@/lib/rotas";
+import { CAMPOS_MARCO, CAMPOS_ROTA, ICONES_ROTA, type Marco, normalizar, resumirRota, TIPOS } from "@/lib/rotas";
 
 export const metadata = { title: "Rotas" };
 
-const ICONES: Record<TipoRota, typeof Wallet> = { financeiro: Wallet, leitura: BookOpen, estudos: GraduationCap, negocios: Building2 };
 
 export default async function Page() {
   const supabase = await createClient();
   const [{ data: rotas }, { data: marcos }, { data: contextos }] = await Promise.all([
     supabase.from("routes").select(CAMPOS_ROTA).order("created_at", { ascending: false }),
-    supabase.from("route_milestones").select("id, route_id, title, position, due_date, done_at"),
+    supabase.from("route_milestones").select(CAMPOS_MARCO),
     supabase.from("contexts").select("id, name, color"),
   ]);
   const lista = (rotas ?? []).map(normalizar);
@@ -23,7 +22,7 @@ export default async function Page() {
 
   const cartao = (r: ReturnType<typeof normalizar>) => {
     const resumo = resumirRota(r, ms.filter((m) => m.route_id === r.id));
-    const Icon = ICONES[r.kind];
+    const Icon = ICONES_ROTA[r.kind];
     const c = ctx.find((x) => x.id === r.context_id);
     return (
       <article key={r.id} className="route">

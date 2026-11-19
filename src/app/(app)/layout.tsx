@@ -5,7 +5,7 @@ import { agoraHora, hojeISO } from "@/lib/datas";
 import { montarHoje } from "@/lib/hoje";
 import { moduloLigado } from "@/lib/modulos";
 import type { Perfil, Responsabilidade } from "@/lib/tipos";
-import { CAMPOS_ROTA, normalizar, resumirRota, rotuloAnel, type Marco } from "@/lib/rotas";
+import { CAMPOS_MARCO, CAMPOS_ROTA, type Marco, normalizar, resumirRota, rotuloAnel } from "@/lib/rotas";
 import { AZUL_ESTUDO } from "@/lib/estudos";
 import { CAMPOS_ROTINA, semanaDaRotina, VERDE_ROTINA, type Marcacao, type Rotina } from "@/lib/rotinas";
 import { segundaDa } from "@/lib/semana";
@@ -21,7 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     supabase.from("responsibilities").select("id", { count: "exact", head: true }).is("context_id", null).neq("state", "concluida"),
     supabase.from("responsibilities").select("id, state, due_date, due_time, today, follow_up_on, created_at").neq("state", "concluida"),
     supabase.from("routes").select(CAMPOS_ROTA).eq("status", "ativa").order("created_at"),
-    supabase.from("route_milestones").select("id, route_id, title, position, due_date, done_at"),
+    supabase.from("route_milestones").select(CAMPOS_MARCO),
     supabase.from("study_courses").select("id, title, context_id").neq("status", "concluido").order("created_at"),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").order("position"),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", segundaDa(hojeISO())),
@@ -38,7 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const r = normalizar(x);
     const ms = ((marcos ?? []) as Marco[]).filter((m) => m.route_id === r.id);
     const resumo = resumirRota(r, ms);
-    return { id: r.id, title: r.title, pct: Math.round(resumo.pct * 100), rotulo: rotuloAnel(r, resumo, ms) };
+    return { id: r.id, title: r.title, pct: resumo.pct, rotulo: rotuloAnel(r, resumo, ms) };
   });
 
   const cores = Object.fromEntries((contextos ?? []).map((c) => [c.id, c.color]));

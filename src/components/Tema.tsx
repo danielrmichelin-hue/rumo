@@ -70,14 +70,3 @@ export function SeletorTema() {
   );
 }
 
-/** No celular: um botão que alterna claro → escuro → automático. */
-export function BotaoTema() {
-  const { tema, escolher } = useTema();
-  const atual = OPCOES.find((o) => o.v === tema)!;
-  const proximo = OPCOES[(OPCOES.indexOf(atual) + 1) % OPCOES.length];
-  return (
-    <button type="button" className="topbar__theme" onClick={() => escolher(proximo.v)} aria-label={`Tema: ${atual.r}. Mudar para ${proximo.r}`}>
-      <atual.Icon aria-hidden />
-    </button>
-  );
-}

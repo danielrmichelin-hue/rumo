@@ -8,6 +8,7 @@ import { agoraHora, hojeISO, prazoPassou, rotuloData, rotuloHora, rotuloVencido 
 import type { Responsabilidade } from "@/lib/tipos";
 import { useAvisar } from "./Avisos";
 import type { ContextItem } from "./Shell";
+import { Anel } from "./Caminho";
 
 type Props = {
   itens: Responsabilidade[];
@@ -114,7 +115,7 @@ function Linha({ item, contextos, comContexto, organizavel, cobravel, semHoje, r
             <span className="prop"><i className="dot" style={{ background: contexto.color }} />{contexto.name}</span>
           )}
           {projeto && <span className="prop"><Folder aria-hidden />{projeto}</span>}
-          {rota && <span className="prop"><i className="ring" style={{ "--p": Math.round(rota.pct * 100) } as React.CSSProperties} aria-hidden />Rota · {rota.title}</span>}
+          {rota && <span className="prop"><Anel pct={rota.pct} />Rota · {rota.title}</span>}
           {item.kind === "decidir" && <span className="prop"><Scale aria-hidden />Decisão</span>}
           {aguardando ? (
             <span className={`prop${cobrarHoje ? " prop--warn" : ""}`}>

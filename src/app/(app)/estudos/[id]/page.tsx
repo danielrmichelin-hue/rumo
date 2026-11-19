@@ -6,8 +6,7 @@ import { Anel, Caminho } from "@/components/Caminho";
 import {
   AvancarCiclo, ComecarSessao, EditarMateria, FormCurso, MaisUmaAula, MarcarSessao, NovaMateria, ProximaSessao,
 } from "@/components/Estudos";
-import { hojeISO } from "@/lib/datas";
-import { horaSP } from "@/lib/hoje";
+import { ehId, hojeISO, horaDe, inicioDoDia } from "@/lib/datas";
 import { segundaDa } from "@/lib/semana";
 import {
   AZUL_ESTUDO, CAMPOS_CURSO, CAMPOS_MATERIA, CAMPOS_SESSAO, duracao, horas, linhaCiclo, linhaMateria, linhaProgresso, materiaSugerida,
@@ -19,9 +18,9 @@ export const metadata = { title: "Estudos" };
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!ehId(id)) notFound();
   const hoje = hojeISO();
-  const desde = new Date(`${segundaDa(hoje)}T00:00:00-03:00`).toISOString();
+  const desde = inicioDoDia(segundaDa(hoje));
   const supabase = await createClient();
   const [{ data: cursoDb }, { data: materiasDb }, { data: sessoesDb }, { data: rotasDb }, { data: contextos }] = await Promise.all([
     supabase.from("study_courses").select(CAMPOS_CURSO).eq("id", id).maybeSingle(),
@@ -115,7 +114,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               <div className="agenda">
                 {marcadas.map((s) => (
                   <Link key={s.id} href={`/calendario/${s.id}`} className="ag">
-                    <time>{horaSP(s.starts_at)}</time>
+                    <time>{horaDe(s.starts_at)}</time>
                     <div><b>{s.title}</b><small><i className="dot" style={{ background: nomeMateria(s)?.color ?? AZUL_ESTUDO }} />{quandoSessao(s).split(",")[0]} · {horas(duracao(s))}</small></div>
                   </Link>
                 ))}
@@ -129,7 +128,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               <div className="agenda">
                 {feitasSemana.map((s) => (
                   <Link key={s.id} href={`/calendario/${s.id}`} className="ag ag--past">
-                    <time>{horaSP(s.starts_at)}</time>
+                    <time>{horaDe(s.starts_at)}</time>
                     <div><b>{s.title}</b><small>{quandoSessao(s).split(",")[0]} · {horas(duracao(s))}</small></div>
                   </Link>
                 ))}

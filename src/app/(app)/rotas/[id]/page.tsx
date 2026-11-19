@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowUpRight, BookOpen, Building2, ChevronRight, GraduationCap, Wallet } from "lucide-react";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Anel, Caminho } from "@/components/Caminho";
 import {
@@ -8,13 +8,12 @@ import {
   PassoSugerido, RegistrarAvanco,
 } from "@/components/ControlesRota";
 import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
-import { hojeISO, rotuloData } from "@/lib/datas";
-import { CAMPOS_ROTA, mesAno, normalizar, PREFIXO_PASSO, resumirRota, textoValor, TIPOS, type Marco, type TipoRota } from "@/lib/rotas";
+import { ehId, hojeISO, nomeDoMes, rotuloData } from "@/lib/datas";
+import { CAMPOS_MARCO, CAMPOS_ROTA, ICONES_ROTA, type Marco, normalizar, PREFIXO_PASSO, resumirRota, textoValor, type TipoRota, TIPOS } from "@/lib/rotas";
 import { CAMPOS_LISTA, ordenar, type Responsabilidade } from "@/lib/tipos";
 
 export const metadata = { title: "Rota" };
 
-const ICONES: Record<TipoRota, typeof Wallet> = { financeiro: Wallet, leitura: BookOpen, estudos: GraduationCap, negocios: Building2 };
 const EXEMPLO_PASSO: Record<TipoRota, string> = {
   financeiro: "Novo passo, ex.: Cancelar a assinatura que não uso",
   leitura: "Novo passo, ex.: Ler o capítulo 5 sábado",
@@ -24,16 +23,16 @@ const EXEMPLO_PASSO: Record<TipoRota, string> = {
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!ehId(id)) notFound();
   const hoje = hojeISO();
   const supabase = await createClient();
   const [{ data: dados }, { data: marcosDb }, { data: passosDb }, { data: entradas }, { data: outras }, { data: todosMarcos }, { data: contextos }] = await Promise.all([
     supabase.from("routes").select(CAMPOS_ROTA).eq("id", id).maybeSingle(),
-    supabase.from("route_milestones").select("id, route_id, title, position, due_date, done_at").eq("route_id", id).order("position"),
+    supabase.from("route_milestones").select(CAMPOS_MARCO).eq("route_id", id).order("position"),
     supabase.from("responsibilities").select(CAMPOS_LISTA + ", milestone_id").eq("route_id", id),
     supabase.from("route_entries").select("id, amount, note, happened_on, created_at").eq("route_id", id).order("created_at", { ascending: false }).limit(12),
     supabase.from("routes").select(CAMPOS_ROTA).neq("id", id).eq("status", "ativa").order("created_at"),
-    supabase.from("route_milestones").select("id, route_id, title, position, due_date, done_at"),
+    supabase.from("route_milestones").select(CAMPOS_MARCO),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
   ]);
   if (!dados) notFound();
@@ -47,7 +46,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const feitos = passos.filter((p) => p.state === "concluida");
   const ctx = contextos ?? [];
   const contexto = ctx.find((c) => c.id === rota.context_id);
-  const Icon = ICONES[rota.kind];
+  const Icon = ICONES_ROTA[rota.kind];
   const atual = marcos.find((m) => !m.done_at) ?? null;
   const passosDoAtual = atual ? passos.filter((p) => p.milestone_id === atual.id) : [];
   const jaSugerido = resumo.sugestao && abertos.some((p) => p.title === resumo.sugestao!.title);
@@ -55,7 +54,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const passoAntigo = !jaSugerido && prefixo ? abertos.find((p) => p.title.startsWith(prefixo)) : undefined;
   const outrasRotas = (outras ?? []).map(normalizar);
 
-  const quandoMarco = (m: Marco) => (m.done_at ? `Concluído em ${mesAno(hojeISO(new Date(m.done_at))).split(" de ")[0]}` : m.due_date ? `Até ${rotuloData(m.due_date, hoje)}` : m === atual ? "Agora" : "");
+  const quandoMarco = (m: Marco) => (m.done_at ? `Concluído em ${nomeDoMes(hojeISO(new Date(m.done_at)))}` : m.due_date ? `Até ${rotuloData(m.due_date, hoje)}` : m === atual ? "Agora" : "");
 
   return (
     <div className="page page--wide">

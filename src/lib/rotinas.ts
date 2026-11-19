@@ -1,6 +1,6 @@
 // Rotinas & Hábitos (Book 6.3): uma rotina aparece no Hoje quando é a hora dela e some quando não é.
 // Sem sequência que zera: a semana mostra o que foi feito, não o que faltou.
-import { diaDaSemana, hojeISO, somarDias } from "./datas";
+import { diaDaSemana, hojeISO, SEMANA_CURTA, SEMANA_LONGA, somarDias } from "./datas";
 import { segundaDa } from "./semana";
 
 export type Rotina = {
@@ -23,8 +23,6 @@ export const CAMPOS_ROTINA = "id, title, context_id, days, times_per_week, at_ti
 /** Verde do Book para rotinas sem contexto (calendário e lateral) */
 export const VERDE_ROTINA = "#3E9D72";
 
-const NOMES = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
-const NOMES_LONGOS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 /** Ordem de exibição dos dias: segunda primeiro */
 export const SEMANA = [1, 2, 3, 4, 5, 6, 0];
 
@@ -34,8 +32,8 @@ export function textoFrequencia(r: Pick<Rotina, "days" | "times_per_week">): str
   const d = SEMANA.filter((x) => r.days!.includes(x));
   if (d.length === 7) return "Todo dia";
   if (d.length === 5 && !d.includes(0) && !d.includes(6)) return "Dias úteis";
-  if (d.length === 1) return NOMES_LONGOS[d[0]];
-  const t = d.map((x) => NOMES[x]).join(", ");
+  if (d.length === 1) return SEMANA_LONGA[d[0]][0].toUpperCase() + SEMANA_LONGA[d[0]].slice(1);
+  const t = d.map((x) => SEMANA_CURTA[x]).join(", ");
   return t[0].toUpperCase() + t.slice(1);
 }
 
@@ -48,7 +46,7 @@ export function semanaDaRotina(r: Rotina, marcas: Marcacao[], hoje: string = hoj
   const feitos = new Set(marcas.filter((m) => m.routine_id === r.id).map((m) => m.done_on));
   const dias = Array.from({ length: 7 }, (_, i) => {
     const dia = somarDias(seg, i);
-    return { dia, rotulo: NOMES[diaDaSemana(dia)], feito: feitos.has(dia), previsto: !!r.days?.includes(diaDaSemana(dia)), hoje: dia === hoje, futuro: dia > hoje };
+    return { dia, rotulo: SEMANA_CURTA[diaDaSemana(dia)], feito: feitos.has(dia), previsto: !!r.days?.includes(diaDaSemana(dia)), hoje: dia === hoje, futuro: dia > hoje };
   });
   const feitas = dias.filter((d) => d.feito).length;
   return { dias, feitas, meta: metaSemana(r), texto: `${feitas} de ${metaSemana(r)} nesta semana` };

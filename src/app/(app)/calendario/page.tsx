@@ -4,9 +4,8 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { NovoCompromisso } from "@/components/FormCompromisso";
-import { agoraHora, hojeISO, prazoPassou, rotuloHora, somarDias } from "@/lib/datas";
-import { horaSP } from "@/lib/hoje";
-import { DIA_CURTO, emColunas, mesAno, numeroSemana, segundaDa } from "@/lib/semana";
+import { agoraHora, diaDaSemana, fimDoDia, hojeISO, horaDe, inicioDoDia, instante, prazoPassou, rotuloHora, SEMANA_CURTA, somarDias } from "@/lib/datas";
+import { emColunas, numeroSemana, segundaDa, tituloDoMes } from "@/lib/semana";
 import { CAMPOS_LISTA, type Compromisso, type Responsabilidade } from "@/lib/tipos";
 
 export const metadata = { title: "Calendário" };
@@ -23,8 +22,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   const agora = agoraHora();
   const segunda = segundaDa(semana && /^\d{4}-\d{2}-\d{2}$/.test(semana) ? semana : hoje);
   const domingo = somarDias(segunda, 6);
-  const de = new Date(`${segunda}T00:00:00-03:00`).toISOString();
-  const ate = new Date(`${domingo}T23:59:59.999-03:00`).toISOString();
+  const de = inicioDoDia(segunda);
+  const ate = fimDoDia(domingo);
 
   const supabase = await createClient();
   const [{ data: contextos }, { data: eventos }, { data: comPrazo }, { data: semHora }, { data: rotinasDb }, { data: marcasDb }] = await Promise.all([
@@ -42,9 +41,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   type Bloco = Compromisso & { rotina?: string };
   const blocosRotina: Bloco[] = ((rotinasDb ?? []) as Rotina[]).flatMap((r) =>
     Array.from({ length: 7 }, (_, i) => somarDias(segunda, i))
-      .filter((d) => r.days!.includes(new Date(`${d}T12:00:00Z`).getUTCDay()))
+      .filter((d) => r.days!.includes(diaDaSemana(d)))
       .map((d) => {
-        const ini = new Date(`${d}T${r.at_time!.slice(0, 5)}:00-03:00`);
+        const ini = new Date(instante(d, r.at_time!));
         const feita = (marcasDb ?? []).some((m) => m.routine_id === r.id && m.done_on === d);
         return { id: `${r.id}-${d}`, rotina: r.id, title: r.title, context_id: r.context_id, starts_at: ini.toISOString(), ends_at: new Date(ini.getTime() + (r.duration_min ?? 30) * 60000).toISOString(), location: null, done_at: feita ? ini.toISOString() : null };
       }),
@@ -72,8 +71,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
       evs
         .filter((e) => hojeISO(new Date(e.starts_at)) === d)
         .map((e) => {
-          const ini = minutos(horaSP(e.starts_at));
-          const fim = e.ends_at ? Math.max(ini + 20, minutos(horaSP(e.ends_at))) : ini + 60;
+          const ini = minutos(horaDe(e.starts_at));
+          const fim = e.ends_at ? Math.max(ini + 20, minutos(horaDe(e.ends_at))) : ini + 60;
           return { e, ini, fim };
         }),
     );
@@ -84,7 +83,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
     <div className="page page--wide">
       <div className="page__head">
         <div>
-          <h1 className="page__t">{mesAno(segunda)}</h1>
+          <h1 className="page__t">{tituloDoMes(segunda)}</h1>
           <p className="page__sub">Semana {numeroSemana(segunda)} · <b>{compromissos.length}</b> {compromissos.length === 1 ? "compromisso" : "compromissos"} · <b>{prazos.filter((p) => p.state !== "concluida").length}</b> prazos</p>
         </div>
         <div className="page__actions">
@@ -101,7 +100,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
           <div />
           {dias.map((d) => (
             <div key={d} className={`cal__d${d === hoje ? " is-today" : ""}`}>
-              {DIA_CURTO[new Date(`${d}T12:00:00Z`).getUTCDay()]} <b>{Number(d.slice(8))}</b>
+              {SEMANA_CURTA[diaDaSemana(d)]} <b>{Number(d.slice(8))}</b>
             </div>
           ))}
 
@@ -136,7 +135,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
                   }}
                 >
                   {e.title}
-                  <small>{horaSP(e.starts_at)}{e.rotina ? " · Rotina" : e.ends_at && `–${horaSP(e.ends_at)}`}{e.location && ` · ${e.location}`}</small>
+                  <small>{horaDe(e.starts_at)}{e.rotina ? " · Rotina" : e.ends_at && `–${horaDe(e.ends_at)}`}{e.location && ` · ${e.location}`}</small>
                 </Link>
               ))}
               {d === hoje && minutos(agora) >= H_INICIO * 60 && minutos(agora) <= H_FIM * 60 && (
@@ -153,12 +152,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
             const pz = prazos.filter((p) => p.due_date === d && p.state !== "concluida");
             return (
               <section key={d} className="sec">
-                <h2 className={`sec__h${d === hoje ? " is-today" : ""}`}>{DIA_CURTO[new Date(`${d}T12:00:00Z`).getUTCDay()]}, {d.slice(8)}/{d.slice(5, 7)}{d === hoje && <em>hoje</em>}</h2>
+                <h2 className={`sec__h${d === hoje ? " is-today" : ""}`}>{SEMANA_CURTA[diaDaSemana(d)]}, {d.slice(8)}/{d.slice(5, 7)}{d === hoje && <em>hoje</em>}</h2>
                 {!doDia.length && !pz.length && <p className="empty" style={{ padding: "2px 10px 6px" }}>Nada marcado.</p>}
                 <div className="agenda">
                   {doDia.map((e) => (
                     <Link key={e.id} href={linkEv(e)} className="ag">
-                      <time>{horaSP(e.starts_at)}</time>
+                      <time>{horaDe(e.starts_at)}</time>
                       <div><b>{e.title}</b>{(corEv(e) || e.location) && <small>{corEv(e) && <i className="dot" style={{ background: corEv(e) }} />}{e.course_id ? "Estudo" : e.rotina ? "Rotina" : ctx.find((c) => c.id === e.context_id)?.name}{e.location && ` · ${e.location}`}</small>}</div>
                     </Link>
                   ))}
