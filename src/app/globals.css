@@ -395,6 +395,20 @@ a.ctx__name:hover { color: var(--accent-text); }
 .auth__brand { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 48px; color: #F8F7F4; background: var(--side-bg); }
 .auth__brand > img:first-child { height: 30px; width: auto; align-self: flex-start; }
 .auth__symbol { position: absolute; right: 8%; top: 50%; width: 38%; max-width: 300px; transform: translateY(-58%); }
+/* Símbolo oficial montado peça por peça (uma vez), depois só segue o ponteiro de leve (Book 10.7) */
+.simbolo { overflow: visible; --px: 0; --py: 0; }
+.peca-pos { transform: translate(calc(var(--px) * var(--f) * 8px), calc(var(--py) * var(--f) * 8px)); transition: transform 600ms var(--ease); }
+.peca { transform-box: fill-box; animation: 640ms var(--ease-enter) both; }
+.peca--haste { transform-origin: bottom center; animation-name: haste-sobe; animation-delay: 120ms; }
+.peca--topo { transform-origin: left center; animation-name: topo-abre; animation-delay: 380ms; }
+.peca--perna { transform-origin: top left; animation-name: perna-segue; animation-delay: 640ms; }
+@keyframes haste-sobe { from { opacity: 0; transform: translateY(12px) scaleY(.6); } }
+@keyframes topo-abre { from { opacity: 0; transform: translateX(-12px) scaleX(.7); } }
+@keyframes perna-segue { from { opacity: 0; transform: translate(-10px, -10px); } }
+.auth__wordmark { animation: aparecer 480ms var(--ease-enter) 100ms both; }
+@keyframes subir { from { opacity: 0; transform: translateY(8px); } }
+.auth__promise { animation: subir 520ms var(--ease-enter) 1000ms both; }
+@media (prefers-reduced-motion: reduce) { .simbolo .peca, .auth__wordmark, .auth__promise { animation: none; } .peca-pos { transition: none; } }
 .auth__promise { position: relative; margin: 0; max-width: 420px; font: 600 40px/44px var(--font); letter-spacing: -0.022em; }
 .auth__card { width: min(380px, 100%); display: grid; gap: 16px; align-self: center; justify-self: center; padding: 32px 22px; }
 .auth__card h1 { margin: 0; font: 600 28px/34px var(--font); letter-spacing: -0.016em; color: var(--text-strong); }

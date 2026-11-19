@@ -123,8 +123,9 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
 
 ## Acabamento pedido pelo Daniel (fazer depois das funcionalidades)
 
-- Login: o lado direito está "seco". Ele quer algo vivo ali: imagem de fundo com o logo e a assinatura, ou um
-  vídeo curto em loop. (Atenção ao Book: movimento não chama atenção sozinho; respeitar `prefers-reduced-motion`.)
+- Login: feito com o logo oficial (`src/components/SimboloAnimado.tsx`). As três formas do símbolo, copiadas sem
+  alteração de `rumo-symbol-light.svg`, se montam uma vez (haste, cuia, perna) e a assinatura sobe; depois o símbolo
+  só acompanha o ponteiro de leve (até 8 px), sem loop (Book 10.7). Com `prefers-reduced-motion`, fica parado.
 - Transições suaves nas seleções: feito (o destaque dos segmentados desliza; o título do login troca com fade;
   respeita `prefers-reduced-motion`). Aguardando o Daniel ver.
 
