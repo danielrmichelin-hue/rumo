@@ -22,15 +22,17 @@ type Props = {
   projetos?: Record<string, string>;
   /** Na seção Hoje do Hoje, a palavra "Hoje" em cada linha sobra */
   semHoje?: boolean;
+  /** Rotas (id → título e progresso), para o anel nos passos de uma Rota */
+  rotas?: Record<string, { title: string; pct: number }>;
 };
 
-export function ListaResponsabilidades({ itens, contextos, comContexto = true, organizavel = false, cobravel = false, projetos, semHoje = false }: Props) {
+export function ListaResponsabilidades({ itens, contextos, comContexto = true, organizavel = false, cobravel = false, projetos, semHoje = false, rotas }: Props) {
   const hoje = hojeISO();
   const agora = agoraHora();
   return (
     <ul className="list">
       {itens.map((item) => (
-        <Linha key={item.id} item={item} contextos={contextos} comContexto={comContexto} organizavel={organizavel} cobravel={cobravel} semHoje={semHoje} hoje={hoje} agora={agora} projeto={item.project_id ? projetos?.[item.project_id] : undefined} />
+        <Linha key={item.id} item={item} contextos={contextos} comContexto={comContexto} organizavel={organizavel} cobravel={cobravel} semHoje={semHoje} rota={item.route_id ? rotas?.[item.route_id] : undefined} hoje={hoje} agora={agora} projeto={item.project_id ? projetos?.[item.project_id] : undefined} />
       ))}
     </ul>
   );
@@ -43,12 +45,13 @@ type LinhaProps = {
   organizavel: boolean;
   cobravel: boolean;
   semHoje: boolean;
+  rota?: { title: string; pct: number };
   hoje: string;
   agora: string;
   projeto?: string;
 };
 
-function Linha({ item, contextos, comContexto, organizavel, cobravel, semHoje, hoje, agora, projeto }: LinhaProps) {
+function Linha({ item, contextos, comContexto, organizavel, cobravel, semHoje, rota, hoje, agora, projeto }: LinhaProps) {
   const [, iniciar] = useTransition();
   const [feita, setFeita] = useOptimistic(item.state === "concluida");
   const [saiu, setSaiu] = useOptimistic(false);
@@ -111,6 +114,7 @@ function Linha({ item, contextos, comContexto, organizavel, cobravel, semHoje, h
             <span className="prop"><i className="dot" style={{ background: contexto.color }} />{contexto.name}</span>
           )}
           {projeto && <span className="prop"><Folder aria-hidden />{projeto}</span>}
+          {rota && <span className="prop"><i className="ring" style={{ "--p": Math.round(rota.pct * 100) } as React.CSSProperties} aria-hidden />Rota · {rota.title}</span>}
           {item.kind === "decidir" && <span className="prop"><Scale aria-hidden />Decisão</span>}
           {aguardando ? (
             <span className={`prop${cobrarHoje ? " prop--warn" : ""}`}>

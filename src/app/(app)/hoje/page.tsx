@@ -5,6 +5,9 @@ import { BotaoNova, ProximoPasso } from "@/components/ProximoPasso";
 import { agoraHora, dataPorExtenso, hojeISO, saudacao } from "@/lib/datas";
 import { horaSP, montarHoje, resumoDoDia } from "@/lib/hoje";
 import { CAMPOS_LISTA, type Compromisso, type Responsabilidade } from "@/lib/tipos";
+import Link from "next/link";
+import { Anel, Caminho } from "@/components/Caminho";
+import { CAMPOS_ROTA, normalizar, resumirRota, type Marco } from "@/lib/rotas";
 
 export const metadata = { title: "Hoje" };
 
@@ -16,14 +19,21 @@ export default async function Page() {
   const inicio = new Date(`${hoje}T00:00:00-03:00`).toISOString();
   const fim = new Date(`${hoje}T23:59:59.999-03:00`).toISOString();
 
-  const [{ data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }] = await Promise.all([
+  const [{ data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }] = await Promise.all([
     supabase.from("profiles").select("display_name").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").order("position"),
     supabase.from("projects").select("id, name"),
     supabase.from("responsibilities").select(CAMPOS_LISTA).neq("state", "concluida"),
     supabase.from("responsibilities").select(CAMPOS_LISTA).eq("state", "concluida").gte("done_at", inicio).order("done_at"),
     supabase.from("events").select("id, title, context_id, starts_at, ends_at, location").gte("starts_at", inicio).lte("starts_at", fim).order("starts_at"),
+    supabase.from("routes").select(CAMPOS_ROTA).eq("status", "ativa").order("created_at"),
+    supabase.from("route_milestones").select("id, route_id, title, position, due_date, done_at"),
   ]);
+  const rotas = (rotasDb ?? []).map((x) => {
+    const r = normalizar(x);
+    return { r, resumo: resumirRota(r, ((marcosDb ?? []) as Marco[]).filter((m) => m.route_id === r.id), hoje) };
+  });
+  const mapaRotas = Object.fromEntries(rotas.map(({ r, resumo }) => [r.id, { title: r.title, pct: resumo.pct }]));
 
   const ctx = contextos ?? [];
   const nomesProjetos = Object.fromEntries((projetos ?? []).map((p) => [p.id, p.name]));
@@ -57,20 +67,21 @@ export default async function Page() {
               proximo={dia.proximo}
               contextos={ctx}
               projeto={dia.proximo.tipo === "responsabilidade" && dia.proximo.item.project_id ? nomesProjetos[dia.proximo.item.project_id] : undefined}
+              rota={dia.proximo.tipo === "responsabilidade" && dia.proximo.item.route_id ? mapaRotas[dia.proximo.item.route_id] : undefined}
             />
           )}
 
           {dia.atencao.length > 0 && (
             <section className="sec" aria-labelledby="sec-atencao">
               <h2 className="sec__h" id="sec-atencao">Atenção <em>{dia.atencao.length}</em></h2>
-              <ListaResponsabilidades itens={dia.atencao} contextos={ctx} projetos={nomesProjetos} cobravel />
+              <ListaResponsabilidades itens={dia.atencao} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} cobravel />
             </section>
           )}
 
           {doDiaComFeitas.length > 0 && (
             <section className="sec" aria-labelledby="sec-hoje">
               <h2 className="sec__h" id="sec-hoje">Hoje <em>{dia.doDia.length}</em><span className="sec__act">Por horário</span></h2>
-              <ListaResponsabilidades itens={doDiaComFeitas} contextos={ctx} projetos={nomesProjetos} semHoje />
+              <ListaResponsabilidades itens={doDiaComFeitas} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} semHoje />
             </section>
           )}
 
@@ -84,7 +95,7 @@ export default async function Page() {
           {dia.aguardando.length > 0 && (
             <details className="sec fold">
               <summary className="sec__h"><ChevronRight aria-hidden />Aguardando alguém <em>{dia.aguardando.length}</em></summary>
-              <ListaResponsabilidades itens={dia.aguardando} contextos={ctx} projetos={nomesProjetos} />
+              <ListaResponsabilidades itens={dia.aguardando} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} />
             </details>
           )}
 
@@ -121,6 +132,21 @@ export default async function Page() {
               </div>
             )}
           </section>
+
+          {rotas.length > 0 && (
+            <section className="sec">
+              <h2 className="sec__h">Rotas em andamento</h2>
+              <div style={{ display: "grid", gap: 10 }}>
+                {rotas.slice(0, 3).map(({ r, resumo }) => (
+                  <Link key={r.id} href={`/rotas/${r.id}`} className="route" style={{ padding: 14, gap: 10 }}>
+                    <span className="route__k" style={{ color: "var(--text)", fontSize: 14, fontWeight: 500 }}><Anel pct={resumo.pct} />{r.title}</span>
+                    <Caminho pct={resumo.pct} />
+                    <span className="route__line">{r.kind === "financeiro" ? `${resumo.agora.split(" de ")[0]} guardados · ` : ""}{resumo.linha}</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
         </aside>
       </div>
     </div>

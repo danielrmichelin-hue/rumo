@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { CalendarDays, ChevronRight, Folder, ListChecks, Search, Settings, Shapes } from "lucide-react";
+import { CalendarDays, ChevronRight, Folder, ListChecks, Route, Search, Settings, Shapes } from "lucide-react";
 
 export const metadata = { title: "Mais" };
 
 const ITENS = [
   { href: "/responsabilidades", label: "Responsabilidades", Icon: ListChecks },
   { href: "/projetos", label: "Projetos", Icon: Folder },
+  { href: "/rotas", label: "Rotas", Icon: Route },
   { href: "/calendario", label: "Calendário", Icon: CalendarDays },
   { href: "/busca", label: "Buscar", Icon: Search },
   { href: "/contextos", label: "Contextos", Icon: Shapes },

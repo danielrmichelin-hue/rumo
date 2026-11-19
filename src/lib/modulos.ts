@@ -17,7 +17,7 @@ export const MODULOS: Modulo[] = [
   { chave: "estudos", nome: "Estudos", grupo: "Estudos", disponivel: false },
   { chave: "rotinas", nome: "Rotinas & Hábitos", grupo: "Rotinas", disponivel: false },
   { chave: "notas", nome: "Notas", grupo: "Notas", disponivel: false },
-  { chave: "rotas", nome: "Rotas", grupo: "Rotas", disponivel: false },
+  { chave: "rotas", nome: "Rotas", grupo: "Rotas", disponivel: true },
 ];
 
 export function moduloLigado(modulos: string[], chave: ChaveModulo) {

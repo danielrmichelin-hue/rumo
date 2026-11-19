@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Folder, Home, Inbox, ListChecks, Menu, Plus, Search, Settings, Settings2, Shapes } from "lucide-react";
+import { CalendarDays, Folder, Home, Inbox, ListChecks, Menu, Plus, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
 import { AvisosProvider } from "./Avisos";
 import { Captura, useAtalhoCaptura } from "./Captura";
 
@@ -18,6 +18,8 @@ type Props = {
   atencao: number;
   /** módulos ligados e disponíveis (hoje só "negocios") */
   negocios: boolean;
+  /** Rotas ativas (null quando o módulo está desligado e não há Rotas) */
+  rotas: { id: string; title: string; pct: number; rotulo: string }[] | null;
   children: React.ReactNode;
 };
 
@@ -35,7 +37,7 @@ export function iniciais(nome: string) {
   return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : partes[0][1] ?? "")).toUpperCase();
 }
 
-export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, children }: Props) {
+export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, rotas, children }: Props) {
   const path = usePathname();
   const router = useRouter();
   const on = (href: string) => (path === href || path.startsWith(href + "/") ? "page" : undefined);
@@ -121,6 +123,25 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, c
               <div className="side__group"><span>Contextos</span></div>
               <Link href="/contextos" className="nav"><Plus aria-hidden /><span className="nav__label">Criar contextos</span></Link>
             </>
+          )}
+
+          {rotas && (
+            <div>
+              <div className="side__group">
+                <span>Rotas</span>
+                <Link href="/rotas/nova" aria-label="Nova Rota" title="Nova Rota"><Plus size={14} /></Link>
+              </div>
+              {rotas.map((r) => (
+                <Link key={r.id} href={`/rotas/${r.id}`} className="nav" aria-current={on(`/rotas/${r.id}`)}>
+                  <i className="ring" style={{ "--p": r.pct } as React.CSSProperties} aria-hidden />
+                  <span className="nav__label">{r.title}</span>
+                  <span className="nav__count">{r.rotulo}</span>
+                </Link>
+              ))}
+              {!rotas.length && (
+                <Link href="/rotas/nova" className="nav" aria-current={on("/rotas/nova")}><Route aria-hidden /><span className="nav__label">Primeira Rota</span></Link>
+              )}
+            </div>
           )}
 
           <div className="side__foot">

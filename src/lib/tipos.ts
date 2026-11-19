@@ -16,6 +16,7 @@ export type Responsabilidade = {
   kind: "fazer" | "decidir";
   context_id: string | null;
   project_id: string | null;
+  route_id?: string | null;
   state: Estado;
   due_date: string | null;
   due_time: string | null;
@@ -30,7 +31,7 @@ export type Responsabilidade = {
 };
 
 export const CAMPOS_LISTA =
-  "id, title, note, kind, context_id, project_id, state, due_date, due_time, today, waiting_note, follow_up_on, done_at, source, raw_capture, created_at, updated_at";
+  "id, title, note, kind, context_id, project_id, route_id, state, due_date, due_time, today, waiting_note, follow_up_on, done_at, source, raw_capture, created_at, updated_at";
 
 /** Cores de contexto (bolinha). Tons das telas conceituais do Book; o roxo da marca fica para ação. */
 export const CORES_CONTEXTO = [

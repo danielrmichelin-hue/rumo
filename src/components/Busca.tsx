@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CircleCheck, Folder, Search, Shapes, User } from "lucide-react";
+import { CalendarDays, CircleCheck, Folder, Route, Search, Shapes, User } from "lucide-react";
 import { buscar, type Achado } from "@/app/(app)/acoes";
 
-const ICONE = { responsabilidade: CircleCheck, projeto: Folder, contexto: Shapes, compromisso: CalendarDays, pessoa: User };
-const GRUPO: Record<Achado["tipo"], string> = { responsabilidade: "Responsabilidades", projeto: "Projetos", contexto: "Contextos", compromisso: "Compromissos", pessoa: "Pessoas" };
+const ICONE = { responsabilidade: CircleCheck, projeto: Folder, rota: Route, contexto: Shapes, compromisso: CalendarDays, pessoa: User };
+const GRUPO: Record<Achado["tipo"], string> = { responsabilidade: "Responsabilidades", projeto: "Projetos", rota: "Rotas", contexto: "Contextos", compromisso: "Compromissos", pessoa: "Pessoas" };
 
 function destacar(texto: string, termo: string) {
   const i = texto.toLowerCase().indexOf(termo.toLowerCase());

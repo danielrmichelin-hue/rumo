@@ -19,7 +19,7 @@ export function BotaoNova({ texto, rotulo = "Nova", variante = "btn", icone }: {
   );
 }
 
-export function ProximoPasso({ proximo, contextos, projeto }: { proximo: Tipo; contextos: ContextItem[]; projeto?: string }) {
+export function ProximoPasso({ proximo, contextos, projeto, rota }: { proximo: Tipo; contextos: ContextItem[]; projeto?: string; rota?: { title: string; pct: number } }) {
   const [pendente, iniciar] = useTransition();
   const [menu, setMenu] = useState(false);
   const avisar = useAvisar();
@@ -88,6 +88,7 @@ export function ProximoPasso({ proximo, contextos, projeto }: { proximo: Tipo; c
           {aguardando && item.waiting_note && <span className="prop">{item.waiting_note}</span>}
           {ctx && <span className="prop"><i className="dot" style={{ background: ctx.color }} />{ctx.name}</span>}
           {projeto && <span className="prop"><Folder aria-hidden />{projeto}</span>}
+          {rota && <span className="prop"><i className="ring" style={{ "--p": Math.round(rota.pct * 100) } as React.CSSProperties} aria-hidden />Rota · {rota.title}</span>}
         </span>
       </div>
       <div className="next__act">
