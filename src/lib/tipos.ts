@@ -66,6 +66,9 @@ export type Compromisso = {
   starts_at: string;
   ends_at: string | null;
   location: string | null;
+  /** sessão de estudo (módulo Estudos) */
+  course_id?: string | null;
+  done_at?: string | null;
 };
 
 /** Ordem das listas: com prazo primeiro (mais cedo antes), depois sem prazo, por criação. */

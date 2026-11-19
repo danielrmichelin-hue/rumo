@@ -18,11 +18,13 @@ export type Rota = {
   target_date: string | null;
   status: "ativa" | "pausada" | "concluida";
   note: string | null;
+  /** curso ligado (módulo Estudos): leituras e "concluir o curso" */
+  course_id?: string | null;
 };
 
 export type Marco = { id: string; route_id: string; title: string; position: number; due_date: string | null; done_at: string | null };
 
-export const CAMPOS_ROTA = "id, title, kind, context_id, target, current, start_value, start_date, target_date, status, note";
+export const CAMPOS_ROTA = "id, title, kind, context_id, target, current, start_value, start_date, target_date, status, note, course_id";
 
 export const TIPOS: Record<TipoRota, { nome: string; exemplo: string; informa: string; calcula: string }> = {
   financeiro: { nome: "Financeiro", exemplo: "Guardar R$ 5.000", informa: "Quanto quer juntar, quanto já tem e o prazo", calcula: "O ritmo mensal e a data de chegada" },
