@@ -40,14 +40,19 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, c
   const router = useRouter();
   const on = (href: string) => (path === href || path.startsWith(href + "/") ? "page" : undefined);
   const [captura, setCaptura] = useState(false);
+  const [textoInicial, setTextoInicial] = useState("");
   const abrir = useCallback(() => setCaptura(true), []);
   const fechar = useCallback(() => setCaptura(false), []);
   useAtalhoCaptura(abrir);
 
   // Botões "Nova" das páginas abrem a captura
   useEffect(() => {
-    window.addEventListener("rumo:capturar", abrir);
-    return () => window.removeEventListener("rumo:capturar", abrir);
+    function onCapturar(e: Event) {
+      setTextoInicial((e as CustomEvent<{ texto?: string }>).detail?.texto ?? "");
+      abrir();
+    }
+    window.addEventListener("rumo:capturar", onCapturar);
+    return () => window.removeEventListener("rumo:capturar", onCapturar);
   }, [abrir]);
 
   // ⌘K / Ctrl+K: busca
@@ -147,7 +152,7 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, c
           <Link href="/mais" aria-current={on("/mais") ?? on("/responsabilidades") ?? on("/ajustes")}><Menu aria-hidden />Mais</Link>
         </nav>
 
-        <Captura aberta={captura} abrir={abrir} fechar={fechar} contextos={contexts} />
+        <Captura aberta={captura} abrir={abrir} fechar={() => { setTextoInicial(""); fechar(); }} contextos={contexts} textoInicial={textoInicial} />
       </div>
     </AvisosProvider>
   );

@@ -87,6 +87,7 @@ export async function salvarResponsabilidade(_: EstadoForm, form: FormData): Pro
   let followUp = texto(form.get("follow_up_on"));
   const note = texto(form.get("note"));
   const contextId = texto(form.get("context_id"));
+  const projectId = texto(form.get("project_id"));
 
   if (!title) return { erro: "O título não pode ficar vazio." };
   if (title.length > 300) return { erro: "O título passa de 300 caracteres." };
@@ -111,6 +112,7 @@ export async function salvarResponsabilidade(_: EstadoForm, form: FormData): Pro
       state,
       note: note || null,
       context_id: contextId || null,
+      project_id: projectId || null,
       due_date: dueDate || null,
       due_time: dueTime ? dueTime.slice(0, 5) : null,
       today: form.get("today") === "on" && state !== "concluida",
@@ -324,4 +326,170 @@ export async function salvarNome(_: EstadoForm, form: FormData): Promise<EstadoF
   if (error) return { erro: "Não foi possível salvar." };
   atualizar();
   return { ok: true, em: Date.now() };
+}
+
+// ---------- compromissos (calendário) ----------
+
+/** Junta data e hora de São Paulo num instante (Brasil sem horário de verão: -03:00) */
+function instante(data: string, hora: string) {
+  return new Date(`${data}T${hora.slice(0, 5)}:00-03:00`).toISOString();
+}
+
+function lerCompromisso(form: FormData) {
+  const title = texto(form.get("title"));
+  const data = texto(form.get("data"));
+  const inicio = texto(form.get("inicio"));
+  const fim = texto(form.get("fim"));
+  if (!title) return { erro: "Dê um nome ao compromisso." };
+  if (title.length > 200) return { erro: "Nome com mais de 200 caracteres." };
+  if (!DATA.test(data)) return { erro: "Escolha a data." };
+  if (!HORA.test(inicio)) return { erro: "Escolha a hora de início." };
+  if (fim && !HORA.test(fim)) return { erro: "Hora de fim inválida." };
+  if (fim && fim.slice(0, 5) <= inicio.slice(0, 5)) return { erro: "O fim precisa ser depois do início." };
+  return {
+    dados: {
+      title,
+      context_id: texto(form.get("context_id")) || null,
+      starts_at: instante(data, inicio),
+      ends_at: fim ? instante(data, fim) : null,
+      location: texto(form.get("location")) || null,
+      note: texto(form.get("note")) || null,
+    },
+  };
+}
+
+export async function criarCompromisso(_: EstadoForm, form: FormData): Promise<EstadoForm> {
+  const r = lerCompromisso(form);
+  if ("erro" in r) return { erro: r.erro };
+  const supabase = await createClient();
+  const { error } = await supabase.from("events").insert(r.dados);
+  if (error) return { erro: "Não foi possível guardar o compromisso." };
+  atualizar();
+  return { ok: true, em: Date.now() };
+}
+
+export async function salvarCompromisso(_: EstadoForm, form: FormData): Promise<EstadoForm> {
+  const r = lerCompromisso(form);
+  if ("erro" in r) return { erro: r.erro };
+  const supabase = await createClient();
+  const { error } = await supabase.from("events").update(r.dados).eq("id", texto(form.get("id")));
+  if (error) return { erro: "Não foi possível guardar o compromisso." };
+  atualizar();
+  return { ok: true, em: Date.now() };
+}
+
+export async function apagarCompromisso(form: FormData) {
+  const supabase = await createClient();
+  await supabase.from("events").delete().eq("id", texto(form.get("id")));
+  atualizar();
+  redirect(texto(form.get("voltar")).startsWith("/") ? texto(form.get("voltar")) : "/calendario");
+}
+
+// ---------- projetos ----------
+
+export async function criarProjeto(_: EstadoForm, form: FormData): Promise<EstadoForm & { id?: string }> {
+  const name = texto(form.get("name"));
+  if (!name) return { erro: "Dê um nome ao projeto." };
+  if (name.length > 120) return { erro: "Nome com mais de 120 caracteres." };
+  const due = texto(form.get("due_date"));
+  if (due && !DATA.test(due)) return { erro: "Data de entrega inválida." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .insert({ name, context_id: texto(form.get("context_id")) || null, due_date: due || null })
+    .select("id")
+    .single();
+  if (error || !data) return { erro: "Não foi possível criar o projeto." };
+  atualizar();
+  redirect(`/projetos/${data.id}`);
+}
+
+export async function salvarProjeto(_: EstadoForm, form: FormData): Promise<EstadoForm> {
+  const name = texto(form.get("name"));
+  const status = texto(form.get("status"));
+  const due = texto(form.get("due_date"));
+  if (!name) return { erro: "Dê um nome ao projeto." };
+  if (!["ativo", "pausado", "concluido"].includes(status)) return { erro: "Estado desconhecido." };
+  if (due && !DATA.test(due)) return { erro: "Data de entrega inválida." };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("projects")
+    .update({ name: name.slice(0, 120), status, due_date: due || null, context_id: texto(form.get("context_id")) || null, note: texto(form.get("note")) || null })
+    .eq("id", texto(form.get("id")));
+  if (error) return { erro: "Não foi possível guardar o projeto." };
+  atualizar();
+  return { ok: true, em: Date.now() };
+}
+
+export async function apagarProjeto(form: FormData) {
+  const supabase = await createClient();
+  // As responsabilidades do projeto continuam (on delete set null)
+  await supabase.from("projects").delete().eq("id", texto(form.get("id")));
+  atualizar();
+  redirect("/projetos");
+}
+
+/** Adiciona uma etapa ao projeto lendo o texto como a captura (data, hora, #contexto) */
+export async function adicionarNoProjeto(projetoId: string, bruto: string): Promise<{ ok: boolean; erro?: string }> {
+  const original = bruto.trim();
+  if (!original) return { ok: false, erro: "Escreva a etapa." };
+  const supabase = await createClient();
+  const [{ data: projeto }, { data: contextos }] = await Promise.all([
+    supabase.from("projects").select("id, context_id").eq("id", projetoId).single(),
+    supabase.from("contexts").select("id, name").eq("archived", false).order("position"),
+  ]);
+  if (!projeto) return { ok: false, erro: "Este projeto não existe mais." };
+  const leitura = lerCaptura(original, contextos ?? [], hojeISO());
+  const { error } = await supabase.from("responsibilities").insert({
+    title: leitura.title,
+    due_date: leitura.due_date,
+    due_time: leitura.due_time,
+    context_id: leitura.context_id ?? projeto.context_id,
+    project_id: projeto.id,
+    kind: leitura.kind,
+    source: "captura",
+    raw_capture: original,
+  });
+  if (error) return { ok: false, erro: "Não foi possível guardar a etapa." };
+  atualizar();
+  return { ok: true };
+}
+
+// ---------- busca ----------
+
+export type Achado = { tipo: "responsabilidade" | "projeto" | "contexto" | "compromisso" | "pessoa"; id: string; titulo: string; detalhe: string; href: string; cor?: string };
+
+export async function buscar(termo: string): Promise<Achado[]> {
+  const q = termo.trim().replace(/[%,()]/g, " ").replace(/\s+/g, " ").slice(0, 80);
+  if (q.length < 2) return [];
+  const like = `%${q}%`;
+  const supabase = await createClient();
+  const [r, p, c, e, g, ctxs] = await Promise.all([
+    supabase.from("responsibilities").select("id, title, note, state, context_id, waiting_note").or(`title.ilike.${like},note.ilike.${like},waiting_note.ilike.${like}`).order("updated_at", { ascending: false }).limit(20),
+    supabase.from("projects").select("id, name, note, context_id").or(`name.ilike.${like},note.ilike.${like}`).limit(8),
+    supabase.from("contexts").select("id, name, color").ilike("name", like).limit(8),
+    supabase.from("events").select("id, title, starts_at, context_id").or(`title.ilike.${like},location.ilike.${like},note.ilike.${like}`).order("starts_at", { ascending: false }).limit(8),
+    supabase.from("people").select("id, name").ilike("name", like).limit(8),
+    supabase.from("contexts").select("id, name, color"),
+  ]);
+  const nomeCtx = (id: string | null) => (ctxs.data ?? []).find((x) => x.id === id);
+  const estados: Record<string, string> = { a_fazer: "A fazer", aguardando: "Aguardando alguém", concluida: "Concluída" };
+  const achados: Achado[] = [];
+  for (const x of r.data ?? []) {
+    const ctx = nomeCtx(x.context_id);
+    const naNota = x.note && !x.title.toLowerCase().includes(q.toLowerCase()) ? " · na nota" : "";
+    achados.push({ tipo: "responsabilidade", id: x.id, titulo: x.title, detalhe: `${estados[x.state] ?? ""}${ctx ? ` · ${ctx.name}` : " · Inbox"}${naNota}`, href: `/responsabilidades/${x.id}`, cor: ctx?.color });
+  }
+  for (const x of p.data ?? []) {
+    const ctx = nomeCtx(x.context_id);
+    achados.push({ tipo: "projeto", id: x.id, titulo: x.name, detalhe: `Projeto${ctx ? ` · ${ctx.name}` : ""}`, href: `/projetos/${x.id}`, cor: ctx?.color });
+  }
+  for (const x of c.data ?? []) achados.push({ tipo: "contexto", id: x.id, titulo: x.name, detalhe: "Contexto", href: `/contexto/${x.id}`, cor: x.color });
+  for (const x of e.data ?? []) {
+    const ctx = nomeCtx(x.context_id);
+    const dia = hojeISO(new Date(x.starts_at));
+    achados.push({ tipo: "compromisso", id: x.id, titulo: x.title, detalhe: `Compromisso · ${dia.split("-").reverse().slice(0, 2).join("/")}${ctx ? ` · ${ctx.name}` : ""}`, href: `/calendario/${x.id}`, cor: ctx?.color });
+  }
+  for (const x of g.data ?? []) achados.push({ tipo: "pessoa", id: x.id, titulo: x.name, detalhe: "Pessoa", href: `/busca?q=${encodeURIComponent(x.name)}` });
+  return achados;
 }

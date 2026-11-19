@@ -40,7 +40,7 @@ todo em `docs/rumo-completo.md` antes de construir qualquer parte, e construa pr
 | 1 · Capturar | Captura que lê o texto, Inbox, Responsabilidades, Contextos | Em revisão com o Daniel |
 | 1b · Começo | Perguntas do começo: o que organizar, contextos e módulos, barra lateral montada pelo perfil (`docs/onboarding.md`) | Em revisão com o Daniel |
 | 2 · Hoje | Tela Hoje, follow-up e cobrança, notificações | Em revisão (falta: notificações) |
-| 3 · Completar o Core | Projetos, Calendário, Busca, visão por contexto | — |
+| 3 · Completar o Core | Projetos, Calendário, Busca, visão por contexto | Em revisão com o Daniel |
 
 O teste com o Daniel começa quando a fase 2 estiver pronta. Cada fase termina com algo que ele usa e aprova.
 
@@ -96,10 +96,19 @@ O teste com o Daniel começa quando a fase 2 estiver pronta. Cada fase termina c
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`; o layout manda para `/comecar` quem ainda não respondeu as perguntas do
   começo. A casca (`src/components/Shell.tsx`) monta a lateral pelo perfil e pelos contextos (Negócios = tipo
-  empresa, Áreas = tipo área). Módulos em `src/lib/modulos.ts`; o Hoje é montado por `src/lib/hoje.ts`.
+  empresa, Áreas = tipo área). Módulos em `src/lib/modulos.ts`; o Hoje é montado por `src/lib/hoje.ts`;
+  semana do calendário em `src/lib/semana.ts`; resumo de projeto (progresso, entrega, próximo passo) em
+  `src/lib/projetos.ts`. Ações do servidor em `src/app/(app)/acoes.ts`.
 - Publicação: a Vercel publica a `main` em produção (rumo-iter-midia.vercel.app). O Daniel autorizou levar à
   `main` cada etapa terminada e conferida.
 - Variáveis: `.env.local` com `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`).
+
+## Acabamento pedido pelo Daniel (fazer depois das funcionalidades)
+
+- Login: o lado direito está "seco". Ele quer algo vivo ali: imagem de fundo com o logo e a assinatura, ou um
+  vídeo curto em loop. (Atenção ao Book: movimento não chama atenção sozinho; respeitar `prefers-reduced-motion`.)
+- Transições suaves nas seleções: trocar entre "Entrar" e "Criar conta" (e segmentados em geral) com animação
+  macia, não um corte seco.
 
 ## Como trabalhar neste repositório
 

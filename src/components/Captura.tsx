@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, Inbox, ListChecks, Scale, X } from "lucide-react";
 import { capturar } from "@/app/(app)/acoes";
 import { lerCaptura } from "@/lib/captura";
@@ -29,7 +29,7 @@ function primeiraMaiuscula(s: string) {
   return s.charAt(0).toLocaleUpperCase("pt-BR") + s.slice(1);
 }
 
-export function Captura({ aberta, abrir, fechar, contextos }: { aberta: boolean; abrir: () => void; fechar: () => void; contextos: ContextItem[] }) {
+export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "" }: { aberta: boolean; abrir: () => void; fechar: () => void; contextos: ContextItem[]; textoInicial?: string }) {
   const [valor, setValor] = useState("");
   const campo = useRef<HTMLTextAreaElement>(null);
   const avisar = useAvisar();
@@ -38,11 +38,37 @@ export function Captura({ aberta, abrir, fechar, contextos }: { aberta: boolean;
   const leitura = useMemo(() => (valor.trim() ? lerCaptura(valor, contextos, hoje) : null), [valor, contextos, hoje]);
   const contexto = contextos.find((c) => c.id === leitura?.context_id);
 
+  // Botões como "Nova decisão" abrem a captura já com um começo de texto
+  // O cursor vai para o espaço reservado do texto pronto ("Decidir  #iter" → depois de "Decidir ";
+  // " #iter" → no começo). Aplicado depois que o texto já está na caixa.
+  const cursor = useRef<number | null>(null);
+  useEffect(() => {
+    if (!aberta || !textoInicial) return;
+    const i = textoInicial.indexOf("  ");
+    cursor.current = textoInicial.startsWith(" ") ? 0 : i >= 0 ? i + 1 : textoInicial.length;
+    setValor((v) => {
+      // Mesmo texto já na caixa: não haverá nova renderização, então posiciona agora
+      if (v === textoInicial) requestAnimationFrame(() => {
+        const el = campo.current;
+        if (el && cursor.current !== null) { el.focus(); el.setSelectionRange(cursor.current, cursor.current); cursor.current = null; }
+      });
+      return textoInicial;
+    });
+  }, [aberta, textoInicial]);
+  useLayoutEffect(() => {
+    const el = campo.current;
+    if (cursor.current === null || !el || el.value !== valor) return;
+    el.focus();
+    el.setSelectionRange(cursor.current, cursor.current);
+    cursor.current = null;
+  }, [valor]);
+
   useEffect(() => {
     if (!aberta) return;
     requestAnimationFrame(() => {
       const el = campo.current;
       if (!el) return;
+      if (cursor.current !== null) return; // o texto pronto posiciona o cursor
       el.focus();
       el.setSelectionRange(el.value.length, el.value.length);
     });

@@ -10,11 +10,11 @@ import type { ProximoPasso as Tipo } from "@/lib/hoje";
 import { useAvisar } from "./Avisos";
 import type { ContextItem } from "./Shell";
 
-/** Abre a captura de qualquer lugar (a casca escuta este evento) */
-export function BotaoNova() {
+/** Abre a captura de qualquer lugar (a casca escuta este evento). `texto` já vem escrito na caixa. */
+export function BotaoNova({ texto, rotulo = "Nova", variante = "btn", icone }: { texto?: string; rotulo?: string; variante?: string; icone?: React.ReactNode }) {
   return (
-    <button type="button" className="btn" onClick={() => window.dispatchEvent(new Event("rumo:capturar"))}>
-      Nova<kbd>C</kbd>
+    <button type="button" className={variante} onClick={() => window.dispatchEvent(new CustomEvent("rumo:capturar", { detail: { texto } }))}>
+      {icone}{rotulo}{variante === "btn" && <kbd>C</kbd>}
     </button>
   );
 }
