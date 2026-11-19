@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { lerCaptura } from "@/lib/captura";
 import { hojeISO, somarDias, somarDiasUteis } from "@/lib/datas";
 import { ESCOLHAS, type ChaveEscolha } from "@/lib/modulos";
+import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, type TipoRota } from "@/lib/rotas";
 import { CORES_CONTEXTO, proximaCor, type Estado } from "@/lib/tipos";
 
 function atualizar() {
@@ -457,20 +458,21 @@ export async function adicionarNoProjeto(projetoId: string, bruto: string): Prom
 
 // ---------- busca ----------
 
-export type Achado = { tipo: "responsabilidade" | "projeto" | "contexto" | "compromisso" | "pessoa"; id: string; titulo: string; detalhe: string; href: string; cor?: string };
+export type Achado = { tipo: "responsabilidade" | "projeto" | "rota" | "contexto" | "compromisso" | "pessoa"; id: string; titulo: string; detalhe: string; href: string; cor?: string };
 
 export async function buscar(termo: string): Promise<Achado[]> {
   const q = termo.trim().replace(/[%,()]/g, " ").replace(/\s+/g, " ").slice(0, 80);
   if (q.length < 2) return [];
   const like = `%${q}%`;
   const supabase = await createClient();
-  const [r, p, c, e, g, ctxs] = await Promise.all([
+  const [r, p, c, e, g, ctxs, rt] = await Promise.all([
     supabase.from("responsibilities").select("id, title, note, state, context_id, waiting_note").or(`title.ilike.${like},note.ilike.${like},waiting_note.ilike.${like}`).order("updated_at", { ascending: false }).limit(20),
     supabase.from("projects").select("id, name, note, context_id").or(`name.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("contexts").select("id, name, color").ilike("name", like).limit(8),
     supabase.from("events").select("id, title, starts_at, context_id").or(`title.ilike.${like},location.ilike.${like},note.ilike.${like}`).order("starts_at", { ascending: false }).limit(8),
     supabase.from("people").select("id, name").ilike("name", like).limit(8),
     supabase.from("contexts").select("id, name, color"),
+    supabase.from("routes").select("id, title, kind, context_id").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
   ]);
   const nomeCtx = (id: string | null) => (ctxs.data ?? []).find((x) => x.id === id);
   const estados: Record<string, string> = { a_fazer: "A fazer", aguardando: "Aguardando alguém", concluida: "Concluída" };
@@ -484,6 +486,10 @@ export async function buscar(termo: string): Promise<Achado[]> {
     const ctx = nomeCtx(x.context_id);
     achados.push({ tipo: "projeto", id: x.id, titulo: x.name, detalhe: `Projeto${ctx ? ` · ${ctx.name}` : ""}`, href: `/projetos/${x.id}`, cor: ctx?.color });
   }
+  for (const x of rt.data ?? []) {
+    const ctx = nomeCtx(x.context_id);
+    achados.push({ tipo: "rota", id: x.id, titulo: x.title, detalhe: `Rota${ctx ? ` · ${ctx.name}` : ""}`, href: `/rotas/${x.id}`, cor: ctx?.color });
+  }
   for (const x of c.data ?? []) achados.push({ tipo: "contexto", id: x.id, titulo: x.name, detalhe: "Contexto", href: `/contexto/${x.id}`, cor: x.color });
   for (const x of e.data ?? []) {
     const ctx = nomeCtx(x.context_id);
@@ -492,4 +498,179 @@ export async function buscar(termo: string): Promise<Achado[]> {
   }
   for (const x of g.data ?? []) achados.push({ tipo: "pessoa", id: x.id, titulo: x.name, detalhe: "Pessoa", href: `/busca?q=${encodeURIComponent(x.name)}` });
   return achados;
+}
+
+// ---------- Rotas ----------
+
+export type DadosRota = {
+  kind: TipoRota;
+  title: string;
+  context_id: string | null;
+  target: number | null;
+  current: number;
+  /** prazo na unidade do tipo: meses (financeiro), dias (leitura), semanas (estudos) */
+  prazo: number | null;
+  /** negócios: data de chegada */
+  target_date: string | null;
+  marcos: string[];
+  passoNoHoje: boolean;
+};
+
+export async function criarRota(d: DadosRota): Promise<{ ok: boolean; erro?: string; id?: string }> {
+  const title = d.title.trim().slice(0, 120);
+  if (!title) return { ok: false, erro: "Dê um nome ao destino." };
+  if (!["financeiro", "leitura", "estudos", "negocios"].includes(d.kind)) return { ok: false, erro: "Tipo de Rota desconhecido." };
+  const hoje = hojeISO();
+  let target_date: string | null = null;
+  if (d.kind === "negocios") {
+    if (!d.target_date || !DATA.test(d.target_date)) return { ok: false, erro: "Escolha quando quer chegar." };
+    if (!d.marcos.filter((m) => m.trim()).length) return { ok: false, erro: "Defina pelo menos um marco." };
+    target_date = d.target_date;
+  } else {
+    if (!d.target || d.target <= 0) return { ok: false, erro: "Informe o tamanho do destino." };
+    if (!d.prazo || d.prazo <= 0) return { ok: false, erro: "Informe o prazo." };
+    target_date = chegadaPorPrazo(d.kind, d.prazo, hoje);
+  }
+  const current = Math.max(0, Math.min(d.current || 0, d.target ?? Infinity));
+
+  const supabase = await createClient();
+  const { data: rota, error } = await supabase
+    .from("routes")
+    .insert({ title, kind: d.kind, context_id: d.context_id || null, target: d.kind === "negocios" ? null : d.target, current, start_value: current, start_date: hoje, target_date })
+    .select(CAMPOS_ROTA)
+    .single();
+  if (error || !rota) return { ok: false, erro: "Não foi possível criar a Rota." };
+
+  if (d.kind === "negocios") {
+    const marcos = d.marcos.map((m) => m.trim()).filter(Boolean).slice(0, 20).map((t, i) => ({ route_id: rota.id, title: t.slice(0, 120), position: i }));
+    await supabase.from("route_milestones").insert(marcos);
+  } else if (d.passoNoHoje) {
+    const s = resumirRota(normalizar(rota), [], hoje).sugestao;
+    if (s) await supabase.from("responsibilities").insert({ title: s.title, due_date: s.due_date, today: s.today, context_id: d.context_id || null, route_id: rota.id, source: "manual" });
+  }
+  atualizar();
+  return { ok: true, id: rota.id };
+}
+
+export async function salvarRota(_: EstadoForm, form: FormData): Promise<EstadoForm> {
+  const id = texto(form.get("id"));
+  const title = texto(form.get("title")).slice(0, 120);
+  const due = texto(form.get("target_date"));
+  const status = texto(form.get("status"));
+  const alvo = texto(form.get("target"));
+  if (!title) return { erro: "Dê um nome ao destino." };
+  if (due && !DATA.test(due)) return { erro: "Data de chegada inválida." };
+  if (!["ativa", "pausada", "concluida"].includes(status)) return { erro: "Estado desconhecido." };
+  const mudancas: Record<string, unknown> = { title, target_date: due || null, status, context_id: texto(form.get("context_id")) || null, note: texto(form.get("note")) || null };
+  if (alvo) {
+    const n = Number(alvo.replace(/\./g, "").replace(",", "."));
+    if (!(n > 0)) return { erro: "O destino precisa ser maior que zero." };
+    mudancas.target = n;
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.from("routes").update(mudancas).eq("id", id);
+  if (error) return { erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true, em: Date.now() };
+}
+
+export async function apagarRota(form: FormData) {
+  const supabase = await createClient();
+  // Os passos continuam como responsabilidades (on delete set null)
+  await supabase.from("routes").delete().eq("id", texto(form.get("id")));
+  atualizar();
+  redirect("/rotas");
+}
+
+/** Registra um avanço ("guardei R$ 400") e atualiza quanto já tem */
+export async function registrarAvanco(routeId: string, quantia: number, nota?: string): Promise<{ ok: boolean; erro?: string; entradaId?: string }> {
+  if (!Number.isFinite(quantia) || quantia === 0) return { ok: false, erro: "Informe quanto avançou." };
+  const supabase = await createClient();
+  const { data: rota } = await supabase.from("routes").select("current").eq("id", routeId).single();
+  if (!rota) return { ok: false, erro: "Esta Rota não existe mais." };
+  const { data: entrada, error } = await supabase.from("route_entries").insert({ route_id: routeId, amount: quantia, note: nota?.trim().slice(0, 200) || null, happened_on: hojeISO() }).select("id").single();
+  if (error || !entrada) return { ok: false, erro: "Não foi possível registrar." };
+  await supabase.from("routes").update({ current: Math.max(0, Number(rota.current) + quantia) }).eq("id", routeId);
+  atualizar();
+  return { ok: true, entradaId: entrada.id };
+}
+
+export async function desfazerAvanco(entradaId: string) {
+  const supabase = await createClient();
+  const { data: e } = await supabase.from("route_entries").select("route_id, amount").eq("id", entradaId).single();
+  if (!e) return;
+  const { data: rota } = await supabase.from("routes").select("current").eq("id", e.route_id).single();
+  await supabase.from("route_entries").delete().eq("id", entradaId);
+  if (rota) await supabase.from("routes").update({ current: Math.max(0, Number(rota.current) - Number(e.amount)) }).eq("id", e.route_id);
+  atualizar();
+}
+
+/** Quando o novo ritmo pesa demais: manter a chegada (aceita o novo ritmo) ou mover a chegada (mantém o ritmo) */
+export async function decidirRecalculo(routeId: string, opcao: "manter" | "mover", novaData?: string) {
+  const supabase = await createClient();
+  const { data: rota } = await supabase.from("routes").select("current").eq("id", routeId).single();
+  if (!rota) return;
+  const base = { start_value: Number(rota.current), start_date: hojeISO() };
+  await supabase.from("routes").update(opcao === "mover" && novaData && DATA.test(novaData) ? { ...base, target_date: novaData } : base).eq("id", routeId);
+  atualizar();
+}
+
+/** Coloca no Hoje o próximo passo sugerido pela Rota */
+export async function criarPassoSugerido(routeId: string): Promise<{ ok: boolean; titulo?: string }> {
+  const supabase = await createClient();
+  const { data: rota } = await supabase.from("routes").select(CAMPOS_ROTA).eq("id", routeId).single();
+  if (!rota) return { ok: false };
+  const r = normalizar(rota);
+  const s = resumirRota(r, [], hojeISO()).sugestao;
+  if (!s) return { ok: false };
+  // Se já existe o passo sugerido de antes (outro valor), atualiza em vez de duplicar
+  const prefixo = PREFIXO_PASSO[r.kind];
+  const { data: abertos } = await supabase.from("responsibilities").select("id, title").eq("route_id", r.id).neq("state", "concluida");
+  const antigo = prefixo ? (abertos ?? []).find((p) => p.title.startsWith(prefixo)) : null;
+  if (antigo) await supabase.from("responsibilities").update({ title: s.title, due_date: s.due_date, today: s.today }).eq("id", antigo.id);
+  else await supabase.from("responsibilities").insert({ title: s.title, due_date: s.due_date, today: s.today, context_id: r.context_id, route_id: r.id, source: "manual" });
+  atualizar();
+  return { ok: true, titulo: s.title };
+}
+
+/** Adiciona um passo à Rota (e ao marco atual, nas Rotas de negócio), lido como a captura */
+export async function adicionarPassoRota(routeId: string, bruto: string, marcoId?: string | null): Promise<{ ok: boolean; erro?: string }> {
+  const original = bruto.trim();
+  if (!original) return { ok: false, erro: "Escreva o passo." };
+  const supabase = await createClient();
+  const [{ data: rota }, { data: contextos }] = await Promise.all([
+    supabase.from("routes").select("id, context_id").eq("id", routeId).single(),
+    supabase.from("contexts").select("id, name").eq("archived", false).order("position"),
+  ]);
+  if (!rota) return { ok: false, erro: "Esta Rota não existe mais." };
+  const leitura = lerCaptura(original, contextos ?? [], hojeISO());
+  const { error } = await supabase.from("responsibilities").insert({
+    title: leitura.title, due_date: leitura.due_date, due_time: leitura.due_time, kind: leitura.kind,
+    context_id: leitura.context_id ?? rota.context_id, route_id: rota.id, milestone_id: marcoId || null,
+    source: "captura", raw_capture: original,
+  });
+  if (error) return { ok: false, erro: "Não foi possível guardar o passo." };
+  atualizar();
+  return { ok: true };
+}
+
+export async function adicionarMarco(routeId: string, titulo: string) {
+  const t = titulo.trim().slice(0, 120);
+  if (!t) return;
+  const supabase = await createClient();
+  const { data: ultimos } = await supabase.from("route_milestones").select("position").eq("route_id", routeId).order("position", { ascending: false }).limit(1);
+  await supabase.from("route_milestones").insert({ route_id: routeId, title: t, position: (ultimos?.[0]?.position ?? -1) + 1 });
+  atualizar();
+}
+
+export async function concluirMarco(id: string, feito: boolean) {
+  const supabase = await createClient();
+  await supabase.from("route_milestones").update({ done_at: feito ? new Date().toISOString() : null }).eq("id", id);
+  atualizar();
+}
+
+export async function apagarMarco(id: string) {
+  const supabase = await createClient();
+  await supabase.from("route_milestones").delete().eq("id", id);
+  atualizar();
 }
