@@ -88,7 +88,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
         <div>
           <h1 className="page__t">{tituloDoMes(segunda)}</h1>
           <p className="page__sub">Semana {numeroSemana(segunda)} · <b>{compromissos.length}</b> {compromissos.length === 1 ? "compromisso" : "compromissos"} · <b>{prazos.filter((p) => p.state !== "concluida").length}</b> prazos</p>
-          <p className="page__para">Compromissos com hora e os prazos de cada dia, juntos. Prazo fica em cima; o que tem hora, na grade.</p>
+          <p className="page__para">Compromissos e prazos de cada dia, juntos.</p>
         </div>
         <div className="page__actions">
           <AlternarVista vista="semana" semana={segunda} mes={(segunda <= hoje && hoje <= domingo ? hoje : segunda).slice(0, 7)} />
@@ -179,7 +179,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
         </div>
 
         <aside className="cal-side" aria-label="Sem horário">
-          <h2 className="sec__h">Sem horário <em>{semHorario.length}</em></h2>
+          <h2 className="sec__h">Sem horário {semHorario.length > 0 && <em>{semHorario.length}</em>}</h2>
           {semHorario.length === 0 ? (
             <p className="empty" style={{ paddingTop: 2 }}>Nada sem hora para esta semana.</p>
           ) : (

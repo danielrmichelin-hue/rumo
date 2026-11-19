@@ -14,6 +14,9 @@ export type Rotina = {
   /** conta fixa: valor do mês e categoria (Finanças) */
   amount?: number | null;
   category?: string | null;
+  /** remédio (Saúde): a dose; tratamento com fim: ends_on */
+  dose?: string | null;
+  ends_on?: string | null;
   at_time: string | null;
   duration_min: number | null;
   status: "ativa" | "pausada";
@@ -23,7 +26,7 @@ export type Rotina = {
 
 export type Marcacao = { routine_id: string; done_on: string };
 
-export const CAMPOS_ROTINA = "id, title, context_id, days, times_per_week, month_day, amount, category, at_time, duration_min, status, note, position";
+export const CAMPOS_ROTINA = "id, title, context_id, days, times_per_week, month_day, amount, category, dose, ends_on, at_time, duration_min, status, note, position";
 /** Verde do Book para rotinas sem contexto (calendário e lateral) */
 export const VERDE_ROTINA = "#3E9D72";
 
@@ -82,6 +85,7 @@ export const desdeMarcas = (hoje: string = hojeISO()) => [segundaDa(hoje), `${ho
  *  Mensal: do dia dela em diante, até ser feita (atraso sem alarme: "desde dia 10"). */
 export function eDoDia(r: Rotina, marcas: Marcacao[], hoje: string = hojeISO()): boolean {
   if (r.status !== "ativa") return false;
+  if (r.ends_on && r.ends_on < hoje) return false;
   if (r.month_day) {
     const m = mesDaRotina(r, marcas, hoje);
     return m.feitaEm ? m.feitaEm === hoje : m.dia <= hoje;

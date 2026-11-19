@@ -60,7 +60,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
           <p className="page__sub">
             <b>{contagem.a_fazer}</b> a fazer · <b>{contagem.aguardando}</b> aguardando alguém
           </p>
-          <p className="page__para">Tudo o que depende de você, por contexto. O que tem data também aparece no Hoje, no dia.</p>
+          <p className="page__para">Tudo o que depende de você, por contexto.</p>
         </div>
         <div className="page__actions hide-mobile"><BotaoNova /></div>
       </div>

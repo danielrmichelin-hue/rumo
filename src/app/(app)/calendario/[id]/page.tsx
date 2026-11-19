@@ -12,7 +12,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (!ehId(id)) notFound();
   const supabase = await createClient();
   const [{ data: ev }, { data: contextos }] = await Promise.all([
-    supabase.from("events").select("id, title, context_id, starts_at, ends_at, location, note, course_id, done_at").eq("id", id).maybeSingle(),
+    supabase.from("events").select("id, title, context_id, starts_at, ends_at, location, note, course_id, done_at, health_kind").eq("id", id).maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
   ]);
   if (!ev) notFound();
@@ -21,7 +21,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
   return (
     <div className="page page--narrow">
-      <Link href={`/calendario?semana=${data}`} className="back"><ArrowLeft size={16} aria-hidden />Calendário</Link>
+      {ev.health_kind
+        ? <Link href="/saude" className="back"><ArrowLeft size={16} aria-hidden />Saúde</Link>
+        : <Link href={`/calendario?semana=${data}`} className="back"><ArrowLeft size={16} aria-hidden />Calendário</Link>}
       <div className="page__head">
         <div>
           <h1 className="page__t">{ev.title}</h1>
@@ -44,6 +46,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           fim: ev.ends_at ? horaDe(ev.ends_at) : "",
           location: ev.location,
           note: ev.note,
+          ...(ev.health_kind ? { health_kind: ev.health_kind } : {}),
         }}
       />
     </div>

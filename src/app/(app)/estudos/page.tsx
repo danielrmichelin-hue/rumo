@@ -59,7 +59,7 @@ export default async function Page() {
       <div className="page__head">
         <div>
           <h1 className="page__t">Estudos</h1>
-          <p className="page__sub">Seu ciclo de estudos: matérias com horas, temas e sessões. O que você marca vai para o calendário e para o Hoje.</p>
+          <p className="page__sub">Seu ciclo de estudos: matérias, horas, aulas e sessões.</p>
         </div>
         <div className="page__actions"><Link href="/estudos/novo" className="btn"><Plus aria-hidden />Novo estudo</Link></div>
       </div>
@@ -73,12 +73,12 @@ export default async function Page() {
       ) : (
         <>
           <section className="sec">
-            <h2 className="sec__h">Em andamento <em>{ativos.length}</em></h2>
+            <h2 className="sec__h">Em andamento {ativos.length > 0 && <em>{ativos.length}</em>}</h2>
             <div className="routes">{ativos.map(cartao)}</div>
           </section>
           {concluidos.length > 0 && (
             <section className="sec">
-              <h2 className="sec__h">Concluídos <em>{concluidos.length}</em></h2>
+              <h2 className="sec__h">Concluídos {concluidos.length > 0 && <em>{concluidos.length}</em>}</h2>
               <div className="routes">{concluidos.map(cartao)}</div>
             </section>
           )}

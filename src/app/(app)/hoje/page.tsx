@@ -1,4 +1,4 @@
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Pill, Repeat } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
 import { BotaoNova, ProximoPasso } from "@/components/ProximoPasso";
@@ -11,7 +11,6 @@ import { CAMPOS_MARCO, CAMPOS_ROTA, type Marco, normalizar, resumirRota } from "
 import { AZUL_ESTUDO, CAMPOS_CURSO, CAMPOS_MATERIA, CAMPOS_SESSAO, CAMPOS_TEMA, horas, resumoDoCiclo, temasDa, type Curso, type Materia, type Sessao, type Tema } from "@/lib/estudos";
 import { CAMPOS_ROTINA, desdeMarcas, feitaEm, hora, type Marcacao, mesDaRotina, type Rotina, rotinasDoDia, semanaDaRotina } from "@/lib/rotinas";
 import { ChecarRotina } from "@/components/Rotinas";
-import { Repeat } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { moduloLigado, type ChaveModulo } from "@/lib/modulos";
 import { Children } from "react";
@@ -152,7 +151,7 @@ export default async function Page() {
           </Bloco>
 
           {(ligado("rotinas") || rotinas.length > 0) && (
-            <Bloco titulo="Rotinas" n={rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length} acao={<Link href="/rotinas" className="sec__act">Rotinas</Link>} vazio="Nenhuma rotina para hoje.">
+            <Bloco titulo={rotinas.some((r) => r.dose) ? "Rotinas e remédios" : "Rotinas"} n={rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length} acao={<Link href="/rotinas" className="sec__act">Rotinas</Link>} vazio="Nenhuma rotina para hoje.">
               {rotinas.length > 0 && (
                 <ul className="list">
                   {rotinas.map((r) => {
@@ -164,7 +163,7 @@ export default async function Page() {
                         <div className="row__body">
                           <span className="row__t">{r.title}</span>
                           <span className="props">
-                            <span className="prop"><Repeat aria-hidden />{r.month_day ? mesDaRotina(r, marcas, hoje).texto : sem.texto}</span>
+                            {r.dose ? <span className="prop"><Pill aria-hidden />Remédio · {r.dose}</span> : <span className="prop"><Repeat aria-hidden />{r.month_day ? mesDaRotina(r, marcas, hoje).texto : sem.texto}</span>}
                             {r.amount ? <span className="prop">{moeda(Number(r.amount))}</span> : null}
                             {r.at_time && <span className="prop">{hora(r.at_time)}</span>}
                           </span>

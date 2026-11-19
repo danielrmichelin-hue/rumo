@@ -15,7 +15,8 @@ export default async function Page() {
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
     supabase.from("profiles").select("onboarding").maybeSingle(),
   ]);
-  const rotinas = (rotinasDb ?? []) as Rotina[];
+  // Remédios (rotinas com dose) moram em Saúde
+  const rotinas = ((rotinasDb ?? []) as Rotina[]).filter((r) => !r.dose);
   const marcas = (marcasDb ?? []) as Marcacao[];
   const ctx = (contextos ?? []) as ContextItem[];
   const ativas = rotinas.filter((r) => r.status === "ativa");
@@ -38,7 +39,7 @@ export default async function Page() {
       <div className="page__head">
         <div>
           <h1 className="page__t">Rotinas</h1>
-          <p className="page__sub">O que se repete, no horário certo. Cada rotina aparece no Hoje nos dias dela. Um dia perdido não zera nada.</p>
+          <p className="page__sub">O que se repete, no horário certo. Um dia perdido não zera nada.</p>
         </div>
       </div>
 
@@ -56,14 +57,14 @@ export default async function Page() {
 
       {ativas.length > 0 && (
         <section className="sec">
-          <h2 className="sec__h">Suas rotinas <em>{ativas.length}</em></h2>
+          <h2 className="sec__h">Suas rotinas {ativas.length > 0 && <em>{ativas.length}</em>}</h2>
           <ul className="list">{ativas.map(linha)}</ul>
           <p className="field__hint" style={{ padding: "6px 10px" }}>Esqueceu de marcar? Toque no dia, nos pontos da semana.</p>
         </section>
       )}
       {pausadas.length > 0 && (
         <section className="sec">
-          <h2 className="sec__h">Pausadas <em>{pausadas.length}</em></h2>
+          <h2 className="sec__h">Pausadas {pausadas.length > 0 && <em>{pausadas.length}</em>}</h2>
           <ul className="list">{pausadas.map(linha)}</ul>
         </section>
       )}

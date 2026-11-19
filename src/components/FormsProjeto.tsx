@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
-import { adicionarNoProjeto, apagarProjeto, criarProjeto, salvarProjeto, type EstadoForm } from "@/app/(app)/acoes";
+import { useActionState, useOptimistic, useState, useTransition } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { adicionarNoProjeto, apagarProjeto, criarProjeto, mudarEstadoProjeto, salvarProjeto, type EstadoForm } from "@/app/(app)/acoes";
 import type { Projeto } from "@/lib/projetos";
 import { AdicionarRapido, CampoContexto, Painel } from "./Comuns";
 import type { ContextItem } from "./Shell";
@@ -41,7 +41,7 @@ export function NovoProjeto({ contextos, contextoPadrao }: { contextos: ContextI
 
 /** Adicionar etapa: uma linha, lida como a captura (data, hora, #contexto) */
 export function AdicionarEtapa({ projetoId }: { projetoId: string }) {
-  return <AdicionarRapido acao={(t) => adicionarNoProjeto(projetoId, t)} placeholder="Nova etapa, ex.: Aprovar a página de cardápio sexta" rotulo="Nova etapa" />;
+  return <AdicionarRapido acao={(t) => adicionarNoProjeto(projetoId, t)} placeholder="Nova etapa, ex.: Aprovar o orçamento sexta" rotulo="Nova etapa" />;
 }
 
 export function FormProjeto({ projeto, contextos }: { projeto: Projeto; contextos: ContextItem[] }) {
@@ -84,5 +84,41 @@ export function FormProjeto({ projeto, contextos }: { projeto: Projeto; contexto
         <button type="submit" className="btn btn--ghost btn--sm"><Trash2 aria-hidden />Apagar projeto</button>
       </form>
     </>
+  );
+}
+
+/** Nome, contexto, entrega e nota num painel: a página do projeto fica com as etapas */
+export function EditarProjeto({ projeto, contextos }: { projeto: Projeto; contextos: ContextItem[] }) {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <>
+      <button type="button" className="btn btn--line btn--sm" onClick={() => setAberto(true)}><Pencil aria-hidden />Editar</button>
+      {aberto && (
+        <Painel titulo="Editar projeto" fechar={() => setAberto(false)}>
+          <FormProjeto projeto={projeto} contextos={contextos} />
+        </Painel>
+      )}
+    </>
+  );
+}
+
+const ESTADOS = [
+  { v: "ativo", r: "Ativo" },
+  { v: "pausado", r: "Pausado" },
+  { v: "concluido", r: "Concluído" },
+] as const;
+
+export function EstadoProjeto({ id, status }: { id: string; status: Projeto["status"] }) {
+  const [otimista, setOtimista] = useOptimistic(status);
+  const [, iniciar] = useTransition();
+  return (
+    <div className="seg seg--sm" role="radiogroup" aria-label="Estado do projeto">
+      {ESTADOS.map((e) => (
+        <label key={e.v}>
+          <input type="radio" name={`estado-${id}`} checked={otimista === e.v} onChange={() => iniciar(async () => { setOtimista(e.v); await mudarEstadoProjeto(id, e.v); })} />
+          <span>{e.r}</span>
+        </label>
+      ))}
+    </div>
   );
 }

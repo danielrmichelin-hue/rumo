@@ -1,16 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, ChevronRight, Folder } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { AdicionarEtapa, FormProjeto } from "@/components/FormsProjeto";
+import { AdicionarEtapa, EditarProjeto, EstadoProjeto } from "@/components/FormsProjeto";
 import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
+import { ProximoPasso } from "@/components/ProximoPasso";
 import { resumirProjeto, type Projeto } from "@/lib/projetos";
 import { CAMPOS_LISTA, ordenar, type Responsabilidade } from "@/lib/tipos";
-import { ehId } from "@/lib/datas";
+import { ehId, hojeISO, rotuloData, rotuloVencido } from "@/lib/datas";
 import { ListaNotas, NovaNota } from "@/components/Notas";
 import { CAMPOS_NOTA, type Nota } from "@/lib/notas";
 
 export const metadata = { title: "Projeto" };
+
+/** Por que esta etapa é a próxima: o prazo dela, ou ser a primeira em aberto */
+function porque(r: Responsabilidade, hoje: string) {
+  if (r.state === "aguardando") return r.waiting_note ? `Aguardando ${r.waiting_note}` : "Aguardando retorno";
+  if (r.due_date && r.due_date < hoje) return rotuloVencido(r.due_date, r.due_time, hoje);
+  if (r.due_date) return `Prazo ${rotuloData(r.due_date, hoje)}`;
+  return "Primeira etapa em aberto";
+}
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,74 +32,87 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     supabase.from("notes").select(CAMPOS_NOTA).eq("project_id", id).order("created_at", { ascending: false }),
   ]);
   if (!projeto) notFound();
+  const hoje = hojeISO();
   const p = projeto as Projeto;
   const lista = ((etapas ?? []) as Responsabilidade[]).sort(ordenar);
-  const resumo = resumirProjeto(p, lista);
+  const resumo = resumirProjeto(p, lista, hoje);
   const ctx = contextos ?? [];
   const contexto = ctx.find((c) => c.id === p.context_id);
-  const aFazer = lista.filter((r) => r.state === "a_fazer");
-  const aguardando = lista.filter((r) => r.state === "aguardando");
+  const proximo = p.status === "ativo" ? resumo.proximo : null;
+  // O próximo passo fica em destaque e não se repete na lista
+  const abertas = lista.filter((r) => r.state !== "concluida" && r.id !== proximo?.id);
   const feitas = lista.filter((r) => r.state === "concluida");
   const pct = resumo.total ? Math.round((resumo.feitas / resumo.total) * 100) : 0;
+  const listaNotas = (notas ?? []) as Nota[];
 
   return (
-    <div className="page">
+    <div className="page page--wide">
+      <p className="crumb"><Link href="/projetos">Projetos</Link><ChevronRight aria-hidden />{p.name}</p>
       <div className="page__head">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p className="crumb"><Link href="/projetos">Projetos</Link><ChevronRight aria-hidden />{p.name}</p>
-          <p className="project__k" style={{ margin: "10px 0 4px" }}>
-            <span><Folder aria-hidden />Projeto{contexto && <> · <i className="dot" style={{ background: contexto.color }} /><Link href={`/contexto/${contexto.id}`}>{contexto.name}</Link></>}</span>
+        <div>
+          <h1 className="page__t">{p.name}</h1>
+          <p className="projeto__meta">
+            {contexto && <Link href={`/contexto/${contexto.id}`}><i className="dot" style={{ background: contexto.color }} />{contexto.name}</Link>}
             <span className={`status status--${resumo.situacao.tom}`}>{resumo.situacao.texto}</span>
           </p>
-          <h1 className="page__t">{p.name}</h1>
-          <div className="progress-bar" style={{ marginTop: 12, maxWidth: 520 }}>
-            <i><b style={{ width: `${pct}%` }} /></i>
-            {resumo.total ? `${resumo.feitas} de ${resumo.total} ${resumo.total === 1 ? "etapa" : "etapas"}` : "Sem etapas"}
-            {resumo.entrega && <> · Entrega {resumo.entrega}</>}
-          </div>
         </div>
+        <div className="page__actions"><EditarProjeto projeto={p} contextos={ctx} /></div>
       </div>
 
-      {resumo.proximo && (
-        <p className="project__next" style={{ borderRadius: "var(--r-lg)", marginBottom: 20 }}>
-          <ArrowRight aria-hidden />
-          <span>Próximo passo: <Link href={`/responsabilidades/${resumo.proximo.id}`}><b>{resumo.proximo.title}</b></Link></span>
-        </p>
-      )}
+      <div className="projeto">
+        <div className="projeto__main">
+          {proximo ? (
+            <ProximoPasso proximo={{ tipo: "responsabilidade", item: proximo, porque: porque(proximo, hoje) }} contextos={ctx} />
+          ) : p.status === "ativo" && (
+            <section className="next next--calmo" aria-label="Próximo passo">
+              <div>
+                <span className="next__t">{resumo.total ? "Todas as etapas feitas." : "Qual é o primeiro passo?"}</span>
+                <p className="next__p">{resumo.total ? "Se o projeto terminou, marque como concluído ao lado. Se falta algo, escreva a próxima etapa abaixo." : "Escreva a primeira etapa abaixo. A de cima vira o próximo passo, e o projeto passa a aparecer no Hoje quando ela tiver data."}</p>
+              </div>
+            </section>
+          )}
 
-      <AdicionarEtapa projetoId={p.id} />
+          <section className="sec">
+            <h2 className="sec__h">Etapas <em>{resumo.total ? `${resumo.feitas} de ${resumo.total} feitas` : "nenhuma ainda"}</em></h2>
+            {abertas.length > 0 && <ListaResponsabilidades itens={abertas} contextos={ctx} comContexto={false} cobravel />}
+            <AdicionarEtapa projetoId={p.id} />
+            <p className="field__hint" style={{ marginTop: 6 }}>Dá para escrever o prazo junto: “Mandar o orçamento sexta”, “Ligar para o pedreiro amanhã 10h”.</p>
+          </section>
 
-      {aFazer.length > 0 && (
-        <section className="sec">
-          <h2 className="sec__h">A fazer <em>{aFazer.length}</em></h2>
-          <ListaResponsabilidades itens={aFazer} contextos={ctx} comContexto={false} />
-        </section>
-      )}
-      {aguardando.length > 0 && (
-        <section className="sec">
-          <h2 className="sec__h">Aguardando alguém <em>{aguardando.length}</em></h2>
-          <ListaResponsabilidades itens={aguardando} contextos={ctx} comContexto={false} cobravel />
-        </section>
-      )}
-      {feitas.length > 0 && (
-        <details className="sec fold">
-          <summary className="sec__h"><ChevronRight aria-hidden />Concluídas <em>{feitas.length}</em></summary>
-          <ListaResponsabilidades itens={feitas} contextos={ctx} comContexto={false} />
-        </details>
-      )}
-      {lista.length === 0 && (
-        <div className="empty"><b>Nenhuma etapa ainda.</b>Comece pelo próximo passo: escreva acima e aperte Enter.</div>
-      )}
+          {feitas.length > 0 && (
+            <details className="sec fold">
+              <summary className="sec__h"><ChevronRight aria-hidden />Feitas {feitas.length > 0 && <em>{feitas.length}</em>}</summary>
+              <ListaResponsabilidades itens={feitas} contextos={ctx} comContexto={false} />
+            </details>
+          )}
+        </div>
 
-      <section className="sec">
-        <h2 className="sec__h">Notas <em>{(notas ?? []).length}</em><span className="sec__act"><NovaNota vinculo={`p:${p.id}`} /></span></h2>
-        {(notas ?? []).length > 0 ? <ListaNotas notas={(notas ?? []) as Nota[]} /> : <p className="empty">Combinados, referências e decisões deste projeto ficam aqui.</p>}
-      </section>
+        <aside className="projeto__lado">
+          <section className="bloco">
+            <h2 className="sec__h">Andamento</h2>
+            <div className="projeto__pct">
+              <b>{pct}%</b>
+              <span>{resumo.total ? `${resumo.feitas} de ${resumo.total} ${resumo.total === 1 ? "etapa" : "etapas"}` : "Sem etapas"}</span>
+            </div>
+            <div className="progress-bar projeto__barra" aria-hidden><i><b style={{ width: `${pct}%` }} /></i></div>
+            <dl className="kv projeto__kv">
+              <dt>Entrega</dt><dd>{resumo.entrega ?? <span className="projeto__sem">Sem data</span>}</dd>
+              <dt>Contexto</dt><dd>{contexto ? <><i className="dot" style={{ background: contexto.color }} /> {contexto.name}</> : <span className="projeto__sem">Nenhum</span>}</dd>
+            </dl>
+            <EstadoProjeto id={p.id} status={p.status} />
+          </section>
 
-      <section className="card" style={{ marginTop: 12 }}>
-        <h2 className="card__t">Detalhes do projeto</h2>
-        <FormProjeto projeto={p} contextos={ctx} />
-      </section>
+          <section className="bloco">
+            <h2 className="sec__h">Sobre</h2>
+            {p.note ? <p className="projeto__nota">{p.note}</p> : <p className="bloco__vazio">Objetivo, de quem depende, links. Escreva em Editar.</p>}
+          </section>
+
+          <section className="bloco">
+            <h2 className="sec__h">Notas {listaNotas.length > 0 && <em>{listaNotas.length}</em>}<span className="sec__act"><NovaNota vinculo={`p:${p.id}`} rotulo="Nova" variante="btn btn--ghost btn--sm" /></span></h2>
+            {listaNotas.length > 0 ? <ListaNotas notas={listaNotas} /> : <p className="bloco__vazio">Combinados, referências e decisões deste projeto.</p>}
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }

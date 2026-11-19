@@ -57,7 +57,7 @@ export default async function Page({ params }: { params: Promise<{ id: string; m
 
       {revisoes.length > 0 && (
         <section className="sec">
-          <h2 className="sec__h">Revisar hoje <em>{revisoes.length}</em></h2>
+          <h2 className="sec__h">Revisar hoje {revisoes.length > 0 && <em>{revisoes.length}</em>}</h2>
           <RevisoesDoDia temas={revisoes} materias={[materia]} />
         </section>
       )}

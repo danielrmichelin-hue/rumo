@@ -11,6 +11,7 @@ import { CORES_CONTEXTO, proximaCor, type Estado } from "@/lib/tipos";
 import { CORES_MATERIA, INTERVALOS, proximaRevisao, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 import { textoFrequencia } from "@/lib/rotinas";
 import { limitesDoMes } from "@/lib/financas";
+import { TIPOS_SAUDE, type TipoMedida, MEDIDAS } from "@/lib/saude";
 
 function atualizar() {
   revalidatePath("/", "layout");
@@ -298,6 +299,7 @@ export async function salvarComeco(dados: DadosComeco): Promise<{ ok: boolean; e
 
   const modules = [...new Set(escolhas.map((e) => e.modulo).filter((m): m is NonNullable<typeof m> => !!m))];
   if (limpar(dados.respostas.vida).some((v) => /finan/i.test(v))) modules.push("financas");
+  if (limpar(dados.respostas.vida).some((v) => /sa[uú]de/i.test(v))) modules.push("saude");
   const onboarding = {
     escolhas: escolhas.map((e) => e.chave),
     trabalho_origens: limpar(dados.respostas.trabalho),
@@ -359,6 +361,8 @@ function lerCompromisso(form: FormData) {
       ends_at: fim ? instante(data, fim) : null,
       location: texto(form.get("location")) || null,
       note: texto(form.get("note")) || null,
+      // Saúde: consulta, exame… (só quando o formulário traz o campo; os outros não mexem)
+      ...(form.has("health_kind") ? { health_kind: Object.hasOwn(TIPOS_SAUDE, texto(form.get("health_kind"))) ? texto(form.get("health_kind")) : null } : {}),
     },
   };
 }
@@ -424,6 +428,14 @@ export async function salvarProjeto(_: EstadoForm, form: FormData): Promise<Esta
   if (error) return { erro: "Não foi possível guardar o projeto." };
   atualizar();
   return { ok: true, em: Date.now() };
+}
+
+/** Ativo, pausado ou concluído, num toque */
+export async function mudarEstadoProjeto(id: string, status: "ativo" | "pausado" | "concluido") {
+  if (!ehId(id) || !["ativo", "pausado", "concluido"].includes(status)) return;
+  const supabase = await createClient();
+  await supabase.from("projects").update({ status }).eq("id", id);
+  atualizar();
 }
 
 export async function apagarProjeto(form: FormData) {
@@ -1209,4 +1221,65 @@ export async function salvarOrcamento(categoria: string, limite: number): Promis
   }
   atualizar();
   return { ok: true };
+}
+
+// ---------- saúde ----------
+
+export type DadosRemedio = { title: string; dose: string; horarios: string[]; ends_on: string | null; context_id: string | null };
+
+/** Remédio novo: uma rotina diária por horário, com a dose (aparece no Hoje em cada horário) */
+export async function criarRemedio(d: DadosRemedio): Promise<{ ok: boolean; erro?: string }> {
+  const title = d.title.trim().slice(0, 120);
+  const dose = d.dose.trim().slice(0, 80);
+  if (!title) return { ok: false, erro: "Qual remédio?" };
+  if (!dose) return { ok: false, erro: "Qual a dose? Ex.: 50 mg, 1 comprimido." };
+  const horarios = [...new Set(d.horarios.filter((h) => HORA.test(h)).map((h) => h.slice(0, 5)))].sort();
+  if (d.ends_on && (!DATA.test(d.ends_on) || d.ends_on < hojeISO())) return { ok: false, erro: "A data de fim já passou." };
+  const supabase = await createClient();
+  const { count } = await supabase.from("routines").select("id", { count: "exact", head: true });
+  const base = { title, dose, ends_on: d.ends_on || null, context_id: d.context_id || null, days: [0, 1, 2, 3, 4, 5, 6] };
+  const linhas = (horarios.length ? horarios : [null]).map((h, i) => ({ ...base, at_time: h, position: (count ?? 0) + i }));
+  const { error } = await supabase.from("routines").insert(linhas);
+  if (error) return { ok: false, erro: "Não foi possível guardar o remédio." };
+  atualizar();
+  return { ok: true };
+}
+
+/** Parar (ou voltar a tomar) um remédio: todos os horários juntos */
+export async function pausarRemedio(ids: string[], parar: boolean) {
+  const supabase = await createClient();
+  await supabase.from("routines").update({ status: parar ? "pausada" : "ativa" }).in("id", ids.filter(ehId));
+  atualizar();
+}
+
+export async function apagarRemedio(ids: string[]) {
+  const supabase = await createClient();
+  await supabase.from("routines").delete().in("id", ids.filter(ehId));
+  atualizar();
+}
+
+export type DadosMedida = { kind: TipoMedida; value: number; value2: number | null; label: string | null; measured_on: string; note: string | null };
+
+export async function registrarMedida(d: DadosMedida): Promise<{ ok: boolean; erro?: string; id?: string }> {
+  if (!Object.hasOwn(MEDIDAS, d.kind)) return { ok: false, erro: "Escolha a medida." };
+  if (!Number.isFinite(d.value) || d.value <= 0 || d.value >= 100000) return { ok: false, erro: "Valor inválido." };
+  if (d.kind === "pressao" && (!d.value2 || d.value2 <= 0 || d.value2 >= 1000)) return { ok: false, erro: "Escreva a pressão assim: 120/80." };
+  if (d.kind === "outro" && !d.label?.trim()) return { ok: false, erro: "Dê um nome à medida." };
+  if (!DATA.test(d.measured_on) || d.measured_on > hojeISO()) return { ok: false, erro: "Data inválida." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("health_measures")
+    .insert({ kind: d.kind, value: d.value, value2: d.kind === "pressao" ? d.value2 : null, label: d.kind === "outro" ? d.label!.trim().slice(0, 60) : null, measured_on: d.measured_on, note: d.note?.trim().slice(0, 300) || null })
+    .select("id")
+    .single();
+  if (error) return { ok: false, erro: "Não foi possível guardar a medida." };
+  atualizar();
+  return { ok: true, id: data.id };
+}
+
+export async function apagarMedida(id: string) {
+  if (!ehId(id)) return;
+  const supabase = await createClient();
+  await supabase.from("health_measures").delete().eq("id", id);
+  atualizar();
 }

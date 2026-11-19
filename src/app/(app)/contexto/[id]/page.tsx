@@ -139,10 +139,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </div>
         ) : (
           <>
-            {atrasadas.length > 0 && <section className="sec"><h2 className="sec__h">Atrasada <em>{atrasadas.length}</em></h2><ListaResponsabilidades itens={atrasadas} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
-            {estaSemana.length > 0 && <section className="sec"><h2 className="sec__h">Esta semana <em>{estaSemana.length}</em></h2><ListaResponsabilidades itens={estaSemana} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
-            {depois.length > 0 && <section className="sec"><h2 className="sec__h">Sem pressa <em>{depois.length}</em></h2><ListaResponsabilidades itens={depois} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
-            {aguardando.length > 0 && <section className="sec"><h2 className="sec__h">Aguardando outras pessoas <em>{aguardando.length}</em></h2><ListaResponsabilidades itens={aguardando} contextos={ctx} comContexto={false} projetos={nomesProjetos} cobravel /></section>}
+            {atrasadas.length > 0 && <section className="sec"><h2 className="sec__h">Atrasada {atrasadas.length > 0 && <em>{atrasadas.length}</em>}</h2><ListaResponsabilidades itens={atrasadas} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
+            {estaSemana.length > 0 && <section className="sec"><h2 className="sec__h">Esta semana {estaSemana.length > 0 && <em>{estaSemana.length}</em>}</h2><ListaResponsabilidades itens={estaSemana} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
+            {depois.length > 0 && <section className="sec"><h2 className="sec__h">Sem pressa {depois.length > 0 && <em>{depois.length}</em>}</h2><ListaResponsabilidades itens={depois} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
+            {aguardando.length > 0 && <section className="sec"><h2 className="sec__h">Aguardando outras pessoas {aguardando.length > 0 && <em>{aguardando.length}</em>}</h2><ListaResponsabilidades itens={aguardando} contextos={ctx} comContexto={false} projetos={nomesProjetos} cobravel /></section>}
           </>
         )
       )}
@@ -171,11 +171,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         ) : (
           <>
             <div style={{ marginBottom: 8 }}><NovaNota vinculo={`c:${id}`} decisao rotulo="Registrar decisão tomada" /></div>
-            {decisoesRegistradas.length > 0 && <section className="sec"><h2 className="sec__h">Registradas <em>{decisoesRegistradas.length}</em></h2><ListaNotas notas={decisoesRegistradas} /></section>}
-            {decAbertas.length > 0 && <section className="sec"><h2 className="sec__h">Para decidir <em>{decAbertas.length}</em></h2><ListaResponsabilidades itens={decAbertas} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
+            {decisoesRegistradas.length > 0 && <section className="sec"><h2 className="sec__h">Registradas {decisoesRegistradas.length > 0 && <em>{decisoesRegistradas.length}</em>}</h2><ListaNotas notas={decisoesRegistradas} /></section>}
+            {decAbertas.length > 0 && <section className="sec"><h2 className="sec__h">Para decidir {decAbertas.length > 0 && <em>{decAbertas.length}</em>}</h2><ListaResponsabilidades itens={decAbertas} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
             {decFeitas.length > 0 && (
               <section className="sec">
-                <h2 className="sec__h">Decididas <em>{decFeitas.length}</em></h2>
+                <h2 className="sec__h">Decididas {decFeitas.length > 0 && <em>{decFeitas.length}</em>}</h2>
                 <ul className="list">
                   {decFeitas.map((d) => (
                     <li key={d.id} className="row" style={{ gridTemplateColumns: "minmax(0,1fr)" }}>

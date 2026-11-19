@@ -72,7 +72,7 @@ export function Busca({ inicial }: { inicial: string }) {
         {buscou && !achados.length && !pendente && <p className="empty"><b>Nada encontrado para “{q.trim()}”.</b>Tente outra palavra ou parte do nome.</p>}
         {grupos.map((g) => (
           <section key={g.tipo} className="sec" style={{ marginBottom: 20 }}>
-            <h2 className="sec__h">{GRUPO[g.tipo]} <em>{g.itens.length}</em></h2>
+            <h2 className="sec__h">{GRUPO[g.tipo]} {g.itens.length > 0 && <em>{g.itens.length}</em>}</h2>
             {g.itens.map((a) => {
               const Icon = ICONE[a.tipo];
               const i = ordem.indexOf(a);

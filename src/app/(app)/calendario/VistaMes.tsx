@@ -52,7 +52,7 @@ export async function VistaMes({ mes }: { mes: string }) {
       <div className="page__head">
         <div>
           <h1 className="page__t">{titulo[0].toUpperCase() + titulo.slice(1)}</h1>
-          <p className="page__sub">Tudo o que tem data no mês. Toque num dia para ver a semana dele com os horários.</p>
+          <p className="page__sub">Tudo o que tem data no mês. Toque num dia para ver a semana.</p>
         </div>
         <div className="page__actions">
           <AlternarVista vista="mes" semana={primeiro <= hoje && hoje <= ultimo ? hoje : primeiro} mes={mes} />

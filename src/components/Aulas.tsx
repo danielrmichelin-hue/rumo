@@ -164,7 +164,7 @@ export function AulasDaMateria({ materia, modulos, temas }: { materia: Materia; 
       })}
       {(soltas.length > 0 || !modulos.length) && (
         <section className="modulo modulo--solto">
-          {modulos.length > 0 && <h3 className="sec__h">Sem módulo <em>{soltas.length}</em></h3>}
+          {modulos.length > 0 && <h3 className="sec__h">Sem módulo {soltas.length > 0 && <em>{soltas.length}</em>}</h3>}
           <ul className="aulas__lista">{soltas.map((t) => <LinhaAula key={t.id} tema={t} />)}</ul>
           <NovasAulas materiaId={materia.id} moduloId={null} vazio={!daMateria.length} />
         </section>

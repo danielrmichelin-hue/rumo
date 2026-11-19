@@ -122,7 +122,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             )
           ) : (
             <section className="sec">
-              <h2 className="sec__h">Próximos passos · vão para o Hoje <em>{abertos.length}</em></h2>
+              <h2 className="sec__h">Próximos passos · vão para o Hoje {abertos.length > 0 && <em>{abertos.length}</em>}</h2>
               {resumo.sugestao && !jaSugerido && rota.status === "ativa" && (
                 <div style={{ marginBottom: 8 }}><PassoSugerido routeId={rota.id} titulo={resumo.sugestao.title} quando={passoAntigo ? `substitui "${passoAntigo.title}"` : resumo.sugestao.quando} atualizar={!!passoAntigo} /></div>
               )}
@@ -153,7 +153,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
           {rota.kind === "negocios" && marcos.length > 0 && (
             <details className="sec fold">
-              <summary className="sec__h"><ChevronRight aria-hidden />Todos os marcos <em>{marcos.length}</em></summary>
+              <summary className="sec__h"><ChevronRight aria-hidden />Todos os marcos {marcos.length > 0 && <em>{marcos.length}</em>}</summary>
               <ul className="list">
                 {marcos.map((m) => (
                   <li key={m.id} className="row" style={{ gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center" }}>
@@ -174,7 +174,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
           {feitos.length > 0 && (
             <details className="sec fold">
-              <summary className="sec__h"><ChevronRight aria-hidden />Passos concluídos <em>{feitos.length}</em></summary>
+              <summary className="sec__h"><ChevronRight aria-hidden />Passos concluídos {feitos.length > 0 && <em>{feitos.length}</em>}</summary>
               <ListaResponsabilidades itens={feitos} contextos={ctx} comContexto={false} />
             </details>
           )}

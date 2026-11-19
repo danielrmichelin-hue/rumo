@@ -94,14 +94,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
           {revisoes.length > 0 && (
             <section className="sec">
-              <h2 className="sec__h">Revisões de hoje <em>{revisoes.length}</em></h2>
+              <h2 className="sec__h">Revisões de hoje {revisoes.length > 0 && <em>{revisoes.length}</em>}</h2>
               <RevisoesDoDia temas={revisoes} materias={materias} />
             </section>
           )}
 
           {confirmar.length > 0 && (
             <section className="sec">
-              <h2 className="sec__h">Para confirmar <em>{confirmar.length}</em></h2>
+              <h2 className="sec__h">Para confirmar {confirmar.length > 0 && <em>{confirmar.length}</em>}</h2>
               <ul className="list">{confirmar.map((s) => <ConfirmarSessao key={s.id} sessao={s} />)}</ul>
             </section>
           )}
@@ -152,7 +152,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
           {feitasSemana.length > 0 && (
             <details className="sec fold">
-              <summary className="sec__h"><ChevronRight aria-hidden />Estudado nesta semana <em>{feitasSemana.length}</em></summary>
+              <summary className="sec__h"><ChevronRight aria-hidden />Estudado nesta semana {feitasSemana.length > 0 && <em>{feitasSemana.length}</em>}</summary>
               <div className="agenda">
                 {feitasSemana.map((s) => (
                   <Link key={s.id} href={`/calendario/${s.id}`} className="ag">
@@ -172,7 +172,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
         <aside className="study-aside">
           <section className="sec" style={{ margin: 0 }}>
-            <h2 className="sec__h">Sessões marcadas <em>{marcadas.length}</em></h2>
+            <h2 className="sec__h">Sessões marcadas {marcadas.length > 0 && <em>{marcadas.length}</em>}</h2>
             {marcadas.length === 0 ? (
               <p className="empty" style={{ paddingTop: 2 }}>Marque as sessões da semana: elas vão para o calendário em azul e aparecem no Hoje no dia.</p>
             ) : (

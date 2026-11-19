@@ -46,7 +46,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
       <div className="page__head">
         <div>
           <h1 className="page__t">Finanças</h1>
-          <p className="page__para">O mês numa tela: o que entrou, o que saiu, o que falta pagar e para onde foi o dinheiro. Tudo lançado por você, sem banco conectado.</p>
+          <p className="page__para">O mês numa tela: o que entrou, o que saiu, o que falta pagar e para onde foi.</p>
         </div>
         <div className="page__actions">
           <Link href={`/financas?mes=${mesVizinho(mes, -1)}`} className="icon-btn" aria-label="Mês anterior"><ChevronLeft size={18} /></Link>
@@ -56,7 +56,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         </div>
       </div>
 
-      <div className="fin-nums">
+      <div className="nums">
         <div><small>Entrou</small><b className="pos">{moeda(r.entrou)}</b></div>
         <div><small>Saiu</small><b>{moeda(r.saiu)}</b></div>
         <div><small>Saldo do mês</small><b className={r.saldo < 0 ? "neg" : "pos"}>{moeda(r.saldo)}</b></div>
@@ -89,13 +89,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
           {aPagar.length > 0 && (
             <section className="bloco">
-              <h2 className="sec__h">A pagar e a receber <em>{aPagar.length}</em></h2>
+              <h2 className="sec__h">A pagar e a receber {aPagar.length > 0 && <em>{aPagar.length}</em>}</h2>
               <ul className="list">{aPagar.map((l) => <LinhaLancamento key={l.id} l={l} contexto={ctx.find((c) => c.id === l.context_id)} />)}</ul>
             </section>
           )}
 
           <section className="bloco">
-            <h2 className="sec__h">Lançamentos <em>{feitos.length}</em></h2>
+            <h2 className="sec__h">Lançamentos {feitos.length > 0 && <em>{feitos.length}</em>}</h2>
             {feitos.length === 0 ? <p className="bloco__vazio">Nada lançado em {titulo}.</p> : <ul className="list">{feitos.map((l) => <LinhaLancamento key={l.id} l={l} contexto={ctx.find((c) => c.id === l.context_id)} />)}</ul>}
           </section>
         </div>

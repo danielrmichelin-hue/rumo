@@ -9,7 +9,7 @@ export const metadata = { title: "Inbox" };
 export default async function Page() {
   const supabase = await createClient();
   const [{ data: itens }, { data: contextos }] = await Promise.all([
-    supabase.from("responsibilities").select(CAMPOS_LISTA).is("context_id", null).neq("state", "concluida").order("created_at", { ascending: false }),
+    supabase.from("responsibilities").select(CAMPOS_LISTA).is("context_id", null).is("project_id", null).is("route_id", null).neq("state", "concluida").order("created_at", { ascending: false }),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
   ]);
   const lista = (itens ?? []) as Responsabilidade[];
@@ -25,7 +25,7 @@ export default async function Page() {
               ? "Nada a organizar."
               : <><b>{lista.length}</b> {lista.length === 1 ? "item capturado espera" : "itens capturados esperam"} um contexto.</>}
           </p>
-          <p className="page__para">Onde cai o que você anota sem escolher um lugar. Dê um contexto (ou uma data) e o item sai daqui.</p>
+          <p className="page__para">O que você anotou sem lugar. Dê um contexto e o item sai daqui.</p>
         </div>
         <div className="page__actions hide-mobile"><BotaoNova /></div>
       </div>

@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Folder, GraduationCap, Home, Inbox, LayoutGrid, ListChecks, Menu, NotebookPen, Wallet, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
+import { CalendarDays, Folder, GraduationCap, HeartPulse, Home, Inbox, LayoutGrid, ListChecks, Menu, NotebookPen, Wallet, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
 import { AvisosProvider } from "./Avisos";
 import { Captura, useAtalhoCaptura } from "./Captura";
 import { Logo } from "./Logo";
+import { ehSaude } from "@/lib/saude";
 
-export type EntradaModulo = { chave: "estudos" | "rotinas" | "rotas" | "notas" | "financas"; n: number; quente?: boolean };
+export type EntradaModulo = { chave: "estudos" | "rotinas" | "rotas" | "notas" | "financas" | "saude"; n: number; quente?: boolean };
 
 const MODULO: Record<EntradaModulo["chave"], { href: string; label: string; icon: typeof Home }> = {
   estudos: { href: "/estudos", label: "Estudos", icon: GraduationCap },
@@ -16,6 +17,7 @@ const MODULO: Record<EntradaModulo["chave"], { href: string; label: string; icon
   rotas: { href: "/rotas", label: "Rotas", icon: Route },
   notas: { href: "/notas", label: "Notas", icon: NotebookPen },
   financas: { href: "/financas", label: "Finanças", icon: Wallet },
+  saude: { href: "/saude", label: "Saúde", icon: HeartPulse },
 };
 
 export type ContextItem = { id: string; name: string; color: string; kind?: "empresa" | "area" };
@@ -87,9 +89,10 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, m
 
   // Grupos da lateral: Negócios (contextos tipo empresa) e Áreas (tipo área). Grupo vazio não aparece.
   const empresas = contexts.filter((c) => c.kind === "empresa");
-  // Com o módulo Finanças ligado, a área "Finanças" não se repete na lateral (o módulo é a porta de entrada)
+  // Com o módulo Finanças ou Saúde ligado, a área de mesmo nome não se repete na lateral (o módulo é a porta de entrada)
   const temFinancas = modulos.some((m) => m.chave === "financas");
-  const areas = contexts.filter((c) => c.kind !== "empresa" && !(temFinancas && /finan/i.test(c.name)));
+  const temSaude = modulos.some((m) => m.chave === "saude");
+  const areas = contexts.filter((c) => c.kind !== "empresa" && !(temFinancas && /finan/i.test(c.name)) && !(temSaude && ehSaude(c.name)));
   const grupos = [
     { titulo: negocios || empresas.length ? "Negócios" : "Contextos", itens: empresas },
     { titulo: "Áreas", itens: areas },

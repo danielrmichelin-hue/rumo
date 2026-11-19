@@ -66,31 +66,31 @@ export function PainelContexto(d: DadosPainel) {
 
   const atencao = d.atencao.length > 0 && (
     <section className="sec" key="atencao">
-      <h2 className="sec__h">Atenção <em>{d.atencao.length}</em></h2>
+      <h2 className="sec__h">Atenção {d.atencao.length > 0 && <em>{d.atencao.length}</em>}</h2>
       {lista(d.atencao, true)}
     </section>
   );
   const semana = d.estaSemana.length > 0 && (
     <section className="sec" key="semana">
-      <h2 className="sec__h">Esta semana <em>{d.estaSemana.length}</em>{d.estaSemana.length > LIMITE || d.depois ? <Link href={url("responsabilidades")} className="sec__act">Ver todas</Link> : null}</h2>
+      <h2 className="sec__h">Esta semana {d.estaSemana.length > 0 && <em>{d.estaSemana.length}</em>}{d.estaSemana.length > LIMITE || d.depois ? <Link href={url("responsabilidades")} className="sec__act">Ver todas</Link> : null}</h2>
       {lista(d.estaSemana.slice(0, LIMITE))}
     </section>
   );
   const aguardando = d.aguardando.length > 0 && (
     <section className="sec" key="aguardando">
-      <h2 className="sec__h">Aguardando outras pessoas <em>{d.aguardando.length}</em></h2>
+      <h2 className="sec__h">Aguardando outras pessoas {d.aguardando.length > 0 && <em>{d.aguardando.length}</em>}</h2>
       {lista(d.aguardando.slice(0, LIMITE), true)}
     </section>
   );
   const decisoes = d.decAbertas.length > 0 && (
     <section className="sec" key="decisoes">
-      <h2 className="sec__h">Para decidir <em>{d.decAbertas.length}</em><Link href={url("decisoes")} className="sec__act">Decisões</Link></h2>
+      <h2 className="sec__h">Para decidir {d.decAbertas.length > 0 && <em>{d.decAbertas.length}</em>}<Link href={url("decisoes")} className="sec__act">Decisões</Link></h2>
       {lista(d.decAbertas.slice(0, 3))}
     </section>
   );
   const rotinas = d.rotinas.length > 0 && (
     <section className="sec" key="rotinas">
-      <h2 className="sec__h">{empresa ? "O que você faz sempre aqui" : "Rotinas e lembretes"} <em>{d.rotinas.length}</em><Link href="/rotinas" className="sec__act">Rotinas</Link></h2>
+      <h2 className="sec__h">{empresa ? "O que você faz sempre aqui" : "Rotinas e lembretes"} {d.rotinas.length > 0 && <em>{d.rotinas.length}</em>}<Link href="/rotinas" className="sec__act">Rotinas</Link></h2>
       <ul className="list">
         {d.rotinas.map((r) => {
           const doDia = eDoDia(r, d.marcas, d.hoje);

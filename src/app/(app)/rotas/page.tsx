@@ -54,12 +54,12 @@ export default async function Page() {
       ) : (
         <>
           <section className="sec">
-            <h2 className="sec__h">Em andamento <em>{ativas.length}</em></h2>
+            <h2 className="sec__h">Em andamento {ativas.length > 0 && <em>{ativas.length}</em>}</h2>
             <div className="routes">{ativas.map(cartao)}</div>
           </section>
           {concluidas.length > 0 && (
             <section className="sec">
-              <h2 className="sec__h">Destinos alcançados <em>{concluidas.length}</em></h2>
+              <h2 className="sec__h">Destinos alcançados {concluidas.length > 0 && <em>{concluidas.length}</em>}</h2>
               <div className="routes">{concluidas.map(cartao)}</div>
             </section>
           )}
