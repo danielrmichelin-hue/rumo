@@ -13,27 +13,35 @@ import { resumirProjeto, type Projeto } from "@/lib/projetos";
 import { CAMPOS_LISTA, ordenar, type Compromisso, type Responsabilidade } from "@/lib/tipos";
 import { ListaNotas, NovaNota } from "@/components/Notas";
 import { CAMPOS_NOTA, type Nota } from "@/lib/notas";
+import { PainelContexto } from "@/components/PainelContexto";
+import { montarHoje, type ProximoPasso as PassoHoje } from "@/lib/hoje";
+import { CAMPOS_ROTINA, desdeMarcas, type Marcacao, type Rotina } from "@/lib/rotinas";
+import { CAMPOS_MARCO, CAMPOS_ROTA, normalizar, resumirRota, type Marco } from "@/lib/rotas";
 
 export const metadata = { title: "Contexto" };
 
-type Aba = "responsabilidades" | "projetos" | "decisoes" | "notas" | "compromissos";
+type Aba = "visao" | "responsabilidades" | "projetos" | "decisoes" | "notas" | "compromissos";
 
 export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ aba?: string }> }) {
   const { id } = await params;
   const { aba: param } = await searchParams;
   if (!ehId(id)) notFound();
-  const aba: Aba = (["projetos", "decisoes", "notas", "compromissos"] as const).find((a) => a === param) ?? "responsabilidades";
+  const aba: Aba = (["responsabilidades", "projetos", "decisoes", "notas", "compromissos"] as const).find((a) => a === param) ?? "visao";
 
   const hoje = hojeISO();
   const agora = agoraHora();
   const supabase = await createClient();
-  const [{ data: contexto }, { data: itens }, { data: projetos }, { data: eventos }, { data: contextos }, { data: notasDb }] = await Promise.all([
+  const [{ data: contexto }, { data: itens }, { data: projetos }, { data: eventos }, { data: contextos }, { data: notasDb }, { data: rotinasDb }, { data: marcasDb }, { data: rotasDb }, { data: cursosDb }] = await Promise.all([
     supabase.from("contexts").select("id, name, color, kind, archived").eq("id", id).maybeSingle(),
     supabase.from("responsibilities").select(CAMPOS_LISTA).eq("context_id", id),
     supabase.from("projects").select("id, name, context_id, status, due_date, note").eq("context_id", id),
     supabase.from("events").select("id, title, context_id, starts_at, ends_at, location").eq("context_id", id).gte("starts_at", inicioDoDia(hoje)).order("starts_at").limit(30),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
     supabase.from("notes").select(CAMPOS_NOTA).eq("context_id", id).order("created_at", { ascending: false }),
+    supabase.from("routines").select(CAMPOS_ROTINA).eq("context_id", id).eq("status", "ativa").order("position"),
+    supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", desdeMarcas(hoje)),
+    supabase.from("routes").select(CAMPOS_ROTA).eq("context_id", id).eq("status", "ativa").order("created_at"),
+    supabase.from("study_courses").select("id, title").eq("context_id", id).neq("status", "concluido"),
   ]);
   if (!contexto) notFound();
   const notas = (notasDb ?? []) as Nota[];
@@ -55,7 +63,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const nomesProjetos = Object.fromEntries(((projetos ?? []) as Projeto[]).map((p) => [p.id, p.name]));
   const proximo = evs.find((e) => new Date(e.starts_at) > new Date());
   const tag = slug(contexto.name.split(/\s+/)[0]);
-  const url = (a: Aba) => `/contexto/${id}${a === "responsabilidades" ? "" : `?aba=${a}`}`;
+  const url = (a: Aba) => `/contexto/${id}${a === "visao" ? "" : `?aba=${a}`}`;
+
+  // Painel (visão geral): o próximo passo daqui, com a mesma regra do Hoje; sem urgência, o primeiro da semana
+  const dia = montarHoje(abertas, [], evs.filter((e) => hojeISO(new Date(e.starts_at)) === hoje), hoje, agora);
+  const primeiro = estaSemana[0] ?? depois[0];
+  const proximoPasso: PassoHoje | null = dia.proximo ?? (primeiro ? { tipo: "responsabilidade", item: primeiro, porque: primeiro.due_date ? `Prazo ${rotuloData(primeiro.due_date, hoje)}` : "O próximo daqui" } : null);
+  const idPasso = proximoPasso?.tipo === "responsabilidade" ? proximoPasso.item.id : null;
+  const rotasCtx = (rotasDb ?? []).map(normalizar);
+  const { data: marcosDb } = rotasCtx.some((r) => r.kind === "negocios") ? await supabase.from("route_milestones").select(CAMPOS_MARCO).in("route_id", rotasCtx.map((r) => r.id)) : { data: [] };
 
   const quando = (iso: string) => `${rotuloData(hojeISO(new Date(iso)), hoje)}, ${horaDe(iso)}`;
 
@@ -85,12 +101,35 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       </div>
 
       <nav className="tabs" aria-label="Visão">
+        <Link href={url("visao")} aria-current={aba === "visao" ? "page" : undefined}>Visão geral</Link>
         <Link href={url("responsabilidades")} aria-current={aba === "responsabilidades" ? "page" : undefined}>Responsabilidades<em>{abertas.length}</em></Link>
         <Link href={url("projetos")} aria-current={aba === "projetos" ? "page" : undefined}>Projetos<em>{projs.length}</em></Link>
         <Link href={url("decisoes")} aria-current={aba === "decisoes" ? "page" : undefined}>Decisões<em>{decisoes.length + decisoesRegistradas.length}</em></Link>
         <Link href={url("notas")} aria-current={aba === "notas" ? "page" : undefined}>Notas<em>{notas.length}</em></Link>
         <Link href={url("compromissos")} aria-current={aba === "compromissos" ? "page" : undefined}>Compromissos<em>{evs.length}</em></Link>
       </nav>
+
+      {aba === "visao" && (
+        <PainelContexto
+          contexto={{ id: contexto.id, name: contexto.name, color: contexto.color, kind: contexto.kind }}
+          tag={tag}
+          hoje={hoje}
+          proximo={proximoPasso}
+          atencao={[...atrasadas, ...aguardando.filter((i) => i.follow_up_on && i.follow_up_on <= hoje)].filter((i) => i.id !== idPasso)}
+          estaSemana={estaSemana.filter((i) => i.id !== idPasso)}
+          depois={depois.filter((i) => i.id !== idPasso).length}
+          aguardando={aguardando.filter((i) => !(i.follow_up_on && i.follow_up_on <= hoje) && i.id !== idPasso)}
+          decAbertas={decAbertas.filter((i) => i.id !== idPasso && !atrasadas.includes(i) && !estaSemana.includes(i))}
+          eventos={evs}
+          rotinas={(rotinasDb ?? []) as Rotina[]}
+          marcas={(marcasDb ?? []) as Marcacao[]}
+          projetos={projs.map((p) => { const r = resumirProjeto(p, todas); return { id: p.id, name: p.name, feitas: r.feitas, total: r.total, proximo: r.proximo?.title ?? null }; })}
+          rotas={rotasCtx.map((r) => { const res = resumirRota(r, ((marcosDb ?? []) as Marco[]).filter((m) => m.route_id === r.id), hoje); return { id: r.id, title: r.title, pct: res.pct, linha: res.linha }; })}
+          estudos={cursosDb ?? []}
+          notas={notas}
+          nomesProjetos={nomesProjetos}
+        />
+      )}
 
       {aba === "responsabilidades" && (
         abertas.length === 0 ? (

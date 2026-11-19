@@ -461,7 +461,7 @@ export async function buscar(termo: string): Promise<Achado[]> {
     supabase.from("routes").select("id, title, kind, context_id").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("study_courses").select("id, title, kind, context_id").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("study_subjects").select("id, title, course_id").ilike("title", like).limit(8),
-    supabase.from("routines").select("id, title, days, times_per_week, at_time").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
+    supabase.from("routines").select("id, title, days, times_per_week, month_day, at_time").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("notes").select("id, kind, title, context_id").or(`title.ilike.${like},body.ilike.${like},why.ilike.${like}`).order("created_at", { ascending: false }).limit(8),
   ]);
   const nomeCtx = (id: string | null) => (ctxs.data ?? []).find((x) => x.id === id);
@@ -995,6 +995,7 @@ export type DadosRotina = {
   context_id: string | null;
   days: number[] | null;
   times_per_week: number | null;
+  month_day: number | null;
   at_time: string | null;
   duration_min: number | null;
 };
@@ -1004,11 +1005,13 @@ function validarRotina(d: DadosRotina): { erro: string } | { dados: DadosRotina 
   if (!title) return { erro: "Dê um nome à rotina." };
   const days = d.days ? [...new Set(d.days.filter((x) => Number.isInteger(x) && x >= 0 && x <= 6))].sort() : null;
   const vezes = d.times_per_week && d.times_per_week >= 1 && d.times_per_week <= 7 ? Math.round(d.times_per_week) : null;
+  const diaMes = d.month_day && d.month_day >= 1 && d.month_day <= 31 ? Math.round(d.month_day) : null;
+  if (d.month_day !== null && d.month_day !== undefined && !diaMes) return { erro: "Escolha um dia do mês entre 1 e 31." };
   if (days && !days.length) return { erro: "Escolha ao menos um dia." };
-  if (!days && !vezes) return { erro: "Escolha os dias ou quantas vezes por semana." };
+  if (!days && !vezes && !diaMes) return { erro: "Escolha os dias, quantas vezes por semana ou o dia do mês." };
   if (d.at_time && !HORA.test(d.at_time)) return { erro: "Hora inválida." };
   const dur = d.duration_min && d.duration_min >= 5 ? Math.min(600, Math.round(d.duration_min)) : null;
-  return { dados: { title, context_id: d.context_id || null, days: days ?? null, times_per_week: days ? null : vezes, at_time: d.at_time || null, duration_min: dur } };
+  return { dados: { title, context_id: d.context_id || null, days: diaMes ? null : days ?? null, times_per_week: diaMes || days ? null : vezes, month_day: diaMes, at_time: d.at_time || null, duration_min: dur } };
 }
 
 export async function criarRotina(d: DadosRotina): Promise<{ ok: boolean; erro?: string }> {

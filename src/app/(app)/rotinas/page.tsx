@@ -1,8 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { LinhaRotina, NovaRotina } from "@/components/Rotinas";
 import { hojeISO } from "@/lib/datas";
-import { segundaDa } from "@/lib/semana";
-import { CAMPOS_ROTINA, eDoDia, SUGESTOES, type Marcacao, type Rotina } from "@/lib/rotinas";
+import { CAMPOS_ROTINA, desdeMarcas, eDoDia, type Marcacao, type Rotina, SUGESTOES } from "@/lib/rotinas";
 import type { ContextItem } from "@/components/Shell";
 
 export const metadata = { title: "Rotinas" };
@@ -12,7 +11,7 @@ export default async function Page() {
   const hoje = hojeISO();
   const [{ data: rotinasDb }, { data: marcasDb }, { data: contextos }, { data: perfil }] = await Promise.all([
     supabase.from("routines").select(CAMPOS_ROTINA).order("position"),
-    supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", segundaDa(hoje)),
+    supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", desdeMarcas(hoje)),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
     supabase.from("profiles").select("onboarding").maybeSingle(),
   ]);

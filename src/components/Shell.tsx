@@ -157,7 +157,7 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
                 <span>Rotinas</span>
                 <Link href="/rotinas" aria-label="Nova rotina" title="Nova rotina"><Plus size={14} /></Link>
               </div>
-              {rotinas.map((r) => (
+              {rotinas.slice(0, 5).map((r) => (
                 <Link key={r.id} href={`/rotinas#${r.id}`} className="nav">
                   <i className="nav__dot" style={{ background: r.color }} />
                   <span className="nav__label">{r.title}</span>
@@ -166,6 +166,9 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
               ))}
               {!rotinas.length && (
                 <Link href="/rotinas" className="nav" aria-current={on("/rotinas")}><Repeat aria-hidden /><span className="nav__label">Primeira rotina</span></Link>
+              )}
+              {rotinas.length > 5 && (
+                <Link href="/rotinas" className="nav" aria-current={on("/rotinas")}><Repeat aria-hidden /><span className="nav__label">Todas as rotinas</span><span className="nav__count">{rotinas.length}</span></Link>
               )}
             </div>
           )}

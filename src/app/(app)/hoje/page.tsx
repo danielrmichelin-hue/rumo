@@ -9,8 +9,7 @@ import Link from "next/link";
 import { Anel, Caminho } from "@/components/Caminho";
 import { CAMPOS_MARCO, CAMPOS_ROTA, type Marco, normalizar, resumirRota } from "@/lib/rotas";
 import { AZUL_ESTUDO, CAMPOS_CURSO, CAMPOS_MATERIA, CAMPOS_SESSAO, CAMPOS_TEMA, horas, resumoDoCiclo, temasDa, type Curso, type Materia, type Sessao, type Tema } from "@/lib/estudos";
-import { CAMPOS_ROTINA, feitaEm, hora, rotinasDoDia, semanaDaRotina, type Marcacao, type Rotina } from "@/lib/rotinas";
-import { segundaDa } from "@/lib/semana";
+import { CAMPOS_ROTINA, desdeMarcas, feitaEm, hora, type Marcacao, mesDaRotina, type Rotina, rotinasDoDia, semanaDaRotina } from "@/lib/rotinas";
 import { ChecarRotina } from "@/components/Rotinas";
 import { Repeat } from "lucide-react";
 
@@ -34,7 +33,7 @@ export default async function Page() {
     supabase.from("routes").select(CAMPOS_ROTA).eq("status", "ativa").order("created_at"),
     supabase.from("route_milestones").select(CAMPOS_MARCO),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").order("position"),
-    supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", segundaDa(hoje)),
+    supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", desdeMarcas(hoje)),
     supabase.from("study_courses").select(CAMPOS_CURSO).eq("status", "ativo").order("created_at"),
     supabase.from("study_subjects").select(CAMPOS_MATERIA).order("position"),
   ]);
@@ -143,7 +142,7 @@ export default async function Page() {
                       <div className="row__body">
                         <span className="row__t">{r.title}</span>
                         <span className="props">
-                          <span className="prop"><Repeat aria-hidden />Rotina · {s.texto}</span>
+                          <span className="prop"><Repeat aria-hidden />Rotina · {r.month_day ? mesDaRotina(r, marcas, hoje).texto : s.texto}</span>
                           {r.at_time && <span className="prop">{hora(r.at_time)}{r.duration_min ? ` · ${r.duration_min} min` : ""}</span>}
                         </span>
                       </div>

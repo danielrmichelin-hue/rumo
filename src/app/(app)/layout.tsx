@@ -7,8 +7,7 @@ import { moduloLigado } from "@/lib/modulos";
 import type { Perfil, Responsabilidade } from "@/lib/tipos";
 import { CAMPOS_MARCO, CAMPOS_ROTA, type Marco, normalizar, resumirRota, rotuloAnel } from "@/lib/rotas";
 import { AZUL_ESTUDO } from "@/lib/estudos";
-import { CAMPOS_ROTINA, semanaDaRotina, VERDE_ROTINA, type Marcacao, type Rotina } from "@/lib/rotinas";
-import { segundaDa } from "@/lib/semana";
+import { CAMPOS_ROTINA, desdeMarcas, type Marcacao, mesDaRotina, type Rotina, semanaDaRotina, VERDE_ROTINA } from "@/lib/rotinas";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -24,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     supabase.from("route_milestones").select(CAMPOS_MARCO),
     supabase.from("study_courses").select("id, title, context_id").neq("status", "concluido").order("created_at"),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").order("position"),
-    supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", segundaDa(hojeISO())),
+    supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", desdeMarcas()),
     supabase.from("notes").select("id", { count: "exact", head: true }),
   ]);
 
@@ -47,7 +46,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const listaRotinas = ((rotinasDb ?? []) as Rotina[]).map((r) => {
     const s = semanaDaRotina(r, (marcas ?? []) as Marcacao[]);
-    return { id: r.id, title: r.title, rotulo: `${s.feitas}/${s.meta}`, color: (r.context_id && cores[r.context_id]) || VERDE_ROTINA };
+    const mes = r.month_day ? mesDaRotina(r, (marcas ?? []) as Marcacao[]) : null;
+    return { id: r.id, title: r.title, rotulo: mes ? (mes.feitaEm ? "feita" : `dia ${r.month_day}`) : `${s.feitas}/${s.meta}`, color: (r.context_id && cores[r.context_id]) || VERDE_ROTINA };
   });
 
   return (

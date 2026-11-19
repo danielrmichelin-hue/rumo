@@ -44,11 +44,12 @@ Google Agenda, captura pelo WhatsApp. (Rotas, Estudos, Contextos sob medida, Rot
 | 3 · Completar o Core | Projetos, Calendário, Busca, visão por contexto | Em revisão com o Daniel |
 | 4 · Rotas | Destino → ritmo → marcos → próximo passo no Hoje; recalcula sem culpa (`docs/plano-modulos.md`) | Em revisão com o Daniel |
 | 5 · Estudos | Matérias, ciclos, sessões no calendário e no Hoje, progresso | Em revisão com o Daniel |
-| 6 · Contextos sob medida | Cada empresa e área com a própria cara: modelo, números, seções, atalhos e frentes | — |
+| 6 · Contextos sob medida | Painel do contexto que se monta pelo conteúdo, sem configurar nada (empresa: retornos e decisões; área: rotinas e lembretes do mês) | Em revisão com o Daniel |
 | 7 · Rotinas e hábitos | Recorrências que aparecem no Hoje na hora certa, semana sem culpa | Em revisão com o Daniel |
 | 8 · Notas | Notas e decisões vinculadas | Em revisão com o Daniel |
 
-Decisão do Daniel (19/11/2026): construir os módulos (fases 4 a 8) antes do teste de 90 dias, começando pelas
+Público inicial (avaliação de 20/11/2026, `docs/publico.md`): quem leva várias frentes ao mesmo tempo (trabalho, estudo,
+saúde, um objetivo), com organização pessoal; depois profissionais liberais. Decisão do Daniel (19/11/2026): construir os módulos (fases 4 a 8) antes do teste de 90 dias, começando pelas
 Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termina com algo que ele usa e aprova.
 
 ## Regras do produto
@@ -103,7 +104,7 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   em responsibilities) e 0006 (Estudos: `study_courses`, `study_subjects`; `course_id`, `subject_id` e `done_at` em events;
   `course_id` em routes) e 0007 (Rotinas: `routines`, com dias fixos ou N vezes por semana, e `routine_checks`, um registro
   por dia feito) e 0008 (Notas: `notes`, nota ou decisão com porquê e data, ligada a contexto, projeto ou curso) e 0009 (ciclo de estudos: `cycle_minutes` nas matérias, `study_topics` com os temas,
-  `topic_id` nas sessões) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
+  `topic_id` nas sessões) e 0010 (rotinas mensais: `month_day`, uma frequência por rotina) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`; o layout manda para `/comecar` quem ainda não respondeu as perguntas do
   começo. A casca (`src/components/Shell.tsx`) monta a lateral pelo perfil e pelos contextos (Negócios = tipo
@@ -111,7 +112,7 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   semana do calendário em `src/lib/semana.ts`; resumo de projeto (progresso, entrega, próximo passo) em
   `src/lib/projetos.ts`; cálculo das Rotas (ritmo, previsão, recálculo, próximo passo, igual ao simulador do Book)
   em `src/lib/rotas.ts`; Estudos como ciclo de estudos (matérias com horas por ciclo, temas, matéria da vez, semana) em `src/lib/estudos.ts`, com as
-  sessões como compromissos do Core (events com `course_id`); Rotinas (quando é dia dela, a semana em pontos, sem sequência)
+  sessões como compromissos do Core (events com `course_id`); Rotinas (quando é dia dela, a semana em pontos, sem sequência; mensais "todo dia 10" ficam no Hoje até serem feitas)
   em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`. Ações do servidor em `src/app/(app)/acoes.ts`.
 - Antes de escrever de novo, reaproveite: datas, fuso de São Paulo, nomes de dias e meses, `ehId` e `numeroBR` em
   `src/lib/datas.ts`; `CampoContexto`, `Painel` (painel por cima da tela) e `AdicionarRapido` em `src/components/Comuns.tsx`;

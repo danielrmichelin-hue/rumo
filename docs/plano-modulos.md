@@ -60,25 +60,21 @@ versão (módulos, aulas e "próxima aula" misturados) e vai começar um ciclo c
 - **Dados:** migração 0006 e 0009 (`cycle_minutes`, `study_topics`, `topic_id` nas sessões). Aulas contadas ficam
   opcionais, para cursos com aulas e para a Rota de estudos.
 
-## Fase 6 · Contextos sob medida
+## Fase 6 · Contextos sob medida (painel automático, em revisão com o Daniel)
 
-Pedido do Daniel (19/11/2026): "não pode ser tudo igual". Cada empresa e cada área precisa ter a própria cara,
-o que entra nela e os números que importam ali. Parte do Book ("A visão pessoal de cada empresa", módulo
-Negócios) e leva a mesma ideia para as áreas da vida, sem virar ERP, CRM ou sistema da empresa: continua sendo
-só o que depende da pessoa.
+Pedido do Daniel (19/11/2026): "não pode ser tudo igual". Revisto em 20/11/2026 com o Book: o Rumo é um sistema pronto
+(contra o "monte você mesmo"), não é o sistema da empresa, e ninguém deve configurar o que vê em cada contexto.
 
-- **Modelo por contexto:** ao criar ou editar um contexto, escolher o que ele é (empresa, trabalho, saúde,
-  finanças, casa, família, estudos…). O modelo define os números do topo, as seções, os atalhos de criação e o
-  primeiro passo. Exemplos:
-  - Empresa (Iter Mídia, Quintal Escola, Iter Gestão Contábil): abertas, atrasadas, aguardando, próxima reunião;
-    abas Responsabilidades, Projetos, Decisões, Compromissos; atalhos Nova decisão e Cobrar retorno.
-  - Saúde: próxima consulta, exames pendentes, rotina da semana (com Rotinas); atalhos Nova consulta e Exame.
-  - Finanças: contas que vencem no mês, Rotas financeiras e quanto já foi guardado; atalhos Conta a pagar e
-    Nova reserva.
-  - Casa: contas, consertos e compras; atalhos por tipo.
-- **O que entra em cada contexto, configurável:** ligar e desligar seções, criar frentes internas (ex.: na Iter
-  Mídia, Clientes, Equipe, Comercial, Financeiro) que agrupam o que depende da pessoa, cobrança padrão e cor.
-- **Dados:** modelo e configurações no contexto (nova migração) e frentes como agrupamento leve.
+- **Visão geral do contexto (nova aba padrão):** o próximo passo daquele contexto (mesma regra do Hoje; sem urgência,
+  o primeiro da semana), Atenção, Esta semana, Aguardando outras pessoas, Para decidir, as rotinas e lembretes do mês
+  daquele contexto, a agenda, Projetos, Rotas, Estudos e notas recentes. **Parte vazia não aparece**, então cada
+  contexto fica com a cara do que tem dentro.
+- **Empresa x área (tipo que já existe):** empresa começa pelos retornos e decisões ("O que você faz sempre aqui");
+  área (saúde, casa, finanças) começa pelas rotinas e lembretes do mês.
+- **Contexto vazio:** só a primeira ação (anotar com `#contexto` ou criar uma rotina), com o lembrete de que o que é
+  da empresa fica no sistema dela.
+- **Rotinas mensais (migração 0010):** "todo dia 10". Aparecem no Hoje no dia e ficam até serem feitas ("desde dia
+  10", sem alarme); viram bloco no calendário quando têm horário.
 
 ## Fase 7 · Rotinas e hábitos (em revisão com o Daniel)
 

@@ -1,5 +1,5 @@
 import { AZUL_ESTUDO } from "@/lib/estudos";
-import { CAMPOS_ROTINA, VERDE_ROTINA, type Rotina } from "@/lib/rotinas";
+import { CAMPOS_ROTINA, diaNoMes, type Rotina, VERDE_ROTINA } from "@/lib/rotinas";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -31,7 +31,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
     supabase.from("events").select("id, title, context_id, starts_at, ends_at, location, course_id, done_at").gte("starts_at", de).lte("starts_at", ate).order("starts_at"),
     supabase.from("responsibilities").select(CAMPOS_LISTA).gte("due_date", segunda).lte("due_date", domingo),
     supabase.from("responsibilities").select(CAMPOS_LISTA).eq("state", "a_fazer").is("due_time", null).eq("today", true),
-    supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").not("days", "is", null).not("at_time", "is", null),
+    supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").not("at_time", "is", null),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", segunda).lte("done_on", domingo),
   ]);
   const ctx = contextos ?? [];
@@ -41,7 +41,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   type Bloco = Compromisso & { rotina?: string };
   const blocosRotina: Bloco[] = ((rotinasDb ?? []) as Rotina[]).flatMap((r) =>
     Array.from({ length: 7 }, (_, i) => somarDias(segunda, i))
-      .filter((d) => r.days!.includes(diaDaSemana(d)))
+      .filter((d) => (r.month_day ? diaNoMes(r, d) === d : !!r.days?.includes(diaDaSemana(d))))
       .map((d) => {
         const ini = new Date(instante(d, r.at_time!));
         const feita = (marcasDb ?? []).some((m) => m.routine_id === r.id && m.done_on === d);
