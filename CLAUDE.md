@@ -104,14 +104,16 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   em responsibilities) e 0006 (Estudos: `study_courses`, `study_subjects`; `course_id`, `subject_id` e `done_at` em events;
   `course_id` em routes) e 0007 (Rotinas: `routines`, com dias fixos ou N vezes por semana, e `routine_checks`, um registro
   por dia feito) e 0008 (Notas: `notes`, nota ou decisão com porquê e data, ligada a contexto, projeto ou curso) e 0009 (ciclo de estudos: `cycle_minutes` nas matérias, `study_topics` com os temas,
-  `topic_id` nas sessões) e 0010 (rotinas mensais: `month_day`, uma frequência por rotina) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
+  `topic_id` nas sessões) e 0010 (rotinas mensais: `month_day`, uma frequência por rotina) e 0011 (estudos: `study_modules` opcionais, revisões
+  `review_step`/`next_review_on` nas aulas) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`; o layout manda para `/comecar` quem ainda não respondeu as perguntas do
   começo. A casca (`src/components/Shell.tsx`) monta a lateral pelo perfil e pelos contextos (Negócios = tipo
   empresa, Áreas = tipo área). Módulos em `src/lib/modulos.ts`; o Hoje é montado por `src/lib/hoje.ts`;
   semana do calendário em `src/lib/semana.ts`; resumo de projeto (progresso, entrega, próximo passo) em
   `src/lib/projetos.ts`; cálculo das Rotas (ritmo, previsão, recálculo, próximo passo, igual ao simulador do Book)
-  em `src/lib/rotas.ts`; Estudos como ciclo de estudos (matérias com horas por ciclo, temas, matéria da vez, semana) em `src/lib/estudos.ts`, com as
+  em `src/lib/rotas.ts`; Estudos como ciclo de estudos (matérias com horas por ciclo, matéria → módulo → aula, revisões 1/7/30 dias, modo foco
+  com pomodoro em `src/components/Foco.tsx`) em `src/lib/estudos.ts`, com as
   sessões como compromissos do Core (events com `course_id`); Rotinas (quando é dia dela, a semana em pontos, sem sequência; mensais "todo dia 10" ficam no Hoje até serem feitas)
   em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`. Ações do servidor em `src/app/(app)/acoes.ts`.
 - Antes de escrever de novo, reaproveite: datas, fuso de São Paulo, nomes de dias e meses, `ehId` e `numeroBR` em

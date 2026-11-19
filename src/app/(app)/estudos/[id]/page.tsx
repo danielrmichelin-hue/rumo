@@ -4,14 +4,15 @@ import { BookOpen, ChevronRight, Route } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Anel, Caminho } from "@/components/Caminho";
 import {
-  AgoraNoEstudo, AvancarCiclo, ConfirmarSessao, FormCurso, LinhaMateria, MaisUmaAula, MarcarSessao, NovaMateria, RegistrarEstudo,
+  AgoraNoEstudo, AvancarCiclo, ConfirmarSessao, FormCurso, MaisUmaAula, MarcarSessao, NovaMateria, RegistrarEstudo,
 } from "@/components/Estudos";
+import { CartaoMateria, RevisoesDoDia } from "@/components/Aulas";
 import { ListaNotas, NovaNota } from "@/components/Notas";
 import { ehId, hojeISO, horaDe, inicioDoDia } from "@/lib/datas";
 import { segundaDa } from "@/lib/semana";
 import {
   AZUL_ESTUDO, CAMPOS_CURSO, CAMPOS_MATERIA, CAMPOS_SESSAO, CAMPOS_TEMA, duracao, emAndamento, horas, linhaDoCiclo, linhaDoEstudo, proximaSessao,
-  quandoSessao, resumoDoCiclo, semanaEmBarras, sessoesParaConfirmar, temasDa, TIPOS_CURSO, type Curso, type Materia, type Sessao, type Tema,
+  quandoSessao, resumoDoCiclo, revisoesDoDia, semanaEmBarras, sessoesParaConfirmar, temasDa, TIPOS_CURSO, type Curso, type Materia, type Sessao, type Tema,
 } from "@/lib/estudos";
 import { CAMPOS_NOTA, type Nota } from "@/lib/notas";
 import { CAMPOS_ROTA, normalizar, resumirRota } from "@/lib/rotas";
@@ -61,6 +62,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const resumoRota = rotaCurso ? resumirRota(rotaCurso, [], hoje) : null;
   const corMateria = (s: Sessao) => materias.find((m) => m.id === s.subject_id)?.color ?? AZUL_ESTUDO;
   const linhaEstudo = linhaDoEstudo(curso, hoje);
+  const revisoes = revisoesDoDia(temas, hoje);
 
   return (
     <div className="page page--wide">
@@ -87,8 +89,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       <div className="route-cols study-cols">
         <div>
           <div className="study-next">
-            <AgoraNoEstudo curso={curso} sessao={mostrarSessao} materia={daVez} tema={temaDaVez} falta={ciclo.proxima?.meta ? ciclo.proxima.meta - ciclo.proxima.feito : null} />
+            <AgoraNoEstudo curso={curso} sessao={mostrarSessao} materia={daVez} tema={temaDaVez} falta={ciclo.proxima?.meta ? ciclo.proxima.meta - ciclo.proxima.feito : null} materias={materias} temas={temas} />
           </div>
+
+          {revisoes.length > 0 && (
+            <section className="sec">
+              <h2 className="sec__h">Revisões de hoje <em>{revisoes.length}</em></h2>
+              <RevisoesDoDia temas={revisoes} materias={materias} />
+            </section>
+          )}
 
           {confirmar.length > 0 && (
             <section className="sec">
@@ -107,11 +116,25 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             {materias.length === 0 ? (
               <p className="empty">Quais matérias entram no ciclo? Escreva o nome e as horas de cada uma, na ordem em que vai estudar.</p>
             ) : (
-              <ul className="list subjs">
-                {ciclo.linhas.map((l, i) => (
-                  <LinhaMateria key={l.materia.id} linha={l} temas={temas} primeira={i === 0} ultima={i === ciclo.linhas.length - 1} daVez={l.materia.id === daVez?.id && !ciclo.completo} />
-                ))}
-              </ul>
+              <div className="mcards">
+                {ciclo.linhas.map((l) => {
+                  const t = temasDa(l.materia, temas);
+                  return (
+                    <CartaoMateria
+                      key={l.materia.id}
+                      cursoId={curso.id}
+                      materia={l.materia}
+                      feito={l.feito}
+                      meta={l.meta}
+                      vistas={t.feitos}
+                      total={t.total}
+                      revisar={revisoes.filter((r) => r.subject_id === l.materia.id).length}
+                      daVez={l.materia.id === daVez?.id && !ciclo.completo}
+                      proxima={t.proximo?.title ?? null}
+                    />
+                  );
+                })}
+              </div>
             )}
             <NovaMateria cursoId={curso.id} />
           </section>

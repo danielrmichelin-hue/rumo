@@ -44,7 +44,9 @@ export type Materia = {
   position: number;
 };
 
-export type Tema = { id: string; subject_id: string; title: string; position: number; done_at: string | null };
+/** Aula ou tema de uma matéria: visto em `done_at`; depois, revisões em 1, 7 e 30 dias */
+export type Tema = { id: string; subject_id: string; module_id: string | null; title: string; position: number; done_at: string | null; review_step: number; next_review_on: string | null };
+export type Modulo = { id: string; subject_id: string; title: string; position: number };
 
 export type Sessao = {
   id: string;
@@ -61,7 +63,8 @@ export type Sessao = {
 
 export const CAMPOS_CURSO = "id, title, kind, context_id, total_lessons, done_lessons, current_cycle, cycle_started_on, weekly_minutes, exam_date, exam_label, status, note";
 export const CAMPOS_MATERIA = "id, course_id, title, cycle_minutes, color, position";
-export const CAMPOS_TEMA = "id, subject_id, title, position, done_at";
+export const CAMPOS_TEMA = "id, subject_id, module_id, title, position, done_at, review_step, next_review_on";
+export const CAMPOS_MODULO = "id, subject_id, title, position";
 export const CAMPOS_SESSAO = "id, title, course_id, subject_id, topic_id, starts_at, ends_at, done_at, context_id, location";
 
 /** Cores das matérias (as mesmas do Book) */
@@ -173,3 +176,24 @@ export function quandoSessao(s: Sessao, agora: Date = new Date()): string {
   const dia = rotuloData(diaDa(s), hojeISO(agora));
   return `${dia[0].toUpperCase()}${dia.slice(1)}, ${horaDe(s.starts_at)} · ${horas(duracao(s))}`;
 }
+
+// ---------- revisões espaçadas ----------
+
+/** Dias até cada revisão depois de ver: 1, 7 e 30 */
+export const INTERVALOS = [1, 7, 30];
+
+/** A próxima revisão depois de `feitas` revisões (null quando acabou) */
+export function proximaRevisao(feitas: number, dia: string = hojeISO()): string | null {
+  return feitas < INTERVALOS.length ? somarDias(dia, INTERVALOS[feitas]) : null;
+}
+
+/** "Revisar hoje", "Revisão em 6 dias", "Revisado 3 vezes", "Não vista" */
+export function textoRevisao(t: Tema, hoje: string = hojeISO()): { texto: string; tom: "hoje" | "depois" | "ok" | "nada" } {
+  if (!t.done_at) return { texto: "Não vista", tom: "nada" };
+  if (!t.next_review_on) return { texto: t.review_step ? `Revisado ${t.review_step} ${t.review_step === 1 ? "vez" : "vezes"}` : "Vista", tom: "ok" };
+  const dias = diferencaDias(hoje, t.next_review_on);
+  if (dias <= 0) return { texto: dias < 0 ? "Revisar (ficou para trás)" : "Revisar hoje", tom: "hoje" };
+  return { texto: `${t.review_step + 1}ª revisão ${dias === 1 ? "amanhã" : `em ${dias} dias`}`, tom: "depois" };
+}
+
+export const revisoesDoDia = (temas: Tema[], hoje: string = hojeISO()) => temas.filter((t) => t.done_at && t.next_review_on && t.next_review_on <= hoje);

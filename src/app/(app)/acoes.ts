@@ -8,7 +8,7 @@ import { diaDaSemana, ehId, hojeISO, instante, numeroBR, somarDias, somarDiasUte
 import { ESCOLHAS, type ChaveEscolha } from "@/lib/modulos";
 import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, type TipoRota, TIPOS } from "@/lib/rotas";
 import { CORES_CONTEXTO, proximaCor, type Estado } from "@/lib/tipos";
-import { CORES_MATERIA, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
+import { CORES_MATERIA, INTERVALOS, proximaRevisao, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 import { textoFrequencia } from "@/lib/rotinas";
 
 function atualizar() {
@@ -818,7 +818,7 @@ export async function moverMateria(id: string, direcao: -1 | 1) {
 }
 
 /** Temas colados de uma vez (um por linha, como no edital); números e marcadores do começo da linha saem */
-export async function adicionarTemas(subjectId: string, bruto: string): Promise<{ ok: boolean; erro?: string; n?: number }> {
+export async function adicionarTemas(subjectId: string, bruto: string, moduleId: string | null = null): Promise<{ ok: boolean; erro?: string; n?: number }> {
   const linhas = bruto
     .split(/\n|;/)
     .map((l) => l.replace(/^\s*(?:[-•*·]|\d+(?:\.\d+)*[.)]?)\s*/, "").trim())
@@ -828,16 +828,73 @@ export async function adicionarTemas(subjectId: string, bruto: string): Promise<
   const supabase = await createClient();
   const { data: existentes } = await supabase.from("study_topics").select("position").eq("subject_id", subjectId);
   const base = Math.max(-1, ...(existentes ?? []).map((x) => x.position)) + 1;
-  const { error } = await supabase.from("study_topics").insert(linhas.map((t, i) => ({ subject_id: subjectId, title: t.slice(0, 200), position: base + i })));
+  const { error } = await supabase.from("study_topics").insert(linhas.map((t, i) => ({ subject_id: subjectId, module_id: moduleId, title: t.slice(0, 200), position: base + i })));
   if (error) return { ok: false, erro: "Não foi possível guardar os temas." };
   atualizar();
   return { ok: true, n: linhas.length };
 }
 
+/** Vista: agenda a 1ª revisão para amanhã. Desmarcar zera as revisões. */
 export async function marcarTema(id: string, feito: boolean) {
   const supabase = await createClient();
-  await supabase.from("study_topics").update({ done_at: feito ? new Date().toISOString() : null }).eq("id", id);
+  await supabase.from("study_topics").update(feito ? { done_at: new Date().toISOString(), review_step: 0, next_review_on: proximaRevisao(0) } : { done_at: null, review_step: 0, next_review_on: null }).eq("id", id);
   atualizar();
+}
+
+/** "Revisei": agenda a próxima (7 e depois 30 dias); depois da 3ª, acabou */
+export async function revisarTema(id: string): Promise<{ feitas: number; proxima: string | null } | null> {
+  const supabase = await createClient();
+  const { data: t } = await supabase.from("study_topics").select("review_step").eq("id", id).single();
+  if (!t) return null;
+  const feitas = Math.min(INTERVALOS.length, t.review_step + 1);
+  const proxima = proximaRevisao(feitas);
+  await supabase.from("study_topics").update({ review_step: feitas, next_review_on: proxima }).eq("id", id);
+  atualizar();
+  return { feitas, proxima };
+}
+
+export async function desfazerRevisao(id: string, passo: number, proxima: string | null) {
+  const supabase = await createClient();
+  await supabase.from("study_topics").update({ review_step: passo, next_review_on: proxima }).eq("id", id);
+  atualizar();
+}
+
+export async function criarModulo(subjectId: string, titulo: string): Promise<{ ok: boolean; erro?: string }> {
+  const title = titulo.trim().slice(0, 120);
+  if (!title) return { ok: false, erro: "Dê um nome ao módulo." };
+  const supabase = await createClient();
+  const { data: existentes } = await supabase.from("study_modules").select("position").eq("subject_id", subjectId);
+  const { error } = await supabase.from("study_modules").insert({ subject_id: subjectId, title, position: Math.max(-1, ...(existentes ?? []).map((x) => x.position)) + 1 });
+  if (error) return { ok: false, erro: "Não foi possível criar o módulo." };
+  atualizar();
+  return { ok: true };
+}
+
+export async function renomearModulo(id: string, titulo: string) {
+  const title = titulo.trim().slice(0, 120);
+  if (!title) return;
+  const supabase = await createClient();
+  await supabase.from("study_modules").update({ title }).eq("id", id);
+  atualizar();
+}
+
+/** As aulas do módulo continuam na matéria, sem módulo */
+export async function apagarModulo(id: string) {
+  const supabase = await createClient();
+  await supabase.from("study_modules").delete().eq("id", id);
+  atualizar();
+}
+
+/** Fim de um foco (pomodoro): o tempo estudado vira sessão concluída; pode dar a aula por vista */
+export async function registrarFoco(courseId: string, subjectId: string | null, topicId: string | null, minutos: number, vista: boolean): Promise<{ ok: boolean }> {
+  const min = Math.round(minutos);
+  if (min < 1) return { ok: false };
+  const supabase = await createClient();
+  const id = await inserirSessao(supabase, courseId, subjectId, topicId, new Date(Date.now() - min * 60000), Math.max(1, Math.min(600, min)), true);
+  if (!id) return { ok: false };
+  if (topicId && vista) await supabase.from("study_topics").update({ done_at: new Date().toISOString(), review_step: 0, next_review_on: proximaRevisao(0) }).eq("id", topicId);
+  atualizar();
+  return { ok: true };
 }
 
 export async function apagarTema(id: string) {
@@ -917,7 +974,7 @@ export async function registrarEstudo(_: EstadoForm, form: FormData): Promise<Es
   // No primeiro ciclo, estudo registrado de antes do começo puxa o começo para trás (conta no ciclo)
   const { data: c } = await supabase.from("study_courses").select("current_cycle, cycle_started_on").eq("id", s.courseId).single();
   if (c && c.current_cycle === 1 && s.data < c.cycle_started_on) await supabase.from("study_courses").update({ cycle_started_on: s.data }).eq("id", s.courseId);
-  if (s.topicId && form.get("tema_feito")) await supabase.from("study_topics").update({ done_at: new Date().toISOString() }).eq("id", s.topicId);
+  if (s.topicId && form.get("tema_feito")) await supabase.from("study_topics").update({ done_at: new Date().toISOString(), review_step: 0, next_review_on: proximaRevisao(0) }).eq("id", s.topicId);
   atualizar();
   return { ok: true, em: Date.now() };
 }
@@ -945,7 +1002,7 @@ export async function concluirSessao(id: string, feita: boolean, temaFeito = fal
   if (feita && s.ends_at && agora > ini && agora < new Date(s.ends_at).getTime()) mudanca.ends_at = new Date(Math.max(agora, ini + 5 * 60000)).toISOString();
   if (!feita && fimAntes !== undefined) mudanca.ends_at = fimAntes;
   await supabase.from("events").update(mudanca).eq("id", id);
-  if (s.topic_id && (temaFeito || !feita)) await supabase.from("study_topics").update({ done_at: feita ? new Date(agora).toISOString() : null }).eq("id", s.topic_id);
+  if (s.topic_id && temaFeito) await supabase.from("study_topics").update(feita ? { done_at: new Date(agora).toISOString(), review_step: 0, next_review_on: proximaRevisao(0) } : { done_at: null, review_step: 0, next_review_on: null }).eq("id", s.topic_id);
   atualizar();
   return { ok: true, fimAntes: s.ends_at };
 }

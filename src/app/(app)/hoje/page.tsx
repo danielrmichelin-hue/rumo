@@ -14,6 +14,8 @@ import { ChecarRotina } from "@/components/Rotinas";
 import { Repeat } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { moduloLigado, type ChaveModulo } from "@/lib/modulos";
+import { Children } from "react";
+import { RevisoesDoDia } from "@/components/Aulas";
 
 export const metadata = { title: "Hoje" };
 
@@ -42,12 +44,15 @@ export default async function Page() {
   // Estudos: a matéria da vez em cada ciclo (some quando já há sessão de estudo marcada para hoje)
   const cursos = (cursosDb ?? []) as Curso[];
   const materias = (materiasDb ?? []) as Materia[];
-  const [{ data: sessoesDb }, { data: temasDb }] = cursos.length
+  const [{ data: sessoesDb }, { data: temasDb }, { data: revisoesDb }] = cursos.length
     ? await Promise.all([
         supabase.from("events").select(CAMPOS_SESSAO).not("course_id", "is", null).gte("starts_at", inicioDoDia(cursos.map((c) => c.cycle_started_on).sort()[0])),
         materias.length ? supabase.from("study_topics").select(CAMPOS_TEMA).in("subject_id", materias.map((m) => m.id)).is("done_at", null) : Promise.resolve({ data: [] }),
+        supabase.from("study_topics").select(CAMPOS_TEMA).lte("next_review_on", hoje).order("next_review_on"),
       ])
-    : [{ data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }];
+  const revisoes = ((revisoesDb ?? []) as Tema[]).filter((t) => materias.some((m) => m.id === t.subject_id));
+  const cursoDaMateria = (m: Materia) => cursos.find((c) => c.id === m.course_id)?.title ?? "";
   const sessoes = (sessoesDb ?? []) as Sessao[];
   const estudos = cursos
     .map((c) => ({ c, ciclo: resumoDoCiclo(c, materias.filter((m) => m.course_id === c.id), sessoes) }))
@@ -171,7 +176,8 @@ export default async function Page() {
           )}
 
           {(ligado("estudos") || cursos.length > 0) && (
-            <Bloco titulo="Estudos" n={estudos.length} acao={<Link href="/estudos" className="sec__act">Estudos</Link>} vazio={cursos.length ? "Sessão de estudo já marcada para hoje, ou ciclo completo." : "Monte o seu ciclo de estudos para ver aqui a matéria da vez."}>
+            <Bloco titulo="Estudos" n={estudos.length + revisoes.length} acao={<Link href="/estudos" className="sec__act">Estudos</Link>} vazio={cursos.length ? "Sessão de estudo já marcada para hoje, ou ciclo completo." : "Monte o seu ciclo de estudos para ver aqui a matéria da vez."}>
+              {revisoes.length > 0 && <RevisoesDoDia temas={revisoes} materias={materias} cursoDe={cursoDaMateria} />}
               {estudos.length > 0 && (
                 <ul className="list">
                   {estudos.map(({ c, linha, tema }) => (
@@ -221,7 +227,7 @@ function Bloco({ titulo, n, acao, vazio, children }: { titulo: string; n: number
   return (
     <section className="bloco">
       <h2 className="sec__h">{titulo}{n > 0 && <em>{n}</em>}{acao}</h2>
-      {children || <p className="bloco__vazio">{vazio}</p>}
+      {Children.toArray(children).length ? children : <p className="bloco__vazio">{vazio}</p>}
     </section>
   );
 }

@@ -2,16 +2,17 @@
 
 import { useActionState, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Check, ChevronRight, Clock, PenLine, Play, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Clock, PenLine, Play, Plus, Trash2, X } from "lucide-react";
 import {
-  adicionarMateria, adicionarTemas, agendarSessao, apagarCurso, apagarMateria, apagarSessao, apagarTema, avancarCiclo, comecarSessao,
-  comecarSessaoMarcada, concluirSessao, criarCurso, marcarTema, moverMateria, registrarAula, registrarEstudo, restaurarCiclo, restaurarSessao,
+  adicionarMateria, agendarSessao, apagarCurso, apagarMateria, apagarSessao, avancarCiclo, comecarSessao,
+  comecarSessaoMarcada, concluirSessao, criarCurso, moverMateria, registrarAula, registrarEstudo, restaurarCiclo, restaurarSessao,
   salvarCurso, salvarMateria, type EstadoForm,
 } from "@/app/(app)/acoes";
 import { hojeISO } from "@/lib/datas";
-import { emAndamento, horas, quandoSessao, TIPOS_CURSO, type Curso, type LinhaCiclo, type Materia, type Sessao, type Tema, type TipoCurso } from "@/lib/estudos";
+import { emAndamento, horas, quandoSessao, TIPOS_CURSO, type Curso, type Materia, type Sessao, type Tema, type TipoCurso } from "@/lib/estudos";
 import { useAvisar } from "./Avisos";
 import { AdicionarRapido, CampoContexto, Painel } from "./Comuns";
+import { Foco } from "./Foco";
 import { Logo } from "./Logo";
 import type { ContextItem } from "./Shell";
 
@@ -130,7 +131,7 @@ export function NovoCurso({ contextos, tipoInicial, sugeridos }: { contextos: Co
 // ---------- o que estudar agora ----------
 
 /** O único destaque da tela: a sessão acontecendo, a próxima marcada ou a matéria da vez no ciclo */
-export function AgoraNoEstudo({ curso, sessao, materia, tema, falta }: { curso: Curso; sessao: Sessao | null; materia: Materia | null; tema: Tema | null; falta: number | null }) {
+export function AgoraNoEstudo({ curso, sessao, materia, tema, falta, materias, temas }: { curso: Curso; sessao: Sessao | null; materia: Materia | null; tema: Tema | null; falta: number | null; materias: Materia[]; temas: Tema[] }) {
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
   const [agora, setAgora] = useState<Date | null>(null);
@@ -170,7 +171,7 @@ export function AgoraNoEstudo({ curso, sessao, materia, tema, falta }: { curso: 
             disabled={pendente}
             onClick={() => iniciar(async () => {
               const r = await concluirSessao(sessao.id, true, temaFeito);
-              avisar({ texto: "Sessão concluída. O tempo já conta no ciclo.", acao: { rotulo: "Desfazer", fazer: () => iniciar(() => concluirSessao(sessao.id, false, false, r.fimAntes).then(() => undefined)) } });
+              avisar({ texto: "Sessão concluída. O tempo já conta no ciclo.", acao: { rotulo: "Desfazer", fazer: () => iniciar(() => concluirSessao(sessao.id, false, temaFeito, r.fimAntes).then(() => undefined)) } });
             })}
           >
             <Check aria-hidden />Concluir
@@ -188,7 +189,7 @@ export function AgoraNoEstudo({ curso, sessao, materia, tema, falta }: { curso: 
             <Play aria-hidden />Começar agora
           </button>
         ) : materia ? (
-          <ComecarSessao cursoId={curso.id} materia={materia} tema={tema} rotulo="Começar" />
+          <Foco cursoId={curso.id} materias={materias} temas={temas} materiaInicial={materia.id} temaInicial={tema?.id} rotulo="Começar foco" />
         ) : null}
       </div>
     </section>
@@ -348,115 +349,38 @@ export function ConfirmarSessao({ sessao }: { sessao: Sessao }) {
 
 // ---------- o ciclo: matérias e temas ----------
 
-export function LinhaMateria({ linha, temas, primeira, ultima, daVez }: { linha: LinhaCiclo; temas: Tema[]; primeira: boolean; ultima: boolean; daVez: boolean }) {
-  const m = linha.materia;
-  const [aberto, setAberto] = useState(false);
-  const [editando, setEditando] = useState(false);
-  const [nome, setNome] = useState(m.title);
-  const [h, setH] = useState(m.cycle_minutes ? String(m.cycle_minutes / 60).replace(".", ",") : "");
+/** Nome e horas da matéria no ciclo, a ordem no ciclo e tirar a matéria */
+export function AjustesMateria({ materia, primeira, ultima, cursoId }: { materia: Materia; primeira: boolean; ultima: boolean; cursoId: string }) {
+  const [nome, setNome] = useState(materia.title);
+  const [h, setH] = useState(materia.cycle_minutes ? String(materia.cycle_minutes / 60).replace(".", ",") : "");
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
-  const lista = temas.filter((t) => t.subject_id === m.id).sort((a, b) => a.position - b.position);
-  const feitos = lista.filter((t) => t.done_at).length;
-  const proximo = lista.find((t) => !t.done_at);
-
+  const router = useRouter();
   return (
-    <li className={`subj${daVez ? " subj--now" : ""}${linha.completa ? " subj--done" : ""}`} id={m.id}>
-      <button type="button" className="subj__main" aria-expanded={aberto} onClick={() => setAberto(!aberto)}>
-        <i className="dot" style={{ background: m.color }} />
-        <span className="subj__name">
-          <b>{m.title}</b>
-          <small>
-            {linha.completa ? "Horas do ciclo completas" : daVez ? "A vez dela no ciclo" : ""}
-            {(linha.completa || daVez) && lista.length > 0 ? " · " : ""}
-            {lista.length ? `${feitos} de ${lista.length} temas${proximo ? ` · próximo: ${proximo.title}` : ""}` : !linha.completa && !daVez ? "Sem temas ainda" : ""}
-          </small>
-        </span>
-        <span className="subj__time">
-          {linha.meta ? <span className="bar2" aria-hidden><i style={{ width: `${linha.pct * 100}%`, background: m.color }} /></span> : null}
-          <em>{linha.meta ? `${horas(linha.feito)} de ${horas(linha.meta)}` : horas(linha.feito)}</em>
-        </span>
-        {linha.completa ? <Check className="subj__ok" aria-label="Completa" /> : <ChevronRight className="subj__chev" aria-hidden />}
-      </button>
-
-      {aberto && (
-        <div className="subj__body">
-          <ul className="topics" aria-label={`Temas de ${m.title}`}>
-            {lista.map((t) => (
-              <li key={t.id} className={t.done_at ? "is-done" : undefined}>
-                <button type="button" role="checkbox" aria-checked={!!t.done_at} aria-label={`${t.done_at ? "Reabrir" : "Concluir"} tema: ${t.title}`} className="check" onClick={() => iniciar(() => marcarTema(t.id, !t.done_at))}>
-                  {t.done_at && <Check aria-hidden />}
-                </button>
-                <span>{t.title}</span>
-                <button type="button" className="icon-btn topics__del" aria-label={`Apagar tema ${t.title}`} onClick={() => iniciar(() => apagarTema(t.id))}><X size={14} /></button>
-              </li>
-            ))}
-          </ul>
-          <NovosTemas materia={m} vazio={!lista.length} />
-
-          {editando ? (
-            <form
-              className="subj__edit"
-              onSubmit={(e) => {
-                e.preventDefault();
-                iniciar(async () => {
-                  const r = await salvarMateria(m.id, nome, hParaMin(h));
-                  if (!r.ok) return avisar({ texto: r.erro ?? "Não foi possível salvar." });
-                  setEditando(false);
-                });
-              }}
-            >
-              <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} aria-label="Nome da matéria" maxLength={120} />
-              <label className="cycle-edit__h"><input className="input" inputMode="decimal" value={h} onChange={(e) => setH(e.target.value)} aria-label="Horas no ciclo" /><span>h</span></label>
-              <button className="btn btn--sm" type="submit" disabled={pendente}>Guardar</button>
-            </form>
-          ) : (
-            <div className="subj__tools">
-              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditando(true)}>Nome e horas</button>
-              <button type="button" className="icon-btn" aria-label="Subir no ciclo" disabled={primeira || pendente} onClick={() => iniciar(() => moverMateria(m.id, -1))}><ArrowUp size={15} /></button>
-              <button type="button" className="icon-btn" aria-label="Descer no ciclo" disabled={ultima || pendente} onClick={() => iniciar(() => moverMateria(m.id, 1))}><ArrowDown size={15} /></button>
-              <button type="button" className="btn btn--ghost btn--sm" style={{ marginLeft: "auto" }} disabled={pendente} onClick={() => { if (confirm(`Tirar ${m.title} do ciclo? Os temas dela saem junto; as sessões continuam no calendário.`)) iniciar(() => apagarMateria(m.id)); }}>
-                <Trash2 aria-hidden />Tirar
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </li>
-  );
-}
-
-/** Temas colados de uma vez, um por linha (como no edital) */
-function NovosTemas({ materia, vazio }: { materia: Materia; vazio: boolean }) {
-  const [valor, setValor] = useState("");
-  const [pendente, iniciar] = useTransition();
-  const avisar = useAvisar();
-  return (
-    <form
-      className="topics__add"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const t = valor.trim();
-        if (!t) return;
-        iniciar(async () => {
-          const r = await adicionarTemas(materia.id, t);
-          if (!r.ok) return avisar({ texto: r.erro ?? "Não foi possível guardar." });
-          setValor("");
-          avisar({ texto: r.n === 1 ? "Tema adicionado." : `${r.n} temas adicionados.` });
-        });
-      }}
-    >
-      <textarea
-        className="input input--area"
-        rows={vazio ? 3 : 1}
-        value={valor}
-        onChange={(e) => setValor(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !valor.includes("\n")) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }}
-        placeholder={vazio ? "Cole os temas, um por linha (pode colar a lista do edital)" : "Novo tema"}
-        aria-label={`Novos temas de ${materia.title}`}
-      />
-      <button className="btn btn--line btn--sm" type="submit" disabled={!valor.trim() || pendente}><Plus aria-hidden />Temas</button>
-    </form>
+    <div className="detail" style={{ gap: 12 }}>
+      <form
+        className="subj__edit"
+        onSubmit={(e) => {
+          e.preventDefault();
+          iniciar(async () => {
+            const r = await salvarMateria(materia.id, nome, hParaMin(h));
+            avisar({ texto: r.ok ? "Matéria guardada." : r.erro ?? "Não foi possível salvar." });
+          });
+        }}
+      >
+        <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} aria-label="Nome da matéria" maxLength={120} />
+        <label className="cycle-edit__h" style={{ width: 96 }}><input className="input" inputMode="decimal" value={h} onChange={(e) => setH(e.target.value)} aria-label="Horas no ciclo" /><span>h</span></label>
+        <button className="btn btn--sm" type="submit" disabled={pendente}>Guardar</button>
+      </form>
+      <div className="subj__tools">
+        <span className="field__hint">Ordem no ciclo</span>
+        <button type="button" className="icon-btn" aria-label="Subir no ciclo" disabled={primeira || pendente} onClick={() => iniciar(() => moverMateria(materia.id, -1))}><ArrowUp size={15} /></button>
+        <button type="button" className="icon-btn" aria-label="Descer no ciclo" disabled={ultima || pendente} onClick={() => iniciar(() => moverMateria(materia.id, 1))}><ArrowDown size={15} /></button>
+        <button type="button" className="btn btn--ghost btn--sm" style={{ marginLeft: "auto" }} disabled={pendente} onClick={() => { if (confirm(`Tirar ${materia.title} do ciclo? Os módulos e as aulas dela saem junto; as sessões continuam no calendário.`)) iniciar(async () => { await apagarMateria(materia.id); router.push(`/estudos/${cursoId}`); }); }}>
+          <Trash2 aria-hidden />Tirar a matéria
+        </button>
+      </div>
+    </div>
   );
 }
 
