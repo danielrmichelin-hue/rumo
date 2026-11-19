@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NovoCurso } from "@/components/Estudos";
 import { TIPO_DO_COMECO, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 
-export const metadata = { title: "Novo curso" };
+export const metadata = { title: "Novo estudo" };
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ tipo?: string }> }) {
   const { tipo } = await searchParams;
@@ -25,7 +25,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
     <div className="page page--wide">
       <div className="page__head">
         <div>
-          <p className="crumb"><Link href="/estudos">Estudos</Link><ChevronRight aria-hidden />Novo curso</p>
+          <p className="crumb"><Link href="/estudos">Estudos</Link><ChevronRight aria-hidden />Novo estudo</p>
           <h1 className="page__t">O que você estuda?</h1>
           <p className="page__sub">
             {sugeridos.length && !valido

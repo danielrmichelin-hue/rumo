@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, GraduationCap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
 import { BotaoNova, ProximoPasso } from "@/components/ProximoPasso";
@@ -8,7 +8,7 @@ import { CAMPOS_LISTA, type Compromisso, type Responsabilidade } from "@/lib/tip
 import Link from "next/link";
 import { Anel, Caminho } from "@/components/Caminho";
 import { CAMPOS_MARCO, CAMPOS_ROTA, type Marco, normalizar, resumirRota } from "@/lib/rotas";
-import { AZUL_ESTUDO } from "@/lib/estudos";
+import { AZUL_ESTUDO, CAMPOS_CURSO, CAMPOS_MATERIA, CAMPOS_SESSAO, CAMPOS_TEMA, horas, resumoDoCiclo, temasDa, type Curso, type Materia, type Sessao, type Tema } from "@/lib/estudos";
 import { CAMPOS_ROTINA, feitaEm, hora, rotinasDoDia, semanaDaRotina, type Marcacao, type Rotina } from "@/lib/rotinas";
 import { segundaDa } from "@/lib/semana";
 import { ChecarRotina } from "@/components/Rotinas";
@@ -24,7 +24,7 @@ export default async function Page() {
   const inicio = inicioDoDia(hoje);
   const fim = fimDoDia(hoje);
 
-  const [{ data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }] = await Promise.all([
+  const [{ data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }, { data: cursosDb }, { data: materiasDb }] = await Promise.all([
     supabase.from("profiles").select("display_name").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").order("position"),
     supabase.from("projects").select("id, name"),
@@ -35,7 +35,23 @@ export default async function Page() {
     supabase.from("route_milestones").select(CAMPOS_MARCO),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").order("position"),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", segundaDa(hoje)),
+    supabase.from("study_courses").select(CAMPOS_CURSO).eq("status", "ativo").order("created_at"),
+    supabase.from("study_subjects").select(CAMPOS_MATERIA).order("position"),
   ]);
+  // Estudos: a matéria da vez em cada ciclo (some quando já há sessão de estudo marcada para hoje)
+  const cursos = (cursosDb ?? []) as Curso[];
+  const materias = (materiasDb ?? []) as Materia[];
+  const [{ data: sessoesDb }, { data: temasDb }] = cursos.length
+    ? await Promise.all([
+        supabase.from("events").select(CAMPOS_SESSAO).not("course_id", "is", null).gte("starts_at", inicioDoDia(cursos.map((c) => c.cycle_started_on).sort()[0])),
+        materias.length ? supabase.from("study_topics").select(CAMPOS_TEMA).in("subject_id", materias.map((m) => m.id)).is("done_at", null) : Promise.resolve({ data: [] }),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const sessoes = (sessoesDb ?? []) as Sessao[];
+  const estudos = cursos
+    .map((c) => ({ c, ciclo: resumoDoCiclo(c, materias.filter((m) => m.course_id === c.id), sessoes) }))
+    .filter(({ c, ciclo }) => ciclo.proxima && !ciclo.completo && !sessoes.some((s) => s.course_id === c.id && hojeISO(new Date(s.starts_at)) === hoje && !s.done_at))
+    .map(({ c, ciclo }) => ({ c, linha: ciclo.proxima!, tema: temasDa(ciclo.proxima!.materia, (temasDb ?? []) as Tema[]).proximo }));
   const rotas = (rotasDb ?? []).map((x) => {
     const r = normalizar(x);
     return { r, resumo: resumirRota(r, ((marcosDb ?? []) as Marco[]).filter((m) => m.route_id === r.id), hoje) };
@@ -51,7 +67,7 @@ export default async function Page() {
   const doDiaComFeitas = [...dia.doDia, ...dia.concluidasHoje];
   const marcas = (marcasDb ?? []) as Marcacao[];
   const rotinas = rotinasDoDia((rotinasDb ?? []) as Rotina[], marcas, hoje);
-  const vazio = !dia.proximo && !dia.atencao.length && !doDiaComFeitas.length && !rotinas.length;
+  const vazio = !dia.proximo && !dia.atencao.length && !doDiaComFeitas.length && !rotinas.length && !estudos.length;
   const proximoEvento = dia.agenda.find((e) => !e.done_at && horaDe(e.starts_at) >= agora);
 
   return (
@@ -68,7 +84,7 @@ export default async function Page() {
           <header>
             <p className="today__hello">{saudacao(agora)}, {primeiroNome}</p>
             <h1 className="page__t">O que precisa da sua atenção agora</h1>
-            <p className="today__sum">{resumoDoDia(dia, rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length)}</p>
+            <p className="today__sum">{resumoDoDia(dia, rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length, estudos.length)}</p>
           </header>
 
           {dia.proximo && (
@@ -91,6 +107,26 @@ export default async function Page() {
             <section className="sec" aria-labelledby="sec-hoje">
               <h2 className="sec__h" id="sec-hoje">Hoje <em>{dia.doDia.length}</em><span className="sec__act">Por horário</span></h2>
               <ListaResponsabilidades itens={doDiaComFeitas} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} semHoje />
+            </section>
+          )}
+
+          {estudos.length > 0 && (
+            <section className="sec" aria-labelledby="sec-estudos">
+              <h2 className="sec__h" id="sec-estudos">Estudos <em>{estudos.length}</em></h2>
+              <ul className="list">
+                {estudos.map(({ c, linha, tema }) => (
+                  <li key={c.id} className="row">
+                    <GraduationCap className="row__ic" aria-hidden style={{ color: linha.materia.color }} />
+                    <div className="row__body">
+                      <Link href={`/estudos/${c.id}`} className="row__t">{linha.materia.title}{tema ? ` · ${tema.title}` : ""}</Link>
+                      <span className="props">
+                        <span className="prop">{c.title} · ciclo {c.current_cycle}</span>
+                        {linha.meta && <span className="prop">faltam {horas(linha.meta - linha.feito)} dela no ciclo</span>}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
 

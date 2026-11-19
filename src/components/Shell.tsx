@@ -137,7 +137,7 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
             <div>
               <div className="side__group">
                 <span>Estudos</span>
-                <Link href="/estudos/novo" aria-label="Novo curso" title="Novo curso"><Plus size={14} /></Link>
+                <Link href="/estudos/novo" aria-label="Novo estudo" title="Novo estudo"><Plus size={14} /></Link>
               </div>
               {estudos.map((c) => (
                 <Link key={c.id} href={`/estudos/${c.id}`} className="nav" aria-current={on(`/estudos/${c.id}`)}>
@@ -146,7 +146,7 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
                 </Link>
               ))}
               {!estudos.length && (
-                <Link href="/estudos/novo" className="nav" aria-current={on("/estudos/novo")}><GraduationCap aria-hidden /><span className="nav__label">Primeiro curso</span></Link>
+                <Link href="/estudos/novo" className="nav" aria-current={on("/estudos/novo")}><GraduationCap aria-hidden /><span className="nav__label">Primeiro estudo</span></Link>
               )}
             </div>
           )}

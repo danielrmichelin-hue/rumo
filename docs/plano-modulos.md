@@ -43,19 +43,22 @@ Do destino ao próximo passo. "Rumo não pune desvios. Rumo recalcula o caminho.
 - Lateral: grupo Rotas com o anel de progresso. Hoje: "Rotas em andamento" ao lado da agenda e os passos da
   Rota com o anel. Busca encontra Rotas.
 
-## Fase 5 · Estudos (em revisão com o Daniel)
+## Fase 5 · Estudos (refeita como ciclo de estudos, em revisão com o Daniel)
 
-Matérias, ciclos, aulas, leituras, sessões e progresso (Book 6.2; tela conceitual em
-`docs/brand-book/index.html#modulos`, aba Estudos).
+Matérias, ciclos, temas, sessões e progresso (Book 6.2). Refeita em 20/11/2026: o Daniel achou confusa a primeira
+versão (módulos, aulas e "próxima aula" misturados) e vai começar um ciclo com várias matérias, horas e temas.
 
-- **Dados (migração 0006):** `study_courses` (curso: tipo, aulas, ciclo atual e total, horas por semana, prova,
-  contexto) e `study_subjects` (matérias do ciclo, com aulas feitas e próxima aula). As **sessões são
-  compromissos do Core** (`events` ganha `course_id`, `subject_id` e `done_at`): aparecem no calendário em azul
-  de estudo, na agenda do Hoje e viram o Próximo passo quando faltam menos de 2 horas. **Leituras são Rotas de
-  leitura** e a "Rota · Concluir a pós" é uma Rota de estudos (`routes.course_id`).
-- **Tela do curso:** "Ciclo 4 de 8 · semana 2", aulas e prova, a semana em barras (horas feitas × planejadas),
-  matérias do ciclo com progresso e a próxima aula, próxima sessão com Começar/Concluir, leituras e a Rota ligada.
-- **Lateral:** grupo Estudos com cada curso. As perguntas do começo ("O que você estuda agora?") sugerem o tipo.
+- **Ciclo de estudos:** cada matéria tem horas por ciclo, na ordem em que vai ser estudada. O Rumo mostra a matéria
+  da vez (a primeira que ainda não chegou nas horas) e o tema seguinte dela. O ciclo fecha quando todas chegam nas
+  horas: as horas voltam a zero e os temas continuam.
+- **Temas:** a lista de cada matéria (o edital ou a ementa), colada de uma vez, um por linha. Marcar como visto.
+- **Tempo:** vem das sessões concluídas. Há três jeitos de registrar: Começar e Concluir (cronômetro), Registrar
+  estudo (o que já aconteceu) ou Marcar sessão (vai para o calendário e para o Hoje). Sessão marcada que passou sem
+  ser concluída aparece em "Para confirmar" ("Estudei" ou "Não deu"), sem cobrança.
+- **Hoje:** a seção Estudos traz a matéria da vez de cada estudo, com o tema e quanto falta no ciclo. Some quando já
+  há sessão de estudo marcada para o dia.
+- **Dados:** migração 0006 e 0009 (`cycle_minutes`, `study_topics`, `topic_id` nas sessões). Aulas contadas ficam
+  opcionais, para cursos com aulas e para a Rota de estudos.
 
 ## Fase 6 · Contextos sob medida
 

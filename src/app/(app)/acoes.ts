@@ -460,7 +460,7 @@ export async function buscar(termo: string): Promise<Achado[]> {
     supabase.from("contexts").select("id, name, color"),
     supabase.from("routes").select("id, title, kind, context_id").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("study_courses").select("id, title, kind, context_id").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
-    supabase.from("study_subjects").select("id, title, course_id, next_topic").or(`title.ilike.${like},next_topic.ilike.${like}`).limit(8),
+    supabase.from("study_subjects").select("id, title, course_id").ilike("title", like).limit(8),
     supabase.from("routines").select("id, title, days, times_per_week, at_time").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("notes").select("id, kind, title, context_id").or(`title.ilike.${like},body.ilike.${like},why.ilike.${like}`).order("created_at", { ascending: false }).limit(8),
   ]);
@@ -486,7 +486,7 @@ export async function buscar(termo: string): Promise<Achado[]> {
   }
   for (const x of ms.data ?? []) {
     const curso = (cs.data ?? []).find((k) => k.id === x.course_id);
-    achados.push({ tipo: "curso", id: x.id, titulo: x.title, detalhe: `Matéria${curso ? ` · ${curso.title}` : ""}${x.next_topic ? ` · próxima: ${x.next_topic}` : ""}`, href: `/estudos/${x.course_id}` });
+    achados.push({ tipo: "curso", id: x.id, titulo: x.title, detalhe: `Matéria${curso ? ` · ${curso.title}` : ""}`, href: `/estudos/${x.course_id}#${x.id}` });
   }
   for (const x of rn.data ?? []) achados.push({ tipo: "rotina", id: x.id, titulo: x.title, detalhe: `Rotina · ${textoFrequencia(x)}${x.at_time ? ` · ${x.at_time.slice(0, 5)}` : ""}`, href: `/rotinas#${x.id}` });
   for (const x of nt.data ?? []) {
@@ -672,35 +672,31 @@ export async function apagarMarco(id: string) {
   atualizar();
 }
 
-// ---------- estudos (Book 6.2) ----------
-// As sessões são compromissos do Core (events com course_id): aparecem no calendário, no Hoje e no Próximo passo.
+// ---------- estudos (Book 6.2): ciclo de estudos ----------
+// Matérias com horas no ciclo e temas. As sessões são compromissos do Core (events com course_id):
+// aparecem no calendário, no Hoje e no Próximo passo; concluídas, contam no ciclo e na semana.
 
 export type DadosCurso = {
   title: string;
   kind: TipoCurso;
   context_id: string | null;
-  total_lessons: number | null;
-  done_lessons: number;
-  cycles: number | null;
-  current_cycle: number;
   weekly_minutes: number | null;
   exam_date: string | null;
   exam_label: string | null;
-  materias: string[];
+  materias: { title: string; minutos: number | null }[];
 };
 
 const inteiro = (v: unknown, min = 0) => {
   const n = Math.round(Number(v));
   return Number.isFinite(n) && n >= min ? n : null;
 };
+const minutosValidos = (m: number | null | undefined) => (m && m >= 5 ? Math.min(6000, Math.round(m)) : null);
 
 export async function criarCurso(d: DadosCurso): Promise<{ ok: boolean; erro?: string; id?: string }> {
   const title = d.title.trim().slice(0, 120);
-  if (!title) return { ok: false, erro: "Dê um nome ao curso." };
-  if (!(d.kind in TIPOS_CURSO)) return { ok: false, erro: "Tipo de curso desconhecido." };
+  if (!title) return { ok: false, erro: "Dê um nome ao estudo." };
+  if (!(d.kind in TIPOS_CURSO)) return { ok: false, erro: "Tipo desconhecido." };
   if (d.exam_date && !DATA.test(d.exam_date)) return { ok: false, erro: "Data da prova inválida." };
-  const total = inteiro(d.total_lessons, 1);
-  const cycles = inteiro(d.cycles, 1);
   const supabase = await createClient();
   const { data: curso, error } = await supabase
     .from("study_courses")
@@ -708,22 +704,19 @@ export async function criarCurso(d: DadosCurso): Promise<{ ok: boolean; erro?: s
       title,
       kind: d.kind,
       context_id: d.context_id || null,
-      total_lessons: total,
-      done_lessons: Math.min(inteiro(d.done_lessons) ?? 0, total ?? Infinity),
-      cycles,
-      current_cycle: Math.min(inteiro(d.current_cycle, 1) ?? 1, cycles ?? Infinity),
+      current_cycle: 1,
       cycle_started_on: hojeISO(),
-      weekly_minutes: inteiro(d.weekly_minutes, 1),
+      weekly_minutes: minutosValidos(d.weekly_minutes),
       exam_date: d.exam_date || null,
       exam_label: d.exam_label?.trim().slice(0, 60) || null,
     })
-    .select("id, current_cycle")
+    .select("id")
     .single();
-  if (error || !curso) return { ok: false, erro: "Não foi possível criar o curso." };
-  const materias = d.materias.map((m) => m.trim()).filter(Boolean).slice(0, 20);
+  if (error || !curso) return { ok: false, erro: "Não foi possível criar." };
+  const materias = d.materias.filter((m) => m.title.trim()).slice(0, 30);
   if (materias.length) {
     await supabase.from("study_subjects").insert(
-      materias.map((t, i) => ({ course_id: curso.id, title: t.slice(0, 120), cycle: curso.current_cycle, position: i, color: CORES_MATERIA[i % CORES_MATERIA.length] })),
+      materias.map((m, i) => ({ course_id: curso.id, title: m.title.trim().slice(0, 120), cycle_minutes: minutosValidos(m.minutos), position: i, color: CORES_MATERIA[i % CORES_MATERIA.length] })),
     );
   }
   atualizar();
@@ -733,11 +726,12 @@ export async function criarCurso(d: DadosCurso): Promise<{ ok: boolean; erro?: s
 export async function salvarCurso(_: EstadoForm, form: FormData): Promise<EstadoForm> {
   const id = texto(form.get("id"));
   const title = texto(form.get("title")).slice(0, 120);
-  if (!title) return { erro: "Dê um nome ao curso." };
+  if (!title) return { erro: "Dê um nome ao estudo." };
   const exam = texto(form.get("exam_date"));
   if (exam && !DATA.test(exam)) return { erro: "Data da prova inválida." };
   const status = texto(form.get("status"));
-  const horasSemana = Number(texto(form.get("weekly_hours")).replace(",", "."));
+  const horasSemana = numeroBR(texto(form.get("weekly_hours")));
+  const total = inteiro(texto(form.get("total_lessons")) || null, 1);
   const supabase = await createClient();
   const { error } = await supabase
     .from("study_courses")
@@ -745,8 +739,8 @@ export async function salvarCurso(_: EstadoForm, form: FormData): Promise<Estado
       title,
       kind: texto(form.get("kind")) in TIPOS_CURSO ? texto(form.get("kind")) : "curso",
       context_id: texto(form.get("context_id")) || null,
-      total_lessons: inteiro(texto(form.get("total_lessons")) || null, 1),
-      cycles: inteiro(texto(form.get("cycles")) || null, 1),
+      total_lessons: total,
+      done_lessons: Math.min(inteiro(texto(form.get("done_lessons")) || 0) ?? 0, total ?? Infinity),
       weekly_minutes: horasSemana > 0 ? Math.round(horasSemana * 60) : null,
       exam_date: exam || null,
       exam_label: texto(form.get("exam_label")).slice(0, 60) || null,
@@ -767,39 +761,36 @@ export async function apagarCurso(form: FormData) {
   redirect("/estudos");
 }
 
-export async function adicionarMateria(courseId: string, titulo: string): Promise<{ ok: boolean; erro?: string }> {
-  const title = titulo.trim().slice(0, 120);
+/** "Português 4h", "Redação 1h30", "Inglês 90 min" ou só "Português" (fica com 2h) */
+function lerMateria(texto: string): { title: string; minutos: number } {
+  const m = texto.trim().match(/^(.*?)[\s·,-]+(\d+(?:[.,]\d+)?)\s*h(?:\s*(\d{1,2}))?\s*$/i);
+  if (m) return { title: m[1].trim(), minutos: Math.round(numeroBR(m[2]) * 60) + Number(m[3] ?? 0) };
+  const min = texto.trim().match(/^(.*?)[\s·,-]+(\d+)\s*min\s*$/i);
+  if (min) return { title: min[1].trim(), minutos: Number(min[2]) };
+  return { title: texto.trim(), minutos: 120 };
+}
+
+export async function adicionarMateria(courseId: string, bruto: string): Promise<{ ok: boolean; erro?: string }> {
+  const { title, minutos } = lerMateria(bruto);
   if (!title) return { ok: false, erro: "Dê um nome à matéria." };
   const supabase = await createClient();
-  const [{ data: curso }, { data: existentes }] = await Promise.all([
-    supabase.from("study_courses").select("current_cycle").eq("id", courseId).single(),
-    supabase.from("study_subjects").select("id").eq("course_id", courseId),
-  ]);
-  if (!curso) return { ok: false, erro: "Este curso não existe mais." };
+  const { data: existentes } = await supabase.from("study_subjects").select("position").eq("course_id", courseId);
   const n = existentes?.length ?? 0;
-  const { error } = await supabase.from("study_subjects").insert({ course_id: courseId, title, cycle: curso.current_cycle, position: n, color: CORES_MATERIA[n % CORES_MATERIA.length] });
+  const pos = Math.max(-1, ...(existentes ?? []).map((x) => x.position)) + 1;
+  const { error } = await supabase.from("study_subjects").insert({ course_id: courseId, title: title.slice(0, 120), cycle_minutes: minutosValidos(minutos), position: pos, color: CORES_MATERIA[n % CORES_MATERIA.length] });
   if (error) return { ok: false, erro: "Não foi possível adicionar." };
   atualizar();
   return { ok: true };
 }
 
-export async function salvarMateria(_: EstadoForm, form: FormData): Promise<EstadoForm> {
-  const id = texto(form.get("id"));
-  const title = texto(form.get("title")).slice(0, 120);
-  if (!title) return { erro: "Dê um nome à matéria." };
+export async function salvarMateria(id: string, titulo: string, minutos: number | null): Promise<{ ok: boolean; erro?: string }> {
+  const title = titulo.trim().slice(0, 120);
+  if (!title) return { ok: false, erro: "Dê um nome à matéria." };
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("study_subjects")
-    .update({
-      title,
-      next_topic: texto(form.get("next_topic")).slice(0, 120) || null,
-      total_lessons: inteiro(texto(form.get("total_lessons")) || null, 1),
-      cycle: inteiro(texto(form.get("cycle")) || null, 1),
-    })
-    .eq("id", id);
-  if (error) return { erro: "Não foi possível salvar." };
+  const { error } = await supabase.from("study_subjects").update({ title, cycle_minutes: minutosValidos(minutos) }).eq("id", id);
+  if (error) return { ok: false, erro: "Não foi possível salvar." };
   atualizar();
-  return { ok: true, em: Date.now() };
+  return { ok: true };
 }
 
 export async function apagarMateria(id: string) {
@@ -808,73 +799,142 @@ export async function apagarMateria(id: string) {
   atualizar();
 }
 
-/** +1 ou −1 aula: na matéria, no curso e nas Rotas de estudos ligadas ao curso */
-export async function registrarAula(courseId: string, subjectId: string | null, delta: 1 | -1 = 1): Promise<{ ok: boolean }> {
+/** Sobe ou desce a matéria na ordem do ciclo */
+export async function moverMateria(id: string, direcao: -1 | 1) {
   const supabase = await createClient();
-  const [{ data: curso }, { data: materia }, { data: rotas }] = await Promise.all([
-    supabase.from("study_courses").select("done_lessons, total_lessons").eq("id", courseId).single(),
-    subjectId ? supabase.from("study_subjects").select("title, done_lessons").eq("id", subjectId).single() : Promise.resolve({ data: null }),
-    supabase.from("routes").select("id, current, target").eq("course_id", courseId).eq("kind", "estudos").eq("status", "ativa"),
+  const { data: m } = await supabase.from("study_subjects").select("course_id").eq("id", id).single();
+  if (!m) return;
+  const { data: todas } = await supabase.from("study_subjects").select("id, position").eq("course_id", m.course_id).order("position");
+  const lista = todas ?? [];
+  const i = lista.findIndex((x) => x.id === id);
+  const j = i + direcao;
+  if (i < 0 || j < 0 || j >= lista.length) return;
+  [lista[i], lista[j]] = [lista[j], lista[i]];
+  await Promise.all(lista.map((x, k) => supabase.from("study_subjects").update({ position: k }).eq("id", x.id)));
+  atualizar();
+}
+
+/** Temas colados de uma vez (um por linha, como no edital); números e marcadores do começo da linha saem */
+export async function adicionarTemas(subjectId: string, bruto: string): Promise<{ ok: boolean; erro?: string; n?: number }> {
+  const linhas = bruto
+    .split(/\n|;/)
+    .map((l) => l.replace(/^\s*(?:[-•*·]|\d+(?:\.\d+)*[.)]?)\s*/, "").trim())
+    .filter(Boolean)
+    .slice(0, 200);
+  if (!linhas.length) return { ok: false, erro: "Escreva ao menos um tema." };
+  const supabase = await createClient();
+  const { data: existentes } = await supabase.from("study_topics").select("position").eq("subject_id", subjectId);
+  const base = Math.max(-1, ...(existentes ?? []).map((x) => x.position)) + 1;
+  const { error } = await supabase.from("study_topics").insert(linhas.map((t, i) => ({ subject_id: subjectId, title: t.slice(0, 200), position: base + i })));
+  if (error) return { ok: false, erro: "Não foi possível guardar os temas." };
+  atualizar();
+  return { ok: true, n: linhas.length };
+}
+
+export async function marcarTema(id: string, feito: boolean) {
+  const supabase = await createClient();
+  await supabase.from("study_topics").update({ done_at: feito ? new Date().toISOString() : null }).eq("id", id);
+  atualizar();
+}
+
+export async function apagarTema(id: string) {
+  const supabase = await createClient();
+  await supabase.from("study_topics").delete().eq("id", id);
+  atualizar();
+}
+
+/** +1 ou −1 aula no curso (quando ele tem aulas contadas) e nas Rotas de estudos ligadas */
+export async function registrarAula(courseId: string, delta: 1 | -1 = 1): Promise<{ ok: boolean }> {
+  const supabase = await createClient();
+  const [{ data: curso }, { data: rotas }] = await Promise.all([
+    supabase.from("study_courses").select("done_lessons").eq("id", courseId).single(),
+    supabase.from("routes").select("id, current").eq("course_id", courseId).eq("kind", "estudos").eq("status", "ativa"),
   ]);
   if (!curso) return { ok: false };
-  const novo = Math.max(0, curso.done_lessons + delta);
-  await supabase.from("study_courses").update({ done_lessons: novo }).eq("id", courseId);
-  if (materia && subjectId) await supabase.from("study_subjects").update({ done_lessons: Math.max(0, materia.done_lessons + delta) }).eq("id", subjectId);
+  await supabase.from("study_courses").update({ done_lessons: Math.max(0, curso.done_lessons + delta) }).eq("id", courseId);
   for (const r of rotas ?? []) {
     await supabase.from("routes").update({ current: Math.max(0, Number(r.current) + delta) }).eq("id", r.id);
-    await supabase.from("route_entries").insert({ route_id: r.id, amount: delta, note: materia ? `Aula de ${materia.title}` : "Aula", happened_on: hojeISO() });
+    await supabase.from("route_entries").insert({ route_id: r.id, amount: delta, note: "Aula", happened_on: hojeISO() });
   }
   atualizar();
   return { ok: true };
 }
 
-/** Marca uma sessão de estudo no calendário (vira compromisso do Core) */
-export async function agendarSessao(_: EstadoForm, form: FormData): Promise<EstadoForm> {
-  const courseId = texto(form.get("course_id"));
-  const subjectId = texto(form.get("subject_id")) || null;
-  const data = texto(form.get("data"));
-  const inicio = texto(form.get("inicio"));
-  const minutos = inteiro(texto(form.get("minutos")), 5) ?? 50;
-  if (!DATA.test(data)) return { erro: "Escolha o dia." };
-  if (!HORA.test(inicio)) return { erro: "Escolha a hora." };
-  const supabase = await createClient();
-  const id = await inserirSessao(supabase, courseId, subjectId, new Date(instante(data, inicio)), Math.min(minutos, 600));
-  if (!id) return { erro: "Não foi possível marcar a sessão." };
-  atualizar();
-  return { ok: true, em: Date.now() };
-}
-
-/** "Começar sessão": abre uma sessão de 50 min agora */
-export async function comecarSessao(courseId: string, subjectId: string | null): Promise<{ ok: boolean; id?: string }> {
-  const supabase = await createClient();
-  const agora = new Date();
-  agora.setSeconds(0, 0);
-  const id = await inserirSessao(supabase, courseId, subjectId, agora, 50);
-  if (!id) return { ok: false };
-  atualizar();
-  return { ok: true, id };
-}
-
-/** Sessão de estudo = compromisso do Core com o curso e a matéria */
-async function inserirSessao(supabase: Awaited<ReturnType<typeof createClient>>, courseId: string, subjectId: string | null, inicio: Date, minutos: number) {
-  const [{ data: curso }, { data: materia }] = await Promise.all([
+/** Sessão de estudo = compromisso do Core com o estudo, a matéria e o tema */
+async function inserirSessao(supabase: Awaited<ReturnType<typeof createClient>>, courseId: string, subjectId: string | null, topicId: string | null, inicio: Date, minutos: number, feita = false) {
+  const [{ data: curso }, { data: materia }, { data: tema }] = await Promise.all([
     supabase.from("study_courses").select("title, context_id").eq("id", courseId).single(),
-    subjectId ? supabase.from("study_subjects").select("title, next_topic").eq("id", subjectId).single() : Promise.resolve({ data: null }),
+    subjectId ? supabase.from("study_subjects").select("title").eq("id", subjectId).single() : Promise.resolve({ data: null }),
+    topicId ? supabase.from("study_topics").select("title").eq("id", topicId).single() : Promise.resolve({ data: null }),
   ]);
   if (!curso) return null;
+  const fim = new Date(inicio.getTime() + minutos * 60000).toISOString();
+  const title = (materia ? `${materia.title}${tema ? ` · ${tema.title}` : ""}` : `Estudo · ${curso.title}`).slice(0, 200);
   const { data } = await supabase
     .from("events")
-    .insert({ title: tituloSessao(curso.title, materia), context_id: curso.context_id, course_id: courseId, subject_id: subjectId, starts_at: inicio.toISOString(), ends_at: new Date(inicio.getTime() + minutos * 60000).toISOString() })
+    .insert({ title, context_id: curso.context_id, course_id: courseId, subject_id: subjectId, topic_id: tema ? topicId : null, starts_at: inicio.toISOString(), ends_at: fim, done_at: feita ? fim : null })
     .select("id")
     .single();
   return data?.id ?? null;
 }
 
-/** Concluir a sessão conta o tempo da semana; com matéria, conta também uma aula.
- *  Concluída antes do fim marcado, o fim passa a ser agora (conta só o tempo estudado); o desfazer devolve o fim. */
-export async function concluirSessao(id: string, feita: boolean, contarAula: boolean, fimAntes?: string | null): Promise<{ ok: boolean; fimAntes?: string | null }> {
+function lerSessao(form: FormData) {
+  return {
+    courseId: texto(form.get("course_id")),
+    subjectId: texto(form.get("subject_id")) || null,
+    topicId: texto(form.get("topic_id")) || null,
+    data: texto(form.get("data")),
+    inicio: texto(form.get("inicio")),
+    minutos: Math.min(600, inteiro(texto(form.get("minutos")), 5) ?? 50),
+  };
+}
+
+/** Marca uma sessão de estudo no calendário */
+export async function agendarSessao(_: EstadoForm, form: FormData): Promise<EstadoForm> {
+  const s = lerSessao(form);
+  if (!DATA.test(s.data)) return { erro: "Escolha o dia." };
+  if (!HORA.test(s.inicio)) return { erro: "Escolha a hora." };
   const supabase = await createClient();
-  const { data: s } = await supabase.from("events").select("course_id, subject_id, starts_at, ends_at").eq("id", id).single();
+  const id = await inserirSessao(supabase, s.courseId, s.subjectId, s.topicId, new Date(instante(s.data, s.inicio)), s.minutos);
+  if (!id) return { erro: "Não foi possível marcar a sessão." };
+  atualizar();
+  return { ok: true, em: Date.now() };
+}
+
+/** Registrar estudo que já aconteceu (sem cronômetro): conta no ciclo e na semana na hora */
+export async function registrarEstudo(_: EstadoForm, form: FormData): Promise<EstadoForm> {
+  const s = lerSessao(form);
+  if (!DATA.test(s.data) || s.data > hojeISO()) return { erro: "Escolha um dia até hoje." };
+  // Sem hora: hoje termina agora; outro dia, fica às 19:00
+  const fimHoje = s.data === hojeISO() && !s.inicio;
+  const inicio = fimHoje ? new Date(Date.now() - s.minutos * 60000) : new Date(instante(s.data, HORA.test(s.inicio) ? s.inicio : "19:00"));
+  const supabase = await createClient();
+  const id = await inserirSessao(supabase, s.courseId, s.subjectId, s.topicId, inicio, s.minutos, true);
+  if (!id) return { erro: "Não foi possível registrar." };
+  // No primeiro ciclo, estudo registrado de antes do começo puxa o começo para trás (conta no ciclo)
+  const { data: c } = await supabase.from("study_courses").select("current_cycle, cycle_started_on").eq("id", s.courseId).single();
+  if (c && c.current_cycle === 1 && s.data < c.cycle_started_on) await supabase.from("study_courses").update({ cycle_started_on: s.data }).eq("id", s.courseId);
+  if (s.topicId && form.get("tema_feito")) await supabase.from("study_topics").update({ done_at: new Date().toISOString() }).eq("id", s.topicId);
+  atualizar();
+  return { ok: true, em: Date.now() };
+}
+
+/** "Começar sessão": abre uma sessão de 50 min agora */
+export async function comecarSessao(courseId: string, subjectId: string | null, topicId: string | null = null): Promise<{ ok: boolean; id?: string }> {
+  const supabase = await createClient();
+  const agora = new Date();
+  agora.setSeconds(0, 0);
+  const id = await inserirSessao(supabase, courseId, subjectId, topicId, agora, 50);
+  if (!id) return { ok: false };
+  atualizar();
+  return { ok: true, id };
+}
+
+/** Concluir a sessão conta o tempo no ciclo e na semana; pode dar o tema por terminado.
+ *  Concluída antes do fim marcado, o fim passa a ser agora (conta só o tempo estudado); o desfazer devolve o fim. */
+export async function concluirSessao(id: string, feita: boolean, temaFeito = false, fimAntes?: string | null): Promise<{ ok: boolean; fimAntes?: string | null }> {
+  const supabase = await createClient();
+  const { data: s } = await supabase.from("events").select("course_id, topic_id, starts_at, ends_at").eq("id", id).single();
   if (!s?.course_id) return { ok: false };
   const agora = Date.now();
   const mudanca: Record<string, string | null> = { done_at: feita ? new Date(agora).toISOString() : null };
@@ -882,18 +942,17 @@ export async function concluirSessao(id: string, feita: boolean, contarAula: boo
   if (feita && s.ends_at && agora > ini && agora < new Date(s.ends_at).getTime()) mudanca.ends_at = new Date(Math.max(agora, ini + 5 * 60000)).toISOString();
   if (!feita && fimAntes !== undefined) mudanca.ends_at = fimAntes;
   await supabase.from("events").update(mudanca).eq("id", id);
-  if (contarAula) await registrarAula(s.course_id, s.subject_id, feita ? 1 : -1);
+  if (s.topic_id && (temaFeito || !feita)) await supabase.from("study_topics").update({ done_at: feita ? new Date(agora).toISOString() : null }).eq("id", s.topic_id);
   atualizar();
   return { ok: true, fimAntes: s.ends_at };
 }
 
+/** Fecha o ciclo e começa o próximo: as horas das matérias voltam a zero, os temas continuam */
 export async function avancarCiclo(courseId: string): Promise<{ ok: boolean; antes?: { ciclo: number; inicio: string } }> {
   const supabase = await createClient();
-  const { data: c } = await supabase.from("study_courses").select("current_cycle, cycles, cycle_started_on").eq("id", courseId).single();
+  const { data: c } = await supabase.from("study_courses").select("current_cycle, cycle_started_on").eq("id", courseId).single();
   if (!c) return { ok: false };
-  const novo = c.current_cycle + 1;
-  if (c.cycles && novo > c.cycles) return { ok: false };
-  await supabase.from("study_courses").update({ current_cycle: novo, cycle_started_on: hojeISO() }).eq("id", courseId);
+  await supabase.from("study_courses").update({ current_cycle: c.current_cycle + 1, cycle_started_on: hojeISO() }).eq("id", courseId);
   atualizar();
   return { ok: true, antes: { ciclo: c.current_cycle, inicio: c.cycle_started_on } };
 }
@@ -902,11 +961,6 @@ export async function restaurarCiclo(courseId: string, ciclo: number, inicio: st
   const supabase = await createClient();
   await supabase.from("study_courses").update({ current_cycle: ciclo, cycle_started_on: inicio }).eq("id", courseId);
   atualizar();
-}
-
-function tituloSessao(curso: string, materia: { title: string; next_topic: string | null } | null) {
-  if (!materia) return `Estudo · ${curso}`.slice(0, 200);
-  return `${materia.title}${materia.next_topic ? ` · ${materia.next_topic}` : ""}`.slice(0, 200);
 }
 
 /** "Começar" numa sessão marcada para mais tarde: ela passa a ser agora, com a mesma duração */
