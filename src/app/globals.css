@@ -951,3 +951,25 @@ a.route__t:hover { color: var(--accent-text); }
   .fin-l { grid-template-columns: minmax(0, 1fr) auto; }
   .fin-l time { grid-column: 1 / -1; }
 }
+
+/* Painel de negócios */
+.empresas { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.empresa { position: relative; display: grid; gap: 14px; padding: 16px 18px; overflow: hidden; border-radius: var(--r-lg); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.empresa::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: var(--c); }
+.empresa__t { display: flex; align-items: center; gap: 8px; font: 600 17px/1.3 var(--font); color: var(--text-strong); }
+.empresa__t svg { width: 16px; height: 16px; margin-left: auto; color: var(--text-3); }
+.empresa__nums { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0; }
+.empresa__nums div { display: grid; gap: 2px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--sunk); }
+.empresa__nums dt { font-size: 11.5px; color: var(--text-2); }
+.empresa__nums dd { margin: 0; font: 600 18px/1.1 var(--font); font-variant-numeric: tabular-nums; }
+.empresa__nums .is-quente dd { color: var(--warn); }
+.empresa__linhas { display: grid; gap: 8px; }
+.empresa__linhas p { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 13.5px; color: var(--text-2); }
+.empresa__linhas p svg { width: 14px; height: 14px; flex: none; transform: translateY(2px); }
+.empresa__linhas p b { flex: none; font-weight: 500; color: var(--text); }
+.empresa__linhas a { overflow: hidden; color: var(--text); text-overflow: ellipsis; white-space: nowrap; }
+.pessoas { display: grid; gap: 14px; }
+.pessoa h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 2px; padding: 0 6px; font-size: 14.5px; font-weight: 600; }
+.pessoa h3 em { font-style: normal; font-weight: 500; color: var(--text-3); }
+.pessoa h3 small { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--text-2); }
+.avatar--sm { width: 24px; height: 24px; font-size: 11px; }

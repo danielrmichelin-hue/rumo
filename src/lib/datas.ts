@@ -136,3 +136,9 @@ export function numeroBR(v: string): number {
   const n = Number(v.replace(/\./g, "").replace(",", "."));
   return Number.isFinite(n) ? n : 0;
 }
+
+/** "hoje", "1 dia", "5 dias" desde um instante */
+export function haDias(timestamp: string, hoje: string = hojeISO()): string {
+  const d = Math.max(0, diferencaDias(hojeISO(new Date(timestamp)), hoje));
+  return d === 0 ? "hoje" : d === 1 ? "1 dia" : `${d} dias`;
+}

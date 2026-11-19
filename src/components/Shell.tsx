@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Folder, GraduationCap, Home, Inbox, ListChecks, Menu, NotebookPen, Wallet, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
+import { CalendarDays, Folder, GraduationCap, Home, Inbox, LayoutGrid, ListChecks, Menu, NotebookPen, Wallet, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
 import { AvisosProvider } from "./Avisos";
 import { Captura, useAtalhoCaptura } from "./Captura";
 import { Logo } from "./Logo";
@@ -140,6 +140,9 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, m
                 <span>{g.titulo}</span>
                 {i === 0 && <Link href="/contextos" aria-label="Organizar contextos" title="Organizar contextos"><Settings2 size={14} /></Link>}
               </div>
+              {g.titulo === "Negócios" && g.itens.length > 1 && (
+                <Link href="/negocios" className="nav" aria-current={on("/negocios")}><LayoutGrid aria-hidden /><span className="nav__label">Todas as empresas</span></Link>
+              )}
               {g.itens.map((c) => (
                 <Link key={c.id} href={`/contexto/${c.id}`} className="nav" aria-current={on(`/contexto/${c.id}`)}>
                   <i className="nav__dot" style={{ background: c.color }} />

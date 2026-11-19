@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, ChevronRight, Folder, GraduationCap, ListChecks, NotebookPen, Repeat, Wallet, Route, Search, Settings, Shapes } from "lucide-react";
+import { Building2, CalendarDays, ChevronRight, Folder, GraduationCap, ListChecks, NotebookPen, Repeat, Wallet, Route, Search, Settings, Shapes } from "lucide-react";
 
 export const metadata = { title: "Mais" };
 
@@ -11,6 +11,7 @@ const ITENS = [
   { href: "/rotinas", label: "Rotinas", Icon: Repeat },
   { href: "/notas", label: "Notas", Icon: NotebookPen },
   { href: "/financas", label: "Finanças", Icon: Wallet },
+  { href: "/negocios", label: "Negócios", Icon: Building2 },
   { href: "/calendario", label: "Calendário", Icon: CalendarDays },
   { href: "/busca", label: "Buscar", Icon: Search },
   { href: "/contextos", label: "Contextos", Icon: Shapes },
