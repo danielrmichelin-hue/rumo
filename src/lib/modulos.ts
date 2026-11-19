@@ -50,5 +50,5 @@ export const ESCOLHAS: Escolha[] = [
   { chave: "objetivos", rotulo: "Objetivos e metas", modulo: "rotas", pergunta: "Qual é o primeiro destino?", sugestoes: ["Guardar dinheiro", "Terminar um livro", "Concluir um curso", "Abrir um negócio"], cria: "nada" },
 ];
 
-/** Ordem em que as opções aparecem no passo 2 (como na tela conceitual) */
-export const ORDEM_OPCOES: ChaveEscolha[] = ["trabalho", "negocios", "estudos", "vida", "rotinas", "objetivos", "projetos"];
+/** Ordem em que as opções aparecem no passo 2: vida pessoal primeiro (público inicial, docs/publico.md) */
+export const ORDEM_OPCOES: ChaveEscolha[] = ["vida", "estudos", "rotinas", "objetivos", "projetos", "trabalho", "negocios"];

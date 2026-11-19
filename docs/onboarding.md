@@ -37,13 +37,15 @@ Leva menos de 1 minuto. Tudo pode ser mudado depois.
 
 | Chave | Rótulo | Ícone |
 | --- | --- | --- |
-| `trabalho` | Trabalho | `Briefcase` |
-| `negocios` | Meus negócios | `Building2` |
-| `estudos` | Estudos | `GraduationCap` |
 | `vida` | Vida pessoal | `HeartPulse` |
+| `estudos` | Estudos | `GraduationCap` |
 | `rotinas` | Rotinas e hábitos | `Repeat` |
 | `objetivos` | Objetivos e metas | `Route` |
 | `projetos` | Projetos pessoais | `Folder` |
+| `trabalho` | Trabalho | `Briefcase` |
+| `negocios` | Meus negócios | `Building2` |
+
+Ordem atualizada em 20/11/2026: vida pessoal, estudos e metas primeiro, pelo público inicial (`docs/publico.md`).
 
 - No computador, ao lado, uma prévia **"Sua navegação"** que se monta ao vivo conforme a pessoa marca:
   Core sempre (Hoje, Inbox, Calendário, Responsabilidades, Projetos) e, abaixo, os grupos que as respostas
@@ -62,9 +64,9 @@ etiquetas clicáveis e um campo "+ Adicionar" para escrever outra. Botões: **Co
 | Vida pessoal | Quais áreas da vida pessoal você quer organizar? | Casa · Saúde · Finanças · Família | Cria um contexto (tipo área) para cada uma |
 | Projetos pessoais | Algum projeto pessoal em andamento? | Reforma · Viagem · Mudança · Casamento | Cria um projeto ativo para cada um |
 | Meus negócios | Quais empresas você quer acompanhar? | Sem sugestão fixa: campo para digitar os nomes (ex.: Iter Mídia, Rumo) | Cria um contexto **tipo empresa** para cada uma. Liga o módulo Negócios |
-| Estudos | O que você estuda agora? | Graduação · Pós · Idiomas · Concurso · Curso livre | Guarda a resposta e liga Estudos (o módulo ainda não existe no MVP) |
-| Rotinas e hábitos | Alguma rotina que você já tenta manter? | Academia · Leitura · Meditação · Revisar a semana | Guarda a resposta e liga Rotinas (ainda não existe no MVP) |
-| Objetivos e metas | Qual é o primeiro destino? | Guardar dinheiro · Terminar um livro · Concluir um curso · Abrir um negócio | Guarda a resposta e liga Rotas (ainda não existe no MVP) |
+| Estudos | O que você estuda agora? | Graduação · Pós · Idiomas · Concurso · Curso livre | Liga Estudos; a resposta sugere o tipo do primeiro ciclo de estudos |
+| Rotinas e hábitos | Alguma rotina que você já tenta manter? | Academia · Leitura · Meditação · Revisar a semana | Liga Rotinas; a primeira resposta vem preenchida como a primeira rotina |
+| Objetivos e metas | Qual é o primeiro destino? | Guardar dinheiro · Terminar um livro · Concluir um curso · Abrir um negócio | Liga Rotas; a resposta sugere o tipo da primeira Rota |
 
 Cada contexto criado recebe uma cor da paleta de contextos, sem repetir.
 

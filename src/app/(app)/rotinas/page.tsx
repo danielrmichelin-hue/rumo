@@ -56,7 +56,7 @@ export default async function Page() {
 
       {ativas.length > 0 && (
         <section className="sec">
-          <h2 className="sec__h">Rotinas desta semana <em>{ativas.length}</em></h2>
+          <h2 className="sec__h">Suas rotinas <em>{ativas.length}</em></h2>
           <ul className="list">{ativas.map(linha)}</ul>
           <p className="field__hint" style={{ padding: "6px 10px" }}>Esqueceu de marcar? Toque no dia, nos pontos da semana.</p>
         </section>
