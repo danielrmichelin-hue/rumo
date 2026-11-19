@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/Logo";
-import { SimboloAnimado } from "@/components/SimboloAnimado";
+import { FilmeRumo } from "@/components/FilmeRumo";
 
 type Modo = "entrar" | "criar";
 
@@ -80,8 +80,7 @@ export default function LoginPage() {
     <main className="auth">
       <section className="auth__brand" aria-hidden>
         <img src="/brand/rumo-logo-horizontal-light.svg" alt="" className="auth__wordmark" />
-        <SimboloAnimado />
-        <p className="auth__promise">Clareza para o seu próximo passo.</p>
+        <FilmeRumo />
       </section>
 
       <form className="auth__card" onSubmit={onSubmit} noValidate>

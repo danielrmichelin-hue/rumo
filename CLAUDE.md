@@ -123,9 +123,10 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
 
 ## Acabamento pedido pelo Daniel (fazer depois das funcionalidades)
 
-- Login: feito com o logo oficial (`src/components/SimboloAnimado.tsx`). As três formas do símbolo, copiadas sem
-  alteração de `rumo-symbol-light.svg`, se montam uma vez (haste, cuia, perna) e a assinatura sobe; depois o símbolo
-  só acompanha o ponteiro de leve (até 8 px), sem loop (Book 10.7). Com `prefers-reduced-motion`, fica parado.
+- Login: feito (`src/components/FilmeRumo.tsx`). Um "filme" em loop, pedido do Daniel (exceção ao "nada em loop" do
+  Book), em quatro atos com legenda: tudo espalhado → o Rumo junta num lugar só → mostra o que importa agora (o próximo
+  passo é marcado) → "Clareza para o seu próximo passo" com o símbolo oficial. Barras de progresso como stories;
+  pausa com a aba escondida; com `prefers-reduced-motion`, fica parado no ato 3.
 - Transições suaves nas seleções: feito (o destaque dos segmentados desliza; o título do login troca com fade;
   respeita `prefers-reduced-motion`). Aguardando o Daniel ver.
 
