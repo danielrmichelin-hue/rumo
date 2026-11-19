@@ -12,7 +12,7 @@ const ESTADOS: Array<{ v: Estado; r: string }> = [
   { v: "concluida", r: "Concluída" },
 ];
 
-export function FormResponsabilidade({ item, contextos, pessoas, voltar }: { item: Responsabilidade; contextos: Contexto[]; pessoas: string[]; voltar: string }) {
+export function FormResponsabilidade({ item, contextos, pessoas, voltar, projetos = [] }: { item: Responsabilidade; contextos: Contexto[]; pessoas: string[]; voltar: string; projetos?: { id: string; name: string }[] }) {
   const [resultado, enviar, pendente] = useActionState<EstadoForm, FormData>(salvarResponsabilidade, {});
   const [estado, setEstado] = useState<Estado>(item.state);
   const [tipo, setTipo] = useState(item.kind);
@@ -103,6 +103,14 @@ export function FormResponsabilidade({ item, contextos, pessoas, voltar }: { ite
             <input className="input" type="time" name="due_time" defaultValue={item.due_time?.slice(0, 5) ?? ""} />
           </label>
         </div>
+
+        <label className="field">
+          Projeto
+          <select className="input" name="project_id" defaultValue={item.project_id ?? ""}>
+            <option value="">Sem projeto</option>
+            {projetos.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
 
         <label className="field" style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 400 }}>
           <input type="checkbox" name="today" defaultChecked={item.today} style={{ width: 18, height: 18, accentColor: "var(--accent)" }} />
