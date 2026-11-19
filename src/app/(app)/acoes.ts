@@ -10,6 +10,7 @@ import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, t
 import { CORES_CONTEXTO, proximaCor, type Estado } from "@/lib/tipos";
 import { CORES_MATERIA, INTERVALOS, proximaRevisao, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 import { textoFrequencia } from "@/lib/rotinas";
+import { limitesDoMes } from "@/lib/financas";
 
 function atualizar() {
   revalidatePath("/", "layout");
@@ -296,6 +297,7 @@ export async function salvarComeco(dados: DadosComeco): Promise<{ ok: boolean; e
   }
 
   const modules = [...new Set(escolhas.map((e) => e.modulo).filter((m): m is NonNullable<typeof m> => !!m))];
+  if (limpar(dados.respostas.vida).some((v) => /finan/i.test(v))) modules.push("financas");
   const onboarding = {
     escolhas: escolhas.map((e) => e.chave),
     trabalho_origens: limpar(dados.respostas.trabalho),
@@ -1058,6 +1060,9 @@ export type DadosRotina = {
   month_day: number | null;
   at_time: string | null;
   duration_min: number | null;
+  /** conta fixa (só para "todo mês"): valor e categoria */
+  amount?: number | null;
+  category?: string | null;
 };
 
 function validarRotina(d: DadosRotina): { erro: string } | { dados: DadosRotina } {
@@ -1071,7 +1076,7 @@ function validarRotina(d: DadosRotina): { erro: string } | { dados: DadosRotina 
   if (!days && !vezes && !diaMes) return { erro: "Escolha os dias, quantas vezes por semana ou o dia do mês." };
   if (d.at_time && !HORA.test(d.at_time)) return { erro: "Hora inválida." };
   const dur = d.duration_min && d.duration_min >= 5 ? Math.min(600, Math.round(d.duration_min)) : null;
-  return { dados: { title, context_id: d.context_id || null, days: diaMes ? null : days ?? null, times_per_week: diaMes || days ? null : vezes, month_day: diaMes, at_time: d.at_time || null, duration_min: dur } };
+  return { dados: { title, context_id: d.context_id || null, days: diaMes ? null : days ?? null, times_per_week: diaMes || days ? null : vezes, month_day: diaMes, amount: diaMes && d.amount && d.amount > 0 ? Math.round(d.amount * 100) / 100 : null, category: diaMes && d.amount ? (d.category?.trim().slice(0, 40) || "Contas da casa") : null, at_time: d.at_time || null, duration_min: dur } };
 }
 
 export async function criarRotina(d: DadosRotina): Promise<{ ok: boolean; erro?: string }> {
@@ -1107,6 +1112,14 @@ export async function marcarRotina(id: string, dia: string, feita: boolean) {
   const supabase = await createClient();
   if (feita) await supabase.from("routine_checks").upsert({ routine_id: id, done_on: dia }, { onConflict: "routine_id,done_on", ignoreDuplicates: true });
   else await supabase.from("routine_checks").delete().eq("routine_id", id).eq("done_on", dia);
+  // Conta fixa (rotina mensal com valor): pagar lança a saída do mês; desmarcar tira
+  const { data: r } = await supabase.from("routines").select("title, amount, category, month_day, context_id").eq("id", id).single();
+  if (r?.month_day && r.amount) {
+    const { inicio, fim } = limitesDoMes(dia.slice(0, 7));
+    const { data: ja } = await supabase.from("fin_entries").select("id").eq("routine_id", id).gte("happened_on", inicio).lte("happened_on", fim);
+    if (feita && !ja?.length) await supabase.from("fin_entries").insert({ kind: "saida", amount: r.amount, description: r.title, category: r.category ?? "Contas da casa", happened_on: dia, paid: true, routine_id: id, context_id: r.context_id });
+    if (!feita && ja?.length) await supabase.from("fin_entries").delete().in("id", ja.map((x) => x.id));
+  }
   atualizar();
 }
 
@@ -1148,4 +1161,52 @@ export async function apagarNota(id: string) {
   const supabase = await createClient();
   await supabase.from("notes").delete().eq("id", id);
   atualizar();
+}
+
+// ---------- finanças (o mês numa tela) ----------
+
+export type DadosLancamento = { kind: "entrada" | "saida"; amount: number; description: string; category: string; happened_on: string; paid: boolean; context_id: string | null };
+
+export async function lancar(d: DadosLancamento): Promise<{ ok: boolean; erro?: string; id?: string }> {
+  const description = d.description.trim().slice(0, 120);
+  if (!(d.amount > 0)) return { ok: false, erro: "Informe o valor." };
+  if (!description) return { ok: false, erro: "Diga o que foi." };
+  if (!DATA.test(d.happened_on)) return { ok: false, erro: "Data inválida." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("fin_entries")
+    .insert({ kind: d.kind === "entrada" ? "entrada" : "saida", amount: Math.round(d.amount * 100) / 100, description, category: d.category.trim().slice(0, 40) || "Outros", happened_on: d.happened_on, paid: d.paid, context_id: d.context_id || null })
+    .select("id")
+    .single();
+  if (error || !data) return { ok: false, erro: "Não foi possível lançar." };
+  atualizar();
+  return { ok: true, id: data.id };
+}
+
+export async function apagarLancamento(id: string) {
+  const supabase = await createClient();
+  await supabase.from("fin_entries").delete().eq("id", id);
+  atualizar();
+}
+
+/** A pagar → pago (ou volta); a data passa a ser hoje quando é pago */
+export async function marcarLancamentoPago(id: string, pago: boolean) {
+  const supabase = await createClient();
+  await supabase.from("fin_entries").update(pago ? { paid: true, happened_on: hojeISO() } : { paid: false }).eq("id", id);
+  atualizar();
+}
+
+export async function salvarOrcamento(categoria: string, limite: number): Promise<{ ok: boolean; erro?: string }> {
+  const category = categoria.trim().slice(0, 40);
+  if (!category) return { ok: false, erro: "Escolha a categoria." };
+  const supabase = await createClient();
+  if (!(limite > 0)) {
+    await supabase.from("fin_budgets").delete().eq("category", category);
+  } else {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from("fin_budgets").upsert({ user_id: user?.id, category, monthly_limit: Math.round(limite * 100) / 100 }, { onConflict: "user_id,category" });
+    if (error) return { ok: false, erro: "Não foi possível guardar o limite." };
+  }
+  atualizar();
+  return { ok: true };
 }

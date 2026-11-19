@@ -16,6 +16,7 @@ import { Logo } from "@/components/Logo";
 import { moduloLigado, type ChaveModulo } from "@/lib/modulos";
 import { Children } from "react";
 import { RevisoesDoDia } from "@/components/Aulas";
+import { moeda } from "@/lib/financas";
 
 export const metadata = { title: "Hoje" };
 
@@ -164,6 +165,7 @@ export default async function Page() {
                           <span className="row__t">{r.title}</span>
                           <span className="props">
                             <span className="prop"><Repeat aria-hidden />{r.month_day ? mesDaRotina(r, marcas, hoje).texto : sem.texto}</span>
+                            {r.amount ? <span className="prop">{moeda(Number(r.amount))}</span> : null}
                             {r.at_time && <span className="prop">{hora(r.at_time)}</span>}
                           </span>
                         </div>

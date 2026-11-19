@@ -3,11 +3,12 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { Check, ChevronRight, Plus, Repeat, Trash2 } from "lucide-react";
 import { apagarRotina, criarRotina, marcarRotina, salvarRotina, type DadosRotina } from "@/app/(app)/acoes";
-import { diaDaSemana, hojeISO, SEMANA_LONGA } from "@/lib/datas";
+import { diaDaSemana, hojeISO, numeroBR, SEMANA_LONGA } from "@/lib/datas";
 import { hora, type Marcacao, mesDaRotina, type Rotina, SEMANA, semanaDaRotina, textoFrequencia } from "@/lib/rotinas";
 import { useAvisar } from "./Avisos";
 import { CampoContexto } from "./Comuns";
 import type { ContextItem } from "./Shell";
+import { CATEGORIAS_SAIDA, moeda } from "@/lib/financas";
 
 const LETRAS = ["D", "S", "T", "Q", "Q", "S", "S"];
 
@@ -59,7 +60,7 @@ export function SemanaRotina({ rotina, marcas }: { rotina: Rotina; marcas: Marca
 
 // ---------- formulário (criar e editar) ----------
 
-type Valores = { title: string; modo: "dias" | "vezes" | "mes"; days: number[]; vezes: number; diaDoMes: string; at_time: string; duration: string; context_id: string };
+type Valores = { title: string; modo: "dias" | "vezes" | "mes"; days: number[]; vezes: number; diaDoMes: string; valor: string; categoria: string; at_time: string; duration: string; context_id: string };
 
 function valoresDe(r?: Rotina): Valores {
   return {
@@ -68,6 +69,8 @@ function valoresDe(r?: Rotina): Valores {
     days: r?.days ?? [1, 3, 5],
     vezes: r?.times_per_week ?? 3,
     diaDoMes: String(r?.month_day ?? 10),
+    valor: r?.amount ? String(r.amount).replace(".", ",") : "",
+    categoria: r?.category ?? "Contas da casa",
     at_time: hora(r?.at_time ?? null) ?? "",
     duration: r?.duration_min ? String(r.duration_min) : "",
     context_id: r?.context_id ?? "",
@@ -94,6 +97,15 @@ function CamposRotina({ v, set, contextos }: { v: Valores; set: (v: Valores) => 
             <span className="field__hint">Todo dia</span>
             <input className="input" style={{ width: 72 }} inputMode="numeric" value={v.diaDoMes} onChange={(e) => set({ ...v, diaDoMes: e.target.value.replace(/\D/g, "").slice(0, 2) })} aria-label="Dia do mês" />
             <span className="field__hint">do mês. Aparece no Hoje nesse dia e fica até ser feita.</span>
+            <span className="rotina__conta">
+              <input className="input" style={{ width: 120 }} inputMode="decimal" value={v.valor} onChange={(e) => set({ ...v, valor: e.target.value })} placeholder="R$ (opcional)" aria-label="Valor da conta" />
+              {v.valor && (
+                <select className="input" style={{ width: 170 }} value={v.categoria} onChange={(e) => set({ ...v, categoria: e.target.value })} aria-label="Categoria">
+                  {CATEGORIAS_SAIDA.map((c) => <option key={c}>{c}</option>)}
+                </select>
+              )}
+              <span className="field__hint">Com valor, vira conta fixa em Finanças: marcar como feita lança o pagamento.</span>
+            </span>
           </div>
         ) : v.modo === "dias" ? (
           <div className="chips" role="group" aria-label="Dias">
@@ -126,6 +138,8 @@ const paraDados = (v: Valores): DadosRotina => ({
   days: v.modo === "dias" ? v.days : null,
   times_per_week: v.modo === "vezes" ? v.vezes : null,
   month_day: v.modo === "mes" ? Number(v.diaDoMes) || null : null,
+  amount: v.modo === "mes" ? numeroBR(v.valor) || null : null,
+  category: v.modo === "mes" && v.valor ? v.categoria : null,
   at_time: v.at_time || null,
   duration_min: Number(v.duration) || null,
 });
@@ -180,6 +194,7 @@ export function LinhaRotina({ rotina, marcas, contexto, doDia, contextos }: { ro
         <span className="row__t">{rotina.title}</span>
         <span className="props">
           <span className="prop"><Repeat aria-hidden />{textoFrequencia(rotina)}</span>
+          {rotina.amount ? <span className="prop">{moeda(Number(rotina.amount))}</span> : null}
           {rotina.at_time && <span className="prop">{hora(rotina.at_time)}{rotina.duration_min ? ` · ${rotina.duration_min} min` : ""}</span>}
           {contexto && <span className="prop"><i className="dot" style={{ background: contexto.color }} />{contexto.name}</span>}
           {rotina.status === "pausada" && <span className="prop">Pausada</span>}

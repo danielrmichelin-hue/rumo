@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/login");
   const hoje = hojeISO();
 
-  const [{ data: perfil }, { data: contextos }, { count: inbox }, { data: abertas }, { count: nRotas }, { count: nEstudos }, { data: rotinasDb }, { data: marcas }, { count: nNotas }] = await Promise.all([
+  const [{ data: perfil }, { data: contextos }, { count: inbox }, { data: abertas }, { count: nRotas }, { count: nEstudos }, { data: rotinasDb }, { data: marcas }, { count: nNotas }, { count: nLanc }] = await Promise.all([
     supabase.from("profiles").select("user_id, display_name, modules, onboarding, onboarded_at").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position", { ascending: true }),
     supabase.from("responsibilities").select("id", { count: "exact", head: true }).is("context_id", null).neq("state", "concluida"),
@@ -23,6 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").order("position"),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", desdeMarcas(hoje)),
     supabase.from("notes").select("id", { count: "exact", head: true }),
+    supabase.from("fin_entries").select("id", { count: "exact", head: true }),
   ]);
 
   // Primeira vez: as perguntas do começo montam o Rumo da pessoa
@@ -39,6 +40,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Lateral: uma entrada por módulo (a página dele é o lugar central), com o número que importa
   const liga = (chave: Parameters<typeof moduloLigado>[1], tem: boolean) => moduloLigado(p.modules, chave) || tem;
   const modulos: EntradaModulo[] = [];
+  const contasFixas = rotinas.filter((r) => r.amount).length;
+  const temFinancas = !!nLanc || contasFixas > 0 || (contextos ?? []).some((c) => /finan/i.test(c.name));
+  if (liga("financas", temFinancas)) modulos.push({ chave: "financas", n: 0 });
   if (liga("estudos", !!nEstudos)) modulos.push({ chave: "estudos", n: nEstudos ?? 0 });
   if (liga("rotinas", rotinas.length > 0)) modulos.push({ chave: "rotinas", n: rotinasHoje, quente: rotinasHoje > 0 });
   if (liga("rotas", !!nRotas)) modulos.push({ chave: "rotas", n: nRotas ?? 0 });

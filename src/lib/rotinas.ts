@@ -11,6 +11,9 @@ export type Rotina = {
   days: number[] | null;
   times_per_week: number | null;
   month_day: number | null;
+  /** conta fixa: valor do mês e categoria (Finanças) */
+  amount?: number | null;
+  category?: string | null;
   at_time: string | null;
   duration_min: number | null;
   status: "ativa" | "pausada";
@@ -20,7 +23,7 @@ export type Rotina = {
 
 export type Marcacao = { routine_id: string; done_on: string };
 
-export const CAMPOS_ROTINA = "id, title, context_id, days, times_per_week, month_day, at_time, duration_min, status, note, position";
+export const CAMPOS_ROTINA = "id, title, context_id, days, times_per_week, month_day, amount, category, at_time, duration_min, status, note, position";
 /** Verde do Book para rotinas sem contexto (calendário e lateral) */
 export const VERDE_ROTINA = "#3E9D72";
 

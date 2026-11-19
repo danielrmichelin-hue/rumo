@@ -2,7 +2,7 @@
 // Ligar um módulo muda a barra lateral e o que chega ao Hoje; o Core não muda.
 // Módulo ligado que ainda não existe (disponivel: false) fica salvo no perfil e não aparece em lugar nenhum.
 
-export type ChaveModulo = "negocios" | "estudos" | "rotinas" | "notas" | "rotas";
+export type ChaveModulo = "negocios" | "estudos" | "rotinas" | "notas" | "rotas" | "financas";
 
 export type Modulo = {
   chave: ChaveModulo;
@@ -18,6 +18,7 @@ export const MODULOS: Modulo[] = [
   { chave: "rotinas", nome: "Rotinas & Hábitos", grupo: "Rotinas", disponivel: true },
   { chave: "notas", nome: "Notas", grupo: "Notas", disponivel: true },
   { chave: "rotas", nome: "Rotas", grupo: "Rotas", disponivel: true },
+  { chave: "financas", nome: "Finanças", grupo: "Finanças", disponivel: true },
 ];
 
 export function moduloLigado(modulos: string[], chave: ChaveModulo) {

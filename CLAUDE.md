@@ -105,7 +105,8 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   `course_id` em routes) e 0007 (Rotinas: `routines`, com dias fixos ou N vezes por semana, e `routine_checks`, um registro
   por dia feito) e 0008 (Notas: `notes`, nota ou decisão com porquê e data, ligada a contexto, projeto ou curso) e 0009 (ciclo de estudos: `cycle_minutes` nas matérias, `study_topics` com os temas,
   `topic_id` nas sessões) e 0010 (rotinas mensais: `month_day`, uma frequência por rotina) e 0011 (estudos: `study_modules` opcionais, revisões
-  `review_step`/`next_review_on` nas aulas) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
+  `review_step`/`next_review_on` nas aulas) e 0012 (Finanças: `fin_entries`, `fin_budgets`; `amount` e `category` nas rotinas = conta
+  fixa) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`; o layout manda para `/comecar` quem ainda não respondeu as perguntas do
   começo. A casca (`src/components/Shell.tsx`) monta a lateral pelo perfil e pelos contextos (Negócios = tipo
@@ -115,7 +116,8 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   em `src/lib/rotas.ts`; Estudos como ciclo de estudos (matérias com horas por ciclo, matéria → módulo → aula, revisões 1/7/30 dias, modo foco
   com pomodoro em `src/components/Foco.tsx`) em `src/lib/estudos.ts`, com as
   sessões como compromissos do Core (events com `course_id`); Rotinas (quando é dia dela, a semana em pontos, sem sequência; mensais "todo dia 10" ficam no Hoje até serem feitas)
-  em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`. Ações do servidor em `src/app/(app)/acoes.ts`.
+  em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`; Finanças do mês (resumo, contas fixas = rotinas mensais com valor,
+  categorias, planilha CSV) em `src/lib/financas.ts`. Ações do servidor em `src/app/(app)/acoes.ts`.
 - Antes de escrever de novo, reaproveite: datas, fuso de São Paulo, nomes de dias e meses, `ehId` e `numeroBR` em
   `src/lib/datas.ts`; `CampoContexto`, `Painel` (painel por cima da tela) e `AdicionarRapido` em `src/components/Comuns.tsx`;
   o logo oficial em `src/components/Logo.tsx`; o anel e o caminho das Rotas em `src/components/Caminho.tsx`.
