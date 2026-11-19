@@ -77,10 +77,17 @@ só o que depende da pessoa.
   Mídia, Clientes, Equipe, Comercial, Financeiro) que agrupam o que depende da pessoa, cobrança padrão e cor.
 - **Dados:** modelo e configurações no contexto (nova migração) e frentes como agrupamento leve.
 
-## Fase 7 · Rotinas e hábitos
+## Fase 7 · Rotinas e hábitos (em revisão com o Daniel)
 
 Recorrências e hábitos com horário (Book 6.3). Uma rotina aparece no Hoje quando é a hora dela e some quando
 não é. Frequência realista ("4 vezes por semana"), acompanhamento da semana sem culpa, sem sequência que zera.
+
+- **Dados (migração 0007):** `routines` (dias fixos ou N vezes por semana, horário, duração, contexto, pausada) e
+  `routine_checks` (um registro por dia feito). Não existe contagem de sequência.
+- **Regra:** dias fixos aparecem no Hoje nos dias deles; "N vezes por semana" aparece todo dia até a semana chegar
+  na meta. Rotina com dia e horário vira bloco no calendário. Dias que já passaram podem ser marcados depois.
+- **Telas:** `/rotinas` (criar, a semana em pontos, "3 de 4", ajustar e pausar); seção Rotinas no Hoje; grupo na
+  lateral com "3/4"; Busca. As respostas das perguntas do começo (Academia, Leitura…) vêm preenchidas.
 
 ## Fase 8 · Notas
 

@@ -7,13 +7,15 @@ import { moduloLigado } from "@/lib/modulos";
 import type { Perfil, Responsabilidade } from "@/lib/tipos";
 import { CAMPOS_ROTA, normalizar, resumirRota, rotuloAnel, type Marco } from "@/lib/rotas";
 import { AZUL_ESTUDO } from "@/lib/estudos";
+import { CAMPOS_ROTINA, semanaDaRotina, VERDE_ROTINA, type Marcacao, type Rotina } from "@/lib/rotinas";
+import { segundaDa } from "@/lib/semana";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: perfil }, { data: contextos }, { count: inbox }, { data: abertas }, { data: rotas }, { data: marcos }, { data: cursos }] = await Promise.all([
+  const [{ data: perfil }, { data: contextos }, { count: inbox }, { data: abertas }, { data: rotas }, { data: marcos }, { data: cursos }, { data: rotinasDb }, { data: marcas }] = await Promise.all([
     supabase.from("profiles").select("user_id, display_name, modules, onboarding, onboarded_at").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position", { ascending: true }),
     supabase.from("responsibilities").select("id", { count: "exact", head: true }).is("context_id", null).neq("state", "concluida"),
@@ -21,6 +23,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     supabase.from("routes").select(CAMPOS_ROTA).eq("status", "ativa").order("created_at"),
     supabase.from("route_milestones").select("id, route_id, title, position, due_date, done_at"),
     supabase.from("study_courses").select("id, title, context_id").neq("status", "concluido").order("created_at"),
+    supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").order("position"),
+    supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", segundaDa(hojeISO())),
   ]);
 
   // Primeira vez: as perguntas do começo montam o Rumo da pessoa
@@ -40,6 +44,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const cores = Object.fromEntries((contextos ?? []).map((c) => [c.id, c.color]));
   const listaCursos = (cursos ?? []).map((c) => ({ id: c.id, title: c.title, color: (c.context_id && cores[c.context_id]) || AZUL_ESTUDO }));
 
+  const listaRotinas = ((rotinasDb ?? []) as Rotina[]).map((r) => {
+    const s = semanaDaRotina(r, (marcas ?? []) as Marcacao[]);
+    return { id: r.id, title: r.title, rotulo: `${s.feitas}/${s.meta}`, color: (r.context_id && cores[r.context_id]) || VERDE_ROTINA };
+  });
+
   return (
     <Shell
       contexts={(contextos ?? []) as ContextItem[]}
@@ -51,6 +60,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       negocios={moduloLigado(p.modules, "negocios")}
       rotas={moduloLigado(p.modules, "rotas") || listaRotas.length ? listaRotas : null}
       estudos={moduloLigado(p.modules, "estudos") || listaCursos.length ? listaCursos : null}
+      rotinas={moduloLigado(p.modules, "rotinas") || listaRotinas.length ? listaRotinas : null}
     >
       {children}
     </Shell>

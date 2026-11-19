@@ -89,7 +89,7 @@ export function montarHoje(abertas: Responsabilidade[], concluidasHoje: Responsa
 }
 
 /** "1 compromisso em 40 minutos, 2 responsabilidades atrasadas e 1 retorno para cobrar." */
-export function resumoDoDia(m: MontagemHoje): string {
+export function resumoDoDia(m: MontagemHoje, rotinas = 0): string {
   const partes: string[] = [];
   if (m.proximo?.tipo === "compromisso") {
     const min = m.proximo.minutos;
@@ -99,6 +99,7 @@ export function resumoDoDia(m: MontagemHoje): string {
   if (n.atrasadas) partes.push(`${n.atrasadas} ${n.atrasadas === 1 ? "responsabilidade atrasada" : "responsabilidades atrasadas"}`);
   if (n.cobrar) partes.push(`${n.cobrar} ${n.cobrar === 1 ? "retorno para cobrar" : "retornos para cobrar"}`);
   if (n.doDia) partes.push(`${n.doDia} para hoje`);
+  if (rotinas) partes.push(`${rotinas} ${rotinas === 1 ? "rotina" : "rotinas"}`);
   if (n.aguardando) partes.push(`${n.aguardando} ${n.aguardando === 1 ? "retorno aguardando" : "retornos aguardando"}`);
   if (!partes.length) return "Nada pendente nesta etapa.";
   const frase = partes.length === 1 ? partes[0] : `${partes.slice(0, -1).join(", ")} e ${partes[partes.length - 1]}`;

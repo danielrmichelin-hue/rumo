@@ -1,4 +1,5 @@
 import { AZUL_ESTUDO } from "@/lib/estudos";
+import { CAMPOS_ROTINA, VERDE_ROTINA, type Rotina } from "@/lib/rotinas";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -26,17 +27,32 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   const ate = new Date(`${domingo}T23:59:59.999-03:00`).toISOString();
 
   const supabase = await createClient();
-  const [{ data: contextos }, { data: eventos }, { data: comPrazo }, { data: semHora }] = await Promise.all([
+  const [{ data: contextos }, { data: eventos }, { data: comPrazo }, { data: semHora }, { data: rotinasDb }, { data: marcasDb }] = await Promise.all([
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
     supabase.from("events").select("id, title, context_id, starts_at, ends_at, location, course_id, done_at").gte("starts_at", de).lte("starts_at", ate).order("starts_at"),
     supabase.from("responsibilities").select(CAMPOS_LISTA).gte("due_date", segunda).lte("due_date", domingo),
     supabase.from("responsibilities").select(CAMPOS_LISTA).eq("state", "a_fazer").is("due_time", null).eq("today", true),
+    supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").not("days", "is", null).not("at_time", "is", null),
+    supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", segunda).lte("done_on", domingo),
   ]);
   const ctx = contextos ?? [];
   const cor = (id: string | null) => ctx.find((c) => c.id === id)?.color;
-  const evs = (eventos ?? []) as Compromisso[];
+  const compromissos = (eventos ?? []) as Compromisso[];
+  // Rotinas com dia e horário entram na grade como blocos (Book: "Academia · 08:00 · Rotina")
+  type Bloco = Compromisso & { rotina?: string };
+  const blocosRotina: Bloco[] = ((rotinasDb ?? []) as Rotina[]).flatMap((r) =>
+    Array.from({ length: 7 }, (_, i) => somarDias(segunda, i))
+      .filter((d) => r.days!.includes(new Date(`${d}T12:00:00Z`).getUTCDay()))
+      .map((d) => {
+        const ini = new Date(`${d}T${r.at_time!.slice(0, 5)}:00-03:00`);
+        const feita = (marcasDb ?? []).some((m) => m.routine_id === r.id && m.done_on === d);
+        return { id: `${r.id}-${d}`, rotina: r.id, title: r.title, context_id: r.context_id, starts_at: ini.toISOString(), ends_at: new Date(ini.getTime() + (r.duration_min ?? 30) * 60000).toISOString(), location: null, done_at: feita ? ini.toISOString() : null };
+      }),
+  );
+  const evs: Bloco[] = [...compromissos, ...blocosRotina].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   // Sessões de estudo em azul de estudo (Book: módulo Estudos no calendário)
-  const corEv = (e: Compromisso) => (e.course_id ? AZUL_ESTUDO : cor(e.context_id));
+  const corEv = (e: Bloco) => (e.course_id ? AZUL_ESTUDO : e.rotina ? cor(e.context_id) ?? VERDE_ROTINA : cor(e.context_id));
+  const linkEv = (e: Bloco) => (e.rotina ? `/rotinas#${e.rotina}` : `/calendario/${e.id}`);
   const prazos = (comPrazo ?? []) as Responsabilidade[];
 
   // Semana útil; sábado e domingo só aparecem quando têm algo (ou quando hoje é fim de semana)
@@ -69,7 +85,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
       <div className="page__head">
         <div>
           <h1 className="page__t">{mesAno(segunda)}</h1>
-          <p className="page__sub">Semana {numeroSemana(segunda)} · <b>{evs.length}</b> {evs.length === 1 ? "compromisso" : "compromissos"} · <b>{prazos.filter((p) => p.state !== "concluida").length}</b> prazos</p>
+          <p className="page__sub">Semana {numeroSemana(segunda)} · <b>{compromissos.length}</b> {compromissos.length === 1 ? "compromisso" : "compromissos"} · <b>{prazos.filter((p) => p.state !== "concluida").length}</b> prazos</p>
         </div>
         <div className="page__actions">
           <Link href={`/calendario?semana=${somarDias(segunda, -7)}`} className="icon-btn" aria-label="Semana anterior"><ChevronLeft size={18} /></Link>
@@ -109,7 +125,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
               {porDia(d).map(({ e, ini, fim, col, cols }) => (
                 <Link
                   key={e.id}
-                  href={`/calendario/${e.id}`}
+                  href={linkEv(e)}
                   className={`ev${fim - ini < 45 ? " ev--short" : ""}${(fim < minutos(agora) && d === hoje) || e.done_at ? " is-past" : ""}`}
                   style={{
                     top: topo(ini),
@@ -120,7 +136,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
                   }}
                 >
                   {e.title}
-                  <small>{horaSP(e.starts_at)}{e.ends_at && `–${horaSP(e.ends_at)}`}{e.location && ` · ${e.location}`}</small>
+                  <small>{horaSP(e.starts_at)}{e.rotina ? " · Rotina" : e.ends_at && `–${horaSP(e.ends_at)}`}{e.location && ` · ${e.location}`}</small>
                 </Link>
               ))}
               {d === hoje && minutos(agora) >= H_INICIO * 60 && minutos(agora) <= H_FIM * 60 && (
@@ -141,9 +157,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
                 {!doDia.length && !pz.length && <p className="empty" style={{ padding: "2px 10px 6px" }}>Nada marcado.</p>}
                 <div className="agenda">
                   {doDia.map((e) => (
-                    <Link key={e.id} href={`/calendario/${e.id}`} className="ag">
+                    <Link key={e.id} href={linkEv(e)} className="ag">
                       <time>{horaSP(e.starts_at)}</time>
-                      <div><b>{e.title}</b>{(corEv(e) || e.location) && <small>{corEv(e) && <i className="dot" style={{ background: corEv(e) }} />}{e.course_id ? "Estudo" : ctx.find((c) => c.id === e.context_id)?.name}{e.location && ` · ${e.location}`}</small>}</div>
+                      <div><b>{e.title}</b>{(corEv(e) || e.location) && <small>{corEv(e) && <i className="dot" style={{ background: corEv(e) }} />}{e.course_id ? "Estudo" : e.rotina ? "Rotina" : ctx.find((c) => c.id === e.context_id)?.name}{e.location && ` · ${e.location}`}</small>}</div>
                     </Link>
                   ))}
                   {pz.map((p) => (

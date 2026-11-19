@@ -9,6 +9,7 @@ import { ESCOLHAS, type ChaveEscolha } from "@/lib/modulos";
 import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, type TipoRota } from "@/lib/rotas";
 import { CORES_CONTEXTO, proximaCor, type Estado } from "@/lib/tipos";
 import { CORES_MATERIA, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
+import { textoFrequencia } from "@/lib/rotinas";
 
 function atualizar() {
   revalidatePath("/", "layout");
@@ -459,14 +460,14 @@ export async function adicionarNoProjeto(projetoId: string, bruto: string): Prom
 
 // ---------- busca ----------
 
-export type Achado = { tipo: "responsabilidade" | "projeto" | "rota" | "curso" | "contexto" | "compromisso" | "pessoa"; id: string; titulo: string; detalhe: string; href: string; cor?: string };
+export type Achado = { tipo: "responsabilidade" | "projeto" | "rota" | "curso" | "rotina" | "contexto" | "compromisso" | "pessoa"; id: string; titulo: string; detalhe: string; href: string; cor?: string };
 
 export async function buscar(termo: string): Promise<Achado[]> {
   const q = termo.trim().replace(/[%,()]/g, " ").replace(/\s+/g, " ").slice(0, 80);
   if (q.length < 2) return [];
   const like = `%${q}%`;
   const supabase = await createClient();
-  const [r, p, c, e, g, ctxs, rt, cs, ms] = await Promise.all([
+  const [r, p, c, e, g, ctxs, rt, cs, ms, rn] = await Promise.all([
     supabase.from("responsibilities").select("id, title, note, state, context_id, waiting_note").or(`title.ilike.${like},note.ilike.${like},waiting_note.ilike.${like}`).order("updated_at", { ascending: false }).limit(20),
     supabase.from("projects").select("id, name, note, context_id").or(`name.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("contexts").select("id, name, color").ilike("name", like).limit(8),
@@ -476,6 +477,7 @@ export async function buscar(termo: string): Promise<Achado[]> {
     supabase.from("routes").select("id, title, kind, context_id").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("study_courses").select("id, title, kind, context_id").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("study_subjects").select("id, title, course_id, next_topic").or(`title.ilike.${like},next_topic.ilike.${like}`).limit(8),
+    supabase.from("routines").select("id, title, days, times_per_week, at_time").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
   ]);
   const nomeCtx = (id: string | null) => (ctxs.data ?? []).find((x) => x.id === id);
   const estados: Record<string, string> = { a_fazer: "A fazer", aguardando: "Aguardando alguém", concluida: "Concluída" };
@@ -501,6 +503,7 @@ export async function buscar(termo: string): Promise<Achado[]> {
     const curso = (cs.data ?? []).find((k) => k.id === x.course_id);
     achados.push({ tipo: "curso", id: x.id, titulo: x.title, detalhe: `Matéria${curso ? ` · ${curso.title}` : ""}${x.next_topic ? ` · próxima: ${x.next_topic}` : ""}`, href: `/estudos/${x.course_id}` });
   }
+  for (const x of rn.data ?? []) achados.push({ tipo: "rotina", id: x.id, titulo: x.title, detalhe: `Rotina · ${textoFrequencia(x)}${x.at_time ? ` · ${x.at_time.slice(0, 5)}` : ""}`, href: `/rotinas#${x.id}` });
   for (const x of c.data ?? []) achados.push({ tipo: "contexto", id: x.id, titulo: x.name, detalhe: "Contexto", href: `/contexto/${x.id}`, cor: x.color });
   for (const x of e.data ?? []) {
     const ctx = nomeCtx(x.context_id);
@@ -955,5 +958,64 @@ export async function restaurarSessao(id: string, starts_at: string, ends_at: st
 export async function apagarSessao(id: string) {
   const supabase = await createClient();
   await supabase.from("events").delete().eq("id", id);
+  atualizar();
+}
+
+// ---------- rotinas (Book 6.3) ----------
+
+export type DadosRotina = {
+  title: string;
+  context_id: string | null;
+  days: number[] | null;
+  times_per_week: number | null;
+  at_time: string | null;
+  duration_min: number | null;
+};
+
+function validarRotina(d: DadosRotina): { erro: string } | { dados: DadosRotina } {
+  const title = d.title.trim().slice(0, 120);
+  if (!title) return { erro: "Dê um nome à rotina." };
+  const days = d.days ? [...new Set(d.days.filter((x) => Number.isInteger(x) && x >= 0 && x <= 6))].sort() : null;
+  const vezes = d.times_per_week && d.times_per_week >= 1 && d.times_per_week <= 7 ? Math.round(d.times_per_week) : null;
+  if (days && !days.length) return { erro: "Escolha ao menos um dia." };
+  if (!days && !vezes) return { erro: "Escolha os dias ou quantas vezes por semana." };
+  if (d.at_time && !HORA.test(d.at_time)) return { erro: "Hora inválida." };
+  const dur = d.duration_min && d.duration_min >= 5 ? Math.min(600, Math.round(d.duration_min)) : null;
+  return { dados: { title, context_id: d.context_id || null, days: days ?? null, times_per_week: days ? null : vezes, at_time: d.at_time || null, duration_min: dur } };
+}
+
+export async function criarRotina(d: DadosRotina): Promise<{ ok: boolean; erro?: string }> {
+  const v = validarRotina(d);
+  if ("erro" in v) return { ok: false, erro: v.erro };
+  const supabase = await createClient();
+  const { count } = await supabase.from("routines").select("id", { count: "exact", head: true });
+  const { error } = await supabase.from("routines").insert({ ...v.dados, position: count ?? 0 });
+  if (error) return { ok: false, erro: "Não foi possível criar a rotina." };
+  atualizar();
+  return { ok: true };
+}
+
+export async function salvarRotina(id: string, d: DadosRotina & { status: "ativa" | "pausada" }): Promise<{ ok: boolean; erro?: string }> {
+  const v = validarRotina(d);
+  if ("erro" in v) return { ok: false, erro: v.erro };
+  const supabase = await createClient();
+  const { error } = await supabase.from("routines").update({ ...v.dados, status: d.status === "pausada" ? "pausada" : "ativa" }).eq("id", id);
+  if (error) return { ok: false, erro: "Não foi possível salvar." };
+  atualizar();
+  return { ok: true };
+}
+
+export async function apagarRotina(id: string) {
+  const supabase = await createClient();
+  await supabase.from("routines").delete().eq("id", id);
+  atualizar();
+}
+
+/** Marca ou desmarca a rotina num dia (hoje ou um dia que já passou nesta semana) */
+export async function marcarRotina(id: string, dia: string, feita: boolean) {
+  if (!DATA.test(dia) || dia > hojeISO()) return;
+  const supabase = await createClient();
+  if (feita) await supabase.from("routine_checks").upsert({ routine_id: id, done_on: dia }, { onConflict: "routine_id,done_on", ignoreDuplicates: true });
+  else await supabase.from("routine_checks").delete().eq("routine_id", id).eq("done_on", dia);
   atualizar();
 }

@@ -45,7 +45,7 @@ Google Agenda, captura pelo WhatsApp. (Rotas, Estudos, Contextos sob medida, Rot
 | 4 · Rotas | Destino → ritmo → marcos → próximo passo no Hoje; recalcula sem culpa (`docs/plano-modulos.md`) | Em revisão com o Daniel |
 | 5 · Estudos | Matérias, ciclos, sessões no calendário e no Hoje, progresso | Em revisão com o Daniel |
 | 6 · Contextos sob medida | Cada empresa e área com a própria cara: modelo, números, seções, atalhos e frentes | — |
-| 7 · Rotinas e hábitos | Recorrências que aparecem no Hoje na hora certa, semana sem culpa | — |
+| 7 · Rotinas e hábitos | Recorrências que aparecem no Hoje na hora certa, semana sem culpa | Em revisão com o Daniel |
 | 8 · Notas | Notas e decisões vinculadas | — |
 
 Decisão do Daniel (19/11/2026): construir os módulos (fases 4 a 8) antes do teste de 90 dias, começando pelas
@@ -101,7 +101,8 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   `extensions`, search_path fixo no gatilho), 0003 (índices das chaves estrangeiras) e 0004 (`profiles`: nome,
   módulos e respostas do começo) 0005 (Rotas: `routes`, `route_milestones`, `route_entries`, e `route_id`/`milestone_id`
   em responsibilities) e 0006 (Estudos: `study_courses`, `study_subjects`; `course_id`, `subject_id` e `done_at` em events;
-  `course_id` em routes) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
+  `course_id` em routes) e 0007 (Rotinas: `routines`, com dias fixos ou N vezes por semana, e `routine_checks`, um registro
+  por dia feito) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`; o layout manda para `/comecar` quem ainda não respondeu as perguntas do
   começo. A casca (`src/components/Shell.tsx`) monta a lateral pelo perfil e pelos contextos (Negócios = tipo
@@ -109,7 +110,8 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   semana do calendário em `src/lib/semana.ts`; resumo de projeto (progresso, entrega, próximo passo) em
   `src/lib/projetos.ts`; cálculo das Rotas (ritmo, previsão, recálculo, próximo passo, igual ao simulador do Book)
   em `src/lib/rotas.ts`; Estudos (semana em barras, ciclo, matérias, próxima sessão) em `src/lib/estudos.ts`, com as
-  sessões como compromissos do Core (events com `course_id`). Ações do servidor em `src/app/(app)/acoes.ts`.
+  sessões como compromissos do Core (events com `course_id`); Rotinas (quando é dia dela, a semana em pontos, sem sequência)
+  em `src/lib/rotinas.ts`. Ações do servidor em `src/app/(app)/acoes.ts`.
 - Publicação: a Vercel publica a `main` em produção (rumo-iter-midia.vercel.app). O Daniel autorizou levar à
   `main` cada etapa terminada e conferida.
 - Variáveis: `.env.local` com `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`).

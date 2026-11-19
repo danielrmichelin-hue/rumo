@@ -9,6 +9,10 @@ import Link from "next/link";
 import { Anel, Caminho } from "@/components/Caminho";
 import { CAMPOS_ROTA, normalizar, resumirRota, type Marco } from "@/lib/rotas";
 import { AZUL_ESTUDO } from "@/lib/estudos";
+import { CAMPOS_ROTINA, feitaEm, hora, rotinasDoDia, semanaDaRotina, type Marcacao, type Rotina } from "@/lib/rotinas";
+import { segundaDa } from "@/lib/semana";
+import { ChecarRotina } from "@/components/Rotinas";
+import { Repeat } from "lucide-react";
 
 export const metadata = { title: "Hoje" };
 
@@ -20,7 +24,7 @@ export default async function Page() {
   const inicio = new Date(`${hoje}T00:00:00-03:00`).toISOString();
   const fim = new Date(`${hoje}T23:59:59.999-03:00`).toISOString();
 
-  const [{ data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }] = await Promise.all([
+  const [{ data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }] = await Promise.all([
     supabase.from("profiles").select("display_name").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").order("position"),
     supabase.from("projects").select("id, name"),
@@ -29,6 +33,8 @@ export default async function Page() {
     supabase.from("events").select("id, title, context_id, starts_at, ends_at, location, course_id, done_at").gte("starts_at", inicio).lte("starts_at", fim).order("starts_at"),
     supabase.from("routes").select(CAMPOS_ROTA).eq("status", "ativa").order("created_at"),
     supabase.from("route_milestones").select("id, route_id, title, position, due_date, done_at"),
+    supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").order("position"),
+    supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", segundaDa(hoje)),
   ]);
   const rotas = (rotasDb ?? []).map((x) => {
     const r = normalizar(x);
@@ -43,7 +49,9 @@ export default async function Page() {
   const nome = perfil?.display_name || (user?.email ?? "").split("@")[0];
   const primeiroNome = nome.split(/\s+/)[0];
   const doDiaComFeitas = [...dia.doDia, ...dia.concluidasHoje];
-  const vazio = !dia.proximo && !dia.atencao.length && !doDiaComFeitas.length;
+  const marcas = (marcasDb ?? []) as Marcacao[];
+  const rotinas = rotinasDoDia((rotinasDb ?? []) as Rotina[], marcas, hoje);
+  const vazio = !dia.proximo && !dia.atencao.length && !doDiaComFeitas.length && !rotinas.length;
   const proximoEvento = dia.agenda.find((e) => !e.done_at && horaSP(e.starts_at) >= agora);
 
   return (
@@ -60,7 +68,7 @@ export default async function Page() {
           <header>
             <p className="today__hello">{saudacao(agora)}, {primeiroNome}</p>
             <h1 className="page__t">O que precisa da sua atenção agora</h1>
-            <p className="today__sum">{resumoDoDia(dia)}</p>
+            <p className="today__sum">{resumoDoDia(dia, rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length)}</p>
           </header>
 
           {dia.proximo && (
@@ -83,6 +91,30 @@ export default async function Page() {
             <section className="sec" aria-labelledby="sec-hoje">
               <h2 className="sec__h" id="sec-hoje">Hoje <em>{dia.doDia.length}</em><span className="sec__act">Por horário</span></h2>
               <ListaResponsabilidades itens={doDiaComFeitas} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} semHoje />
+            </section>
+          )}
+
+          {rotinas.length > 0 && (
+            <section className="sec" aria-labelledby="sec-rotinas">
+              <h2 className="sec__h" id="sec-rotinas">Rotinas <em>{rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length}</em><Link href="/rotinas" className="sec__act">Ver a semana</Link></h2>
+              <ul className="list">
+                {rotinas.map((r) => {
+                  const feita = feitaEm(r, marcas, hoje);
+                  const s = semanaDaRotina(r, marcas, hoje);
+                  return (
+                    <li key={r.id} className="row" data-feita={feita || undefined}>
+                      <ChecarRotina rotina={r} feita={feita} />
+                      <div className="row__body">
+                        <span className="row__t">{r.title}</span>
+                        <span className="props">
+                          <span className="prop"><Repeat aria-hidden />Rotina · {s.texto}</span>
+                          {r.at_time && <span className="prop">{hora(r.at_time)}{r.duration_min ? ` · ${r.duration_min} min` : ""}</span>}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </section>
           )}
 

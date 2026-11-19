@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Folder, GraduationCap, Home, Inbox, ListChecks, Menu, Plus, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
+import { CalendarDays, Folder, GraduationCap, Home, Inbox, ListChecks, Menu, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
 import { AvisosProvider } from "./Avisos";
 import { Captura, useAtalhoCaptura } from "./Captura";
 
@@ -22,6 +22,8 @@ type Props = {
   rotas: { id: string; title: string; pct: number; rotulo: string }[] | null;
   /** Cursos em andamento (null quando o módulo Estudos está desligado e não há cursos) */
   estudos: { id: string; title: string; color: string }[] | null;
+  /** Rotinas ativas, com "3/4" da semana (null quando o módulo está desligado e não há rotinas) */
+  rotinas: { id: string; title: string; rotulo: string; color: string }[] | null;
   children: React.ReactNode;
 };
 
@@ -39,7 +41,7 @@ export function iniciais(nome: string) {
   return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : partes[0][1] ?? "")).toUpperCase();
 }
 
-export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, rotas, estudos, children }: Props) {
+export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, rotas, estudos, rotinas, children }: Props) {
   const path = usePathname();
   const router = useRouter();
   const on = (href: string) => (path === href || path.startsWith(href + "/") ? "page" : undefined);
@@ -141,6 +143,25 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
               ))}
               {!estudos.length && (
                 <Link href="/estudos/novo" className="nav" aria-current={on("/estudos/novo")}><GraduationCap aria-hidden /><span className="nav__label">Primeiro curso</span></Link>
+              )}
+            </div>
+          )}
+
+          {rotinas && (
+            <div>
+              <div className="side__group">
+                <span>Rotinas</span>
+                <Link href="/rotinas" aria-label="Nova rotina" title="Nova rotina"><Plus size={14} /></Link>
+              </div>
+              {rotinas.map((r) => (
+                <Link key={r.id} href={`/rotinas#${r.id}`} className="nav">
+                  <i className="nav__dot" style={{ background: r.color }} />
+                  <span className="nav__label">{r.title}</span>
+                  <span className="nav__count">{r.rotulo}</span>
+                </Link>
+              ))}
+              {!rotinas.length && (
+                <Link href="/rotinas" className="nav" aria-current={on("/rotinas")}><Repeat aria-hidden /><span className="nav__label">Primeira rotina</span></Link>
               )}
             </div>
           )}

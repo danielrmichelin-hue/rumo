@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, ChevronRight, Folder, GraduationCap, ListChecks, Route, Search, Settings, Shapes } from "lucide-react";
+import { CalendarDays, ChevronRight, Folder, GraduationCap, ListChecks, Repeat, Route, Search, Settings, Shapes } from "lucide-react";
 
 export const metadata = { title: "Mais" };
 
@@ -8,6 +8,7 @@ const ITENS = [
   { href: "/projetos", label: "Projetos", Icon: Folder },
   { href: "/rotas", label: "Rotas", Icon: Route },
   { href: "/estudos", label: "Estudos", Icon: GraduationCap },
+  { href: "/rotinas", label: "Rotinas", Icon: Repeat },
   { href: "/calendario", label: "Calendário", Icon: CalendarDays },
   { href: "/busca", label: "Buscar", Icon: Search },
   { href: "/contextos", label: "Contextos", Icon: Shapes },
