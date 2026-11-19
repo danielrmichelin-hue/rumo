@@ -1,4 +1,4 @@
-import { ChevronRight, GraduationCap } from "lucide-react";
+import { GraduationCap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
 import { BotaoNova, ProximoPasso } from "@/components/ProximoPasso";
@@ -6,12 +6,14 @@ import { agoraHora, dataPorExtenso, fimDoDia, hojeISO, horaDe, inicioDoDia, saud
 import { montarHoje, resumoDoDia } from "@/lib/hoje";
 import { CAMPOS_LISTA, type Compromisso, type Responsabilidade } from "@/lib/tipos";
 import Link from "next/link";
-import { Anel, Caminho } from "@/components/Caminho";
+import { Anel } from "@/components/Caminho";
 import { CAMPOS_MARCO, CAMPOS_ROTA, type Marco, normalizar, resumirRota } from "@/lib/rotas";
 import { AZUL_ESTUDO, CAMPOS_CURSO, CAMPOS_MATERIA, CAMPOS_SESSAO, CAMPOS_TEMA, horas, resumoDoCiclo, temasDa, type Curso, type Materia, type Sessao, type Tema } from "@/lib/estudos";
 import { CAMPOS_ROTINA, desdeMarcas, feitaEm, hora, type Marcacao, mesDaRotina, type Rotina, rotinasDoDia, semanaDaRotina } from "@/lib/rotinas";
 import { ChecarRotina } from "@/components/Rotinas";
 import { Repeat } from "lucide-react";
+import { Logo } from "@/components/Logo";
+import { moduloLigado, type ChaveModulo } from "@/lib/modulos";
 
 export const metadata = { title: "Hoje" };
 
@@ -24,7 +26,7 @@ export default async function Page() {
   const fim = fimDoDia(hoje);
 
   const [{ data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }, { data: cursosDb }, { data: materiasDb }] = await Promise.all([
-    supabase.from("profiles").select("display_name").maybeSingle(),
+    supabase.from("profiles").select("display_name, modules").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").order("position"),
     supabase.from("projects").select("id, name"),
     supabase.from("responsibilities").select(CAMPOS_LISTA).neq("state", "concluida"),
@@ -66,7 +68,7 @@ export default async function Page() {
   const doDiaComFeitas = [...dia.doDia, ...dia.concluidasHoje];
   const marcas = (marcasDb ?? []) as Marcacao[];
   const rotinas = rotinasDoDia((rotinasDb ?? []) as Rotina[], marcas, hoje);
-  const vazio = !dia.proximo && !dia.atencao.length && !doDiaComFeitas.length && !rotinas.length && !estudos.length;
+  const ligado = (m: ChaveModulo) => moduloLigado((perfil?.modules as string[] | null) ?? [], m);
   const proximoEvento = dia.agenda.find((e) => !e.done_at && horaDe(e.starts_at) >= agora);
 
   return (
@@ -78,107 +80,46 @@ export default async function Page() {
         <div className="page__actions hide-mobile"><BotaoNova /></div>
       </div>
 
-      <div className="today">
-        <div className="today__main">
-          <header>
-            <p className="today__hello">{saudacao(agora)}, {primeiroNome}</p>
-            <h1 className="page__t">O que precisa da sua atenção agora</h1>
-            <p className="today__sum">{resumoDoDia(dia, rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length, estudos.length)}</p>
-          </header>
+      <header className="today__head">
+        <p className="today__hello">{saudacao(agora)}, {primeiroNome}</p>
+        <h1 className="page__t">O que precisa da sua atenção agora</h1>
+        <p className="today__sum">{resumoDoDia(dia, rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length, estudos.length)}</p>
+      </header>
 
-          {dia.proximo && (
-            <ProximoPasso
-              proximo={dia.proximo}
-              contextos={ctx}
-              projeto={dia.proximo.tipo === "responsabilidade" && dia.proximo.item.project_id ? nomesProjetos[dia.proximo.item.project_id] : undefined}
-              rota={dia.proximo.tipo === "responsabilidade" && dia.proximo.item.route_id ? mapaRotas[dia.proximo.item.route_id] : undefined}
-            />
-          )}
+      {dia.proximo ? (
+        <ProximoPasso
+          proximo={dia.proximo}
+          contextos={ctx}
+          projeto={dia.proximo.tipo === "responsabilidade" && dia.proximo.item.project_id ? nomesProjetos[dia.proximo.item.project_id] : undefined}
+          rota={dia.proximo.tipo === "responsabilidade" && dia.proximo.item.route_id ? mapaRotas[dia.proximo.item.route_id] : undefined}
+        />
+      ) : (
+        <section className="next next--calmo" aria-label="Próximo passo">
+          <div>
+            <span className="next__k"><Logo forma="simbolo" />Próximo passo</span>
+            <span className="next__t">Nada urgente agora.</span>
+            <span className="props"><span className="prop">Bom momento para o que não tem prazo, ou para tirar da cabeça o que está pendente.</span></span>
+          </div>
+          <div className="next__act"><BotaoNova rotulo="Capturar" variante="btn btn--line" /></div>
+        </section>
+      )}
 
-          {dia.atencao.length > 0 && (
-            <section className="sec" aria-labelledby="sec-atencao">
-              <h2 className="sec__h" id="sec-atencao">Atenção <em>{dia.atencao.length}</em></h2>
-              <ListaResponsabilidades itens={dia.atencao} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} cobravel />
-            </section>
-          )}
-
-          {doDiaComFeitas.length > 0 && (
-            <section className="sec" aria-labelledby="sec-hoje">
-              <h2 className="sec__h" id="sec-hoje">Hoje <em>{dia.doDia.length}</em><span className="sec__act">Por horário</span></h2>
-              <ListaResponsabilidades itens={doDiaComFeitas} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} semHoje />
-            </section>
-          )}
-
-          {estudos.length > 0 && (
-            <section className="sec" aria-labelledby="sec-estudos">
-              <h2 className="sec__h" id="sec-estudos">Estudos <em>{estudos.length}</em></h2>
-              <ul className="list">
-                {estudos.map(({ c, linha, tema }) => (
-                  <li key={c.id} className="row">
-                    <GraduationCap className="row__ic" aria-hidden style={{ color: linha.materia.color }} />
-                    <div className="row__body">
-                      <Link href={`/estudos/${c.id}`} className="row__t">{linha.materia.title}{tema ? ` · ${tema.title}` : ""}</Link>
-                      <span className="props">
-                        <span className="prop">{c.title} · ciclo {c.current_cycle}</span>
-                        {linha.meta && <span className="prop">faltam {horas(linha.meta - linha.feito)} dela no ciclo</span>}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {rotinas.length > 0 && (
-            <section className="sec" aria-labelledby="sec-rotinas">
-              <h2 className="sec__h" id="sec-rotinas">Rotinas <em>{rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length}</em><Link href="/rotinas" className="sec__act">Ver a semana</Link></h2>
-              <ul className="list">
-                {rotinas.map((r) => {
-                  const feita = feitaEm(r, marcas, hoje);
-                  const s = semanaDaRotina(r, marcas, hoje);
-                  return (
-                    <li key={r.id} className="row" data-feita={feita || undefined}>
-                      <ChecarRotina rotina={r} feita={feita} />
-                      <div className="row__body">
-                        <span className="row__t">{r.title}</span>
-                        <span className="props">
-                          <span className="prop"><Repeat aria-hidden />Rotina · {r.month_day ? mesDaRotina(r, marcas, hoje).texto : s.texto}</span>
-                          {r.at_time && <span className="prop">{hora(r.at_time)}{r.duration_min ? ` · ${r.duration_min} min` : ""}</span>}
-                        </span>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
-
-          {vazio && (
-            <div className="empty">
-              <b>Nada pendente nesta etapa.</b>
-              Capture o que estiver na cabeça: aperte C ou o botão Capturar. O que tiver data aparece aqui no dia.
-            </div>
-          )}
-
-          {dia.aguardando.length > 0 && (
-            <details className="sec fold">
-              <summary className="sec__h"><ChevronRight aria-hidden />Aguardando alguém <em>{dia.aguardando.length}</em></summary>
-              <ListaResponsabilidades itens={dia.aguardando} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} />
-            </details>
-          )}
-
-          <p className="list-foot hide-mobile" aria-hidden>
-            <span><kbd>C</kbd> capturar</span>
-            <span><kbd>⌘K</kbd> buscar</span>
-          </p>
+      <div className="painel">
+        <div className="painel__col">
+          <Bloco titulo="Atenção" n={dia.atencao.length} vazio="Nada atrasado e nenhum retorno para cobrar hoje.">
+            {dia.atencao.length > 0 && <ListaResponsabilidades itens={dia.atencao} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} cobravel />}
+          </Bloco>
+          <Bloco titulo="Hoje" n={dia.doDia.length} acao={doDiaComFeitas.length ? <span className="sec__act">Por horário</span> : null} vazio="Nada com prazo para hoje. O que tiver data aparece aqui no dia.">
+            {doDiaComFeitas.length > 0 && <ListaResponsabilidades itens={doDiaComFeitas} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} semHoje />}
+          </Bloco>
+          <Bloco titulo="Aguardando alguém" n={dia.aguardando.length} acao={dia.aguardando.length > 4 ? <Link href="/responsabilidades?estado=aguardando" className="sec__act">Ver todos</Link> : null} vazio="Ninguém te deve retorno agora.">
+            {dia.aguardando.length > 0 && <ListaResponsabilidades itens={dia.aguardando.slice(0, 4)} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} />}
+          </Bloco>
         </div>
 
-        <aside className="today__aside" aria-label="Agenda do dia">
-          <section className="sec">
-            <h2 className="sec__h">Agenda</h2>
-            {dia.agenda.length === 0 ? (
-              <p className="empty" style={{ paddingTop: 4 }}>Nenhum compromisso hoje.</p>
-            ) : (
+        <div className="painel__col">
+          <Bloco titulo="Agenda" n={dia.agenda.length} acao={<Link href="/calendario" className="sec__act">Calendário</Link>} vazio="Nenhum compromisso hoje.">
+            {dia.agenda.length > 0 && (
               <div className="agenda">
                 {dia.agenda.map((e) => {
                   const hora = horaDe(e.starts_at);
@@ -202,24 +143,85 @@ export default async function Page() {
                 })}
               </div>
             )}
-          </section>
+          </Bloco>
 
-          {rotas.length > 0 && (
-            <section className="sec">
-              <h2 className="sec__h">Rotas em andamento</h2>
-              <div style={{ display: "grid", gap: 10 }}>
-                {rotas.slice(0, 3).map(({ r, resumo }) => (
-                  <Link key={r.id} href={`/rotas/${r.id}`} className="route" style={{ padding: 14, gap: 10 }}>
-                    <span className="route__k" style={{ color: "var(--text)", fontSize: 14, fontWeight: 500 }}><Anel pct={resumo.pct} />{r.title}</span>
-                    <Caminho pct={resumo.pct} />
-                    <span className="route__line">{r.kind === "financeiro" ? `${resumo.agora.split(" de ")[0]} guardados · ` : ""}{resumo.linha}</span>
-                  </Link>
-                ))}
-              </div>
-            </section>
+          {(ligado("rotinas") || rotinas.length > 0) && (
+            <Bloco titulo="Rotinas" n={rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length} acao={<Link href="/rotinas" className="sec__act">Rotinas</Link>} vazio="Nenhuma rotina para hoje.">
+              {rotinas.length > 0 && (
+                <ul className="list">
+                  {rotinas.map((r) => {
+                    const feita = feitaEm(r, marcas, hoje);
+                    const sem = semanaDaRotina(r, marcas, hoje);
+                    return (
+                      <li key={r.id} className="row" data-feita={feita || undefined}>
+                        <ChecarRotina rotina={r} feita={feita} />
+                        <div className="row__body">
+                          <span className="row__t">{r.title}</span>
+                          <span className="props">
+                            <span className="prop"><Repeat aria-hidden />{r.month_day ? mesDaRotina(r, marcas, hoje).texto : sem.texto}</span>
+                            {r.at_time && <span className="prop">{hora(r.at_time)}</span>}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Bloco>
           )}
-        </aside>
+
+          {(ligado("estudos") || cursos.length > 0) && (
+            <Bloco titulo="Estudos" n={estudos.length} acao={<Link href="/estudos" className="sec__act">Estudos</Link>} vazio={cursos.length ? "Sessão de estudo já marcada para hoje, ou ciclo completo." : "Monte o seu ciclo de estudos para ver aqui a matéria da vez."}>
+              {estudos.length > 0 && (
+                <ul className="list">
+                  {estudos.map(({ c, linha, tema }) => (
+                    <li key={c.id} className="row">
+                      <GraduationCap className="row__ic" aria-hidden style={{ color: linha.materia.color }} />
+                      <div className="row__body">
+                        <Link href={`/estudos/${c.id}`} className="row__t">{linha.materia.title}{tema ? ` · ${tema.title}` : ""}</Link>
+                        <span className="props">
+                          <span className="prop">{c.title}</span>
+                          {linha.meta && <span className="prop">faltam {horas(linha.meta - linha.feito)} no ciclo</span>}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Bloco>
+          )}
+
+          {(ligado("rotas") || rotas.length > 0) && (
+            <Bloco titulo="Rotas" n={rotas.length} acao={<Link href="/rotas" className="sec__act">Rotas</Link>} vazio="Nenhuma Rota em andamento. Um destino com prazo vira ritmo e passo no Hoje.">
+              {rotas.length > 0 && (
+                <div className="agenda">
+                  {rotas.slice(0, 4).map(({ r, resumo }) => (
+                    <Link key={r.id} href={`/rotas/${r.id}`} className="ag" style={{ gridTemplateColumns: "20px minmax(0,1fr)" }}>
+                      <span style={{ paddingTop: 3 }}><Anel pct={resumo.pct} /></span>
+                      <div><b>{r.title}</b><small>{resumo.linha}</small></div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </Bloco>
+          )}
+        </div>
       </div>
+
+      <p className="list-foot hide-mobile" aria-hidden>
+        <span><kbd>C</kbd> capturar</span>
+        <span><kbd>⌘K</kbd> buscar</span>
+      </p>
     </div>
+  );
+}
+
+/** Um bloco do painel: sempre no mesmo lugar; vazio vira uma linha só */
+function Bloco({ titulo, n, acao, vazio, children }: { titulo: string; n: number; acao?: React.ReactNode; vazio: string; children?: React.ReactNode }) {
+  return (
+    <section className="bloco">
+      <h2 className="sec__h">{titulo}{n > 0 && <em>{n}</em>}{acao}</h2>
+      {children || <p className="bloco__vazio">{vazio}</p>}
+    </section>
   );
 }

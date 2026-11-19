@@ -29,14 +29,21 @@ function primeiraMaiuscula(s: string) {
   return s.charAt(0).toLocaleUpperCase("pt-BR") + s.slice(1);
 }
 
-export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "" }: { aberta: boolean; abrir: () => void; fechar: () => void; contextos: ContextItem[]; textoInicial?: string }) {
+export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "", contextoInicial = null }: { aberta: boolean; abrir: () => void; fechar: () => void; contextos: ContextItem[]; textoInicial?: string; contextoInicial?: string | null }) {
   const [valor, setValor] = useState("");
   const campo = useRef<HTMLTextAreaElement>(null);
   const avisar = useAvisar();
   const hoje = hojeISO();
 
   const leitura = useMemo(() => (valor.trim() ? lerCaptura(valor, contextos, hoje) : null), [valor, contextos, hoje]);
-  const contexto = contextos.find((c) => c.id === leitura?.context_id);
+  // Onde guardar: a etiqueta tocada vale mais que o #; sem nenhum dos dois, o Rumo sugere pelo texto
+  const [escolhido, setEscolhido] = useState<string | null>(null);
+  useEffect(() => {
+    if (aberta) setEscolhido((e) => e ?? contextoInicial);
+  }, [aberta, contextoInicial]);
+  const sugerido = useMemo(() => (leitura && !leitura.context_id && !escolhido ? sugerirContexto(valor, contextos) : null), [leitura, escolhido, valor, contextos]);
+  const idContexto = escolhido === "inbox" ? null : escolhido ?? leitura?.context_id ?? null;
+  const contexto = contextos.find((c) => c.id === idContexto);
 
   // Botões como "Nova decisão" abrem a captura já com um começo de texto
   // O cursor vai para o espaço reservado do texto pronto ("Decidir  #iter" → depois de "Decidir ";
@@ -83,12 +90,14 @@ export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "" }:
   async function guardar() {
     const texto = valor.trim();
     if (!texto) return;
+    const onde = escolhido;
     setValor("");
+    setEscolhido(null);
     fechar();
     avisar({ texto: "Guardando…", fixo: true });
     let r: Awaited<ReturnType<typeof capturar>>;
     try {
-      r = await capturar(texto);
+      r = await capturar(texto, onde);
     } catch {
       r = { ok: false, erro: "Não foi possível guardar. Verifique a conexão e tente de novo." };
     }
@@ -96,9 +105,9 @@ export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "" }:
       avisar({ texto: r.erro, fixo: true, acao: { rotulo: "Reabrir", fazer: () => { setValor(texto); abrir(); } } });
       return;
     }
-    const onde = r.contexto ? `em ${r.contexto}` : "na Inbox";
+    const lugar = r.contexto ? `em ${r.contexto}` : "na Inbox";
     const quando = r.due_date ? ` · ${rotuloData(r.due_date, hoje)}${r.due_time ? ` ${rotuloHora(r.due_time)}` : ""}` : "";
-    avisar({ texto: `Guardado ${onde}${quando}.`, link: { rotulo: "Abrir", href: `/responsabilidades/${r.id}` } });
+    avisar({ texto: `Guardado ${lugar}${quando}.`, link: { rotulo: "Abrir", href: `/responsabilidades/${r.id}` } });
   }
 
   if (!aberta) return null;
@@ -157,24 +166,35 @@ export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "" }:
                   {primeiraMaiuscula(rotuloData(leitura.due_date, hoje))}{leitura.due_time ? `, ${leitura.due_time}` : ""}
                 </span>
               )}
-              {contexto ? (
-                <span className="chip"><i className="dot" style={{ background: contexto.color }} />{contexto.name}</span>
-              ) : (
-                <span className="chip"><Inbox aria-hidden />Inbox</span>
-              )}
               <span className="chip">
                 {leitura.kind === "decidir" ? <><Scale aria-hidden />Decisão</> : <><ListChecks aria-hidden />Responsabilidade</>}
               </span>
             </div>
           ) : (
             <p className="capture__hint">
-              Escreva como fala: <em>Ligar para o contador sexta 10h #{contextos[0] ? exemploTag(contextos[0].name) : "trabalho"}</em>
+              Escreva como fala: <em>Ligar para o contador sexta 10h</em>. Data e hora o Rumo entende sozinho.
             </p>
           )}
-          {leitura?.tagDesconhecida && (
-            <p className="capture__hint" style={{ marginTop: 8 }}>#{leitura.tagDesconhecida} não é um dos seus contextos e fica no título.</p>
-          )}
         </div>
+
+        {contextos.length > 0 && (
+          <div className="capture__where" role="group" aria-label="Onde guardar">
+            <span>Onde guardar</span>
+            <button type="button" className="chip" aria-pressed={!idContexto} onClick={() => setEscolhido("inbox")}><Inbox aria-hidden />Inbox</button>
+            {contextos.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className={`chip${sugerido?.id === c.id ? " chip--sugestao" : ""}`}
+                aria-pressed={idContexto === c.id}
+                onClick={() => setEscolhido(idContexto === c.id ? "inbox" : c.id)}
+                title={sugerido?.id === c.id ? "Sugestão pelo que você escreveu" : undefined}
+              >
+                <i className="dot" style={{ background: c.color }} />{c.name}{sugerido?.id === c.id && <small>?</small>}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="capture__foot">
           <span className="capture__keys"><kbd>Enter</kbd> adiciona <kbd>Esc</kbd> fecha</span>
@@ -185,6 +205,10 @@ export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "" }:
   );
 }
 
-function exemploTag(nome: string) {
-  return nome.split(/\s+/)[0].normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+const sem = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+/** "proposta da iter" → Iter Mídia: uma palavra do texto igual ao começo do nome de um contexto (3+ letras) */
+function sugerirContexto(texto: string, contextos: ContextItem[]): ContextItem | null {
+  const palavras = new Set(sem(texto).split(/[^\p{L}\p{N}]+/u).filter((p) => p.length >= 3));
+  return contextos.find((c) => sem(c.name).split(/\s+/).some((p) => p.length >= 3 && palavras.has(p))) ?? null;
 }

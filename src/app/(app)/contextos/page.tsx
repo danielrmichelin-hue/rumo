@@ -19,7 +19,7 @@ export default async function Page() {
       <div className="page__head">
         <div>
           <h1 className="page__t">Contextos</h1>
-          <p className="page__sub">Empresas e áreas da sua vida. Na captura, escreva <code>#nome</code> para guardar direto num contexto.</p>
+          <p className="page__sub">Empresas e áreas da sua vida. Ao capturar, toque no contexto para guardar direto nele.</p>
         </div>
       </div>
       <GerirContextos contextos={(contextos ?? []) as Contexto[]} abertas={contagem} />

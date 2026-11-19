@@ -120,7 +120,8 @@ export function Comeco({ inicial, refazendo }: { inicial: Inicial; refazendo: bo
                 const on = escolhas.includes(c);
                 return (
                   <button key={c} type="button" className="opt" aria-pressed={on} onClick={() => alternarEscolha(c)}>
-                    <Icon aria-hidden />{e.rotulo}
+                    <Icon aria-hidden />
+                    <span className="opt__txt">{e.rotulo}<small>{e.dica}</small></span>
                     <span className="tick" aria-hidden>{on && <Check />}</span>
                   </button>
                 );

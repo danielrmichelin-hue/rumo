@@ -7,7 +7,7 @@ import { CAMPOS_LISTA, ordenar, type Estado, type Responsabilidade } from "@/lib
 export const metadata = { title: "Responsabilidades" };
 
 const ABAS: Array<{ estado: Estado; rotulo: string; vazio: string }> = [
-  { estado: "a_fazer", rotulo: "A fazer", vazio: "O que você capturar com #contexto aparece aqui." },
+  { estado: "a_fazer", rotulo: "A fazer", vazio: "O que você capturar num contexto aparece aqui." },
   { estado: "aguardando", rotulo: "Aguardando alguém", vazio: "Quando surgir um acompanhamento, ele aparece aqui, com a data de cobrar." },
   { estado: "concluida", rotulo: "Concluídas", vazio: "O que você concluir fica guardado aqui." },
 ];
@@ -60,6 +60,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
           <p className="page__sub">
             <b>{contagem.a_fazer}</b> a fazer · <b>{contagem.aguardando}</b> aguardando alguém
           </p>
+          <p className="page__para">Tudo o que depende de você, por contexto. O que tem data também aparece no Hoje, no dia.</p>
         </div>
         <div className="page__actions hide-mobile"><BotaoNova /></div>
       </div>

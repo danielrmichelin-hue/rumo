@@ -42,12 +42,15 @@ export type ResultadoCaptura =
   | { ok: true; id: string; title: string; due_date: string | null; due_time: string | null; contexto: string | null }
   | { ok: false; erro: string };
 
-export async function capturar(bruto: string): Promise<ResultadoCaptura> {
+/** `onde`: o contexto escolhido na etiqueta ("inbox" para a Inbox); sem escolha, vale o #contexto do texto */
+export async function capturar(bruto: string, onde: string | null = null): Promise<ResultadoCaptura> {
   const original = bruto.trim();
   if (!original) return { ok: false, erro: "Escreva algo para guardar." };
   if (original.length > 1000) return { ok: false, erro: "Texto longo demais para uma captura." };
 
-  const { leitura, contextos, id } = await inserirCaptura(original);
+  const escolha = onde === "inbox" ? { context_id: null } : ehId(onde) ? { context_id: onde } : {};
+  const { leitura, contextos, id } = await inserirCaptura(original, escolha);
+  const destino = "context_id" in escolha ? escolha.context_id : leitura.context_id;
   if (!id) return { ok: false, erro: "Não foi possível guardar. Tente de novo." };
 
   atualizar();
@@ -57,7 +60,7 @@ export async function capturar(bruto: string): Promise<ResultadoCaptura> {
     title: leitura.title,
     due_date: leitura.due_date,
     due_time: leitura.due_time,
-    contexto: contextos.find((c) => c.id === leitura.context_id)?.name ?? null,
+    contexto: contextos.find((c) => c.id === destino)?.name ?? null,
   };
 }
 

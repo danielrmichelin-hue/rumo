@@ -7,7 +7,15 @@ import { CalendarDays, Folder, GraduationCap, Home, Inbox, ListChecks, Menu, Not
 import { AvisosProvider } from "./Avisos";
 import { Captura, useAtalhoCaptura } from "./Captura";
 import { Logo } from "./Logo";
-import { Anel } from "./Caminho";
+
+export type EntradaModulo = { chave: "estudos" | "rotinas" | "rotas" | "notas"; n: number; quente?: boolean };
+
+const MODULO: Record<EntradaModulo["chave"], { href: string; label: string; icon: typeof Home }> = {
+  estudos: { href: "/estudos", label: "Estudos", icon: GraduationCap },
+  rotinas: { href: "/rotinas", label: "Rotinas", icon: Repeat },
+  rotas: { href: "/rotas", label: "Rotas", icon: Route },
+  notas: { href: "/notas", label: "Notas", icon: NotebookPen },
+};
 
 export type ContextItem = { id: string; name: string; color: string; kind?: "empresa" | "area" };
 
@@ -20,14 +28,8 @@ type Props = {
   atencao: number;
   /** módulos ligados e disponíveis (hoje só "negocios") */
   negocios: boolean;
-  /** Rotas ativas (null quando o módulo está desligado e não há Rotas) */
-  rotas: { id: string; title: string; pct: number; rotulo: string }[] | null;
-  /** Cursos em andamento (null quando o módulo Estudos está desligado e não há cursos) */
-  estudos: { id: string; title: string; color: string }[] | null;
-  /** Rotinas ativas, com "3/4" da semana (null quando o módulo está desligado e não há rotinas) */
-  rotinas: { id: string; title: string; rotulo: string; color: string }[] | null;
-  /** Notas aparece na lateral quando o módulo está ligado ou já existe alguma nota */
-  notas: boolean;
+  /** Módulos ligados: uma entrada cada na lateral, com o número do dia */
+  modulos: EntradaModulo[];
   children: React.ReactNode;
 };
 
@@ -45,12 +47,15 @@ export function iniciais(nome: string) {
   return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : partes[0][1] ?? "")).toUpperCase();
 }
 
-export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, rotas, estudos, rotinas, notas, children }: Props) {
+export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, modulos, children }: Props) {
   const path = usePathname();
   const router = useRouter();
   const on = (href: string) => (path === href || path.startsWith(href + "/") ? "page" : undefined);
   const [captura, setCaptura] = useState(false);
   const [textoInicial, setTextoInicial] = useState("");
+  const [contextoInicial, setContextoInicial] = useState<string | null>(null);
+  // Dentro de um contexto, a captura já abre com ele escolhido
+  const contextoDaPagina = path.match(/^\/contexto\/([0-9a-f-]{36})/)?.[1] ?? null;
   const abrir = useCallback(() => setCaptura(true), []);
   const fechar = useCallback(() => setCaptura(false), []);
   useAtalhoCaptura(abrir);
@@ -58,7 +63,9 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
   // Botões "Nova" das páginas abrem a captura
   useEffect(() => {
     function onCapturar(e: Event) {
-      setTextoInicial((e as CustomEvent<{ texto?: string }>).detail?.texto ?? "");
+      const d = (e as CustomEvent<{ texto?: string; contexto?: string }>).detail;
+      setTextoInicial(d?.texto ?? "");
+      setContextoInicial(d?.contexto ?? null);
       abrir();
     }
     window.addEventListener("rumo:capturar", onCapturar);
@@ -102,7 +109,7 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
           </button>
           <Link href="/busca" className="side__search"><Search aria-hidden />Buscar<kbd>⌘K</kbd></Link>
 
-          {[...CORE, ...(notas ? [{ href: "/notas", label: "Notas", icon: NotebookPen }] : [])].map(({ href, label, icon: Icon }) => (
+          {CORE.map(({ href, label, icon: Icon }) => (
             <Link key={href} href={href} className="nav" aria-current={on(href)}>
               <Icon aria-hidden />
               <span className="nav__label">{label}</span>
@@ -111,6 +118,18 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
               )}
             </Link>
           ))}
+
+          {modulos.length > 0 && <div className="side__group"><span>Módulos</span></div>}
+          {modulos.map((m) => {
+            const { href, label, icon: Icon } = MODULO[m.chave];
+            return (
+              <Link key={m.chave} href={href} className="nav" aria-current={on(href)}>
+                <Icon aria-hidden />
+                <span className="nav__label">{label}</span>
+                {m.n > 0 && <span className={`nav__count${m.quente ? " nav__count--hot" : ""}`}>{m.n}</span>}
+              </Link>
+            );
+          })}
 
           {grupos.map((g, i) => (
             <div key={g.titulo}>
@@ -131,65 +150,6 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
               <div className="side__group"><span>Contextos</span></div>
               <Link href="/contextos" className="nav"><Plus aria-hidden /><span className="nav__label">Criar contextos</span></Link>
             </>
-          )}
-
-          {estudos && (
-            <div>
-              <div className="side__group">
-                <span>Estudos</span>
-                <Link href="/estudos/novo" aria-label="Novo estudo" title="Novo estudo"><Plus size={14} /></Link>
-              </div>
-              {estudos.map((c) => (
-                <Link key={c.id} href={`/estudos/${c.id}`} className="nav" aria-current={on(`/estudos/${c.id}`)}>
-                  <i className="nav__dot" style={{ background: c.color }} />
-                  <span className="nav__label">{c.title}</span>
-                </Link>
-              ))}
-              {!estudos.length && (
-                <Link href="/estudos/novo" className="nav" aria-current={on("/estudos/novo")}><GraduationCap aria-hidden /><span className="nav__label">Primeiro estudo</span></Link>
-              )}
-            </div>
-          )}
-
-          {rotinas && (
-            <div>
-              <div className="side__group">
-                <span>Rotinas</span>
-                <Link href="/rotinas" aria-label="Nova rotina" title="Nova rotina"><Plus size={14} /></Link>
-              </div>
-              {rotinas.slice(0, 5).map((r) => (
-                <Link key={r.id} href={`/rotinas#${r.id}`} className="nav">
-                  <i className="nav__dot" style={{ background: r.color }} />
-                  <span className="nav__label">{r.title}</span>
-                  <span className="nav__count">{r.rotulo}</span>
-                </Link>
-              ))}
-              {!rotinas.length && (
-                <Link href="/rotinas" className="nav" aria-current={on("/rotinas")}><Repeat aria-hidden /><span className="nav__label">Primeira rotina</span></Link>
-              )}
-              {rotinas.length > 5 && (
-                <Link href="/rotinas" className="nav" aria-current={on("/rotinas")}><Repeat aria-hidden /><span className="nav__label">Todas as rotinas</span><span className="nav__count">{rotinas.length}</span></Link>
-              )}
-            </div>
-          )}
-
-          {rotas && (
-            <div>
-              <div className="side__group">
-                <span>Rotas</span>
-                <Link href="/rotas/nova" aria-label="Nova Rota" title="Nova Rota"><Plus size={14} /></Link>
-              </div>
-              {rotas.map((r) => (
-                <Link key={r.id} href={`/rotas/${r.id}`} className="nav" aria-current={on(`/rotas/${r.id}`)}>
-                  <Anel pct={r.pct} />
-                  <span className="nav__label">{r.title}</span>
-                  <span className="nav__count">{r.rotulo}</span>
-                </Link>
-              ))}
-              {!rotas.length && (
-                <Link href="/rotas/nova" className="nav" aria-current={on("/rotas/nova")}><Route aria-hidden /><span className="nav__label">Primeira Rota</span></Link>
-              )}
-            </div>
           )}
 
           <div className="side__foot">
@@ -220,7 +180,7 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
           <Link href="/mais" aria-current={on("/mais") ?? on("/responsabilidades") ?? on("/ajustes")}><Menu aria-hidden />Mais</Link>
         </nav>
 
-        <Captura aberta={captura} abrir={abrir} fechar={() => { setTextoInicial(""); fechar(); }} contextos={contexts} textoInicial={textoInicial} />
+        <Captura aberta={captura} abrir={abrir} fechar={() => { setTextoInicial(""); setContextoInicial(null); fechar(); }} contextos={contexts} textoInicial={textoInicial} contextoInicial={contextoInicial ?? contextoDaPagina} />
       </div>
     </AvisosProvider>
   );

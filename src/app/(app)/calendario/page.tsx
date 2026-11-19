@@ -7,6 +7,8 @@ import { NovoCompromisso } from "@/components/FormCompromisso";
 import { agoraHora, diaDaSemana, fimDoDia, hojeISO, horaDe, inicioDoDia, instante, prazoPassou, rotuloHora, SEMANA_CURTA, somarDias } from "@/lib/datas";
 import { emColunas, numeroSemana, segundaDa, tituloDoMes } from "@/lib/semana";
 import { CAMPOS_LISTA, type Compromisso, type Responsabilidade } from "@/lib/tipos";
+import { AlternarVista } from "./AlternarVista";
+import { VistaMes } from "./VistaMes";
 
 export const metadata = { title: "Calendário" };
 
@@ -16,9 +18,10 @@ const ALTURA = 52; // px por hora
 
 const minutos = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ semana?: string }> }) {
-  const { semana } = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<{ semana?: string; vista?: string; mes?: string }> }) {
+  const { semana, vista, mes } = await searchParams;
   const hoje = hojeISO();
+  if (vista === "mes") return <VistaMes mes={mes && /^\d{4}-(0[1-9]|1[0-2])$/.test(mes) ? mes : hoje.slice(0, 7)} />;
   const agora = agoraHora();
   const segunda = segundaDa(semana && /^\d{4}-\d{2}-\d{2}$/.test(semana) ? semana : hoje);
   const domingo = somarDias(segunda, 6);
@@ -85,8 +88,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
         <div>
           <h1 className="page__t">{tituloDoMes(segunda)}</h1>
           <p className="page__sub">Semana {numeroSemana(segunda)} · <b>{compromissos.length}</b> {compromissos.length === 1 ? "compromisso" : "compromissos"} · <b>{prazos.filter((p) => p.state !== "concluida").length}</b> prazos</p>
+          <p className="page__para">Compromissos com hora e os prazos de cada dia, juntos. Prazo fica em cima; o que tem hora, na grade.</p>
         </div>
         <div className="page__actions">
+          <AlternarVista vista="semana" semana={segunda} mes={(segunda <= hoje && hoje <= domingo ? hoje : segunda).slice(0, 7)} />
           <Link href={`/calendario?semana=${somarDias(segunda, -7)}`} className="icon-btn" aria-label="Semana anterior"><ChevronLeft size={18} /></Link>
           <Link href="/calendario" className="btn btn--line btn--sm">Hoje</Link>
           <Link href={`/calendario?semana=${somarDias(segunda, 7)}`} className="icon-btn" aria-label="Próxima semana"><ChevronRight size={18} /></Link>

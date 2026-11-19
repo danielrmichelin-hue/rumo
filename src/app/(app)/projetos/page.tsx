@@ -34,7 +34,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
       <div className="page__head">
         <div>
           <h1 className="page__t">Projetos</h1>
-          <p className="page__sub"><b>{contar("ativo")}</b> {contar("ativo") === 1 ? "ativo" : "ativos"} · resultados com etapas e fim</p>
+          <p className="page__sub"><b>{contar("ativo")}</b> {contar("ativo") === 1 ? "ativo" : "ativos"}</p>
+          <p className="page__para">Um projeto é um resultado com etapas e fim (um site, uma reforma, uma viagem). Cada um mostra o próximo passo.</p>
         </div>
         <div className="page__actions"><NovoProjeto contextos={ctx} /></div>
       </div>

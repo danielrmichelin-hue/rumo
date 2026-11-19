@@ -25,6 +25,7 @@ export default async function Page() {
               ? "Nada a organizar."
               : <><b>{lista.length}</b> {lista.length === 1 ? "item capturado espera" : "itens capturados esperam"} um contexto.</>}
           </p>
+          <p className="page__para">Onde cai o que você anota sem escolher um lugar. Dê um contexto (ou uma data) e o item sai daqui.</p>
         </div>
         <div className="page__actions hide-mobile"><BotaoNova /></div>
       </div>
@@ -32,7 +33,7 @@ export default async function Page() {
       {lista.length === 0 ? (
         <div className="empty">
           <b>Nada pendente nesta etapa.</b>
-          O que você capturar sem #contexto espera aqui até ganhar um lugar.
+          O que você capturar sem escolher um contexto espera aqui até ganhar um lugar.
         </div>
       ) : (
         <>

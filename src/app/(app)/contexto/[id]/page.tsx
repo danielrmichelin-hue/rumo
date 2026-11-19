@@ -87,8 +87,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </div>
         </div>
         <div className="page__actions">
-          <BotaoNova texto={`Decidir  #${tag}`} rotulo="Nova decisão" variante="btn btn--ghost" icone={<Scale aria-hidden />} />
-          <span className="hide-mobile"><BotaoNova texto={` #${tag}`} /></span>
+          <BotaoNova texto="Decidir " contexto={id} rotulo="Nova decisão" variante="btn btn--ghost" icone={<Scale aria-hidden />} />
+          <span className="hide-mobile"><BotaoNova contexto={id} /></span>
         </div>
       </div>
       {contexto.archived && <p className="note" style={{ marginBottom: 16 }}>Contexto arquivado. <Link href="/contextos" className="link">Reativar</Link></p>}
@@ -135,7 +135,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         abertas.length === 0 ? (
           <div className="empty">
             <b>Nada pendente nesta etapa.</b>
-            <span>{contexto.kind === "empresa" ? "Comece pelo que depende de você: uma decisão, um retorno, uma reunião." : "O que depende de você aqui aparece nesta lista."} Na captura, escreva <code>#{tag}</code> para guardar direto aqui.</span>
+            <span>{contexto.kind === "empresa" ? "Comece pelo que depende de você: uma decisão, um retorno, uma reunião." : "O que depende de você aqui aparece nesta lista."} O que você anotar com Nova, aqui, já fica neste contexto.</span>
           </div>
         ) : (
           <>

@@ -50,10 +50,10 @@ export function PainelContexto(d: DadosPainel) {
           {empresa
             ? "Aprovar, decidir, cobrar um retorno, uma reunião. O que é da empresa fica no sistema dela; aqui entra só a sua parte."
             : "Consultas, contas do mês, o que se repete e o que você precisa lembrar."}{" "}
-          Na captura, escreva <code>#{d.tag}</code> para guardar direto aqui.
+          O que você anotar daqui já fica em {d.contexto.name}.
         </span>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-          <BotaoNova texto={` #${d.tag}`} rotulo="Anotar algo" variante="btn btn--sm" />
+          <BotaoNova contexto={d.contexto.id} rotulo="Anotar algo" variante="btn btn--sm" />
           <Link href="/rotinas" className="btn btn--line btn--sm"><Repeat aria-hidden />Criar uma rotina</Link>
         </div>
       </div>
