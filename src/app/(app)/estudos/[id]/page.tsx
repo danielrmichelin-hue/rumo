@@ -13,6 +13,8 @@ import {
   NOME_CICLO, pctMateria, proximaSessao, quandoSessao, semanaEmBarras, type Curso, type Materia, type Sessao,
 } from "@/lib/estudos";
 import { CAMPOS_ROTA, normalizar, resumirRota } from "@/lib/rotas";
+import { ListaNotas, NovaNota } from "@/components/Notas";
+import { CAMPOS_NOTA, type Nota } from "@/lib/notas";
 
 export const metadata = { title: "Estudos" };
 
@@ -22,12 +24,13 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const hoje = hojeISO();
   const desde = inicioDoDia(segundaDa(hoje));
   const supabase = await createClient();
-  const [{ data: cursoDb }, { data: materiasDb }, { data: sessoesDb }, { data: rotasDb }, { data: contextos }] = await Promise.all([
+  const [{ data: cursoDb }, { data: materiasDb }, { data: sessoesDb }, { data: rotasDb }, { data: contextos }, { data: notas }] = await Promise.all([
     supabase.from("study_courses").select(CAMPOS_CURSO).eq("id", id).maybeSingle(),
     supabase.from("study_subjects").select(CAMPOS_MATERIA).eq("course_id", id).order("position"),
     supabase.from("events").select(CAMPOS_SESSAO).eq("course_id", id).gte("starts_at", desde).order("starts_at"),
     supabase.from("routes").select(CAMPOS_ROTA).eq("course_id", id).order("created_at"),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
+    supabase.from("notes").select(CAMPOS_NOTA).eq("course_id", id).order("created_at", { ascending: false }),
   ]);
   if (!cursoDb) notFound();
 
@@ -135,6 +138,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               </div>
             </details>
           )}
+
+          <section className="sec">
+            <h2 className="sec__h">Notas <em>{(notas ?? []).length}</em><span className="sec__act"><NovaNota vinculo={`e:${curso.id}`} /></span></h2>
+            {(notas ?? []).length > 0 ? <ListaNotas notas={(notas ?? []) as Nota[]} /> : <p className="empty">Resumos, dúvidas para a aula, o que o professor pediu.</p>}
+          </section>
 
           {anteriores.length > 0 && (
             <details className="sec fold">

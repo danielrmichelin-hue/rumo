@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Folder, GraduationCap, Home, Inbox, ListChecks, Menu, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
+import { CalendarDays, Folder, GraduationCap, Home, Inbox, ListChecks, Menu, NotebookPen, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
 import { AvisosProvider } from "./Avisos";
 import { Captura, useAtalhoCaptura } from "./Captura";
 import { Logo } from "./Logo";
@@ -26,6 +26,8 @@ type Props = {
   estudos: { id: string; title: string; color: string }[] | null;
   /** Rotinas ativas, com "3/4" da semana (null quando o módulo está desligado e não há rotinas) */
   rotinas: { id: string; title: string; rotulo: string; color: string }[] | null;
+  /** Notas aparece na lateral quando o módulo está ligado ou já existe alguma nota */
+  notas: boolean;
   children: React.ReactNode;
 };
 
@@ -43,7 +45,7 @@ export function iniciais(nome: string) {
   return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : partes[0][1] ?? "")).toUpperCase();
 }
 
-export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, rotas, estudos, rotinas, children }: Props) {
+export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, rotas, estudos, rotinas, notas, children }: Props) {
   const path = usePathname();
   const router = useRouter();
   const on = (href: string) => (path === href || path.startsWith(href + "/") ? "page" : undefined);
@@ -100,7 +102,7 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, r
           </button>
           <Link href="/busca" className="side__search"><Search aria-hidden />Buscar<kbd>⌘K</kbd></Link>
 
-          {CORE.map(({ href, label, icon: Icon }) => (
+          {[...CORE, ...(notas ? [{ href: "/notas", label: "Notas", icon: NotebookPen }] : [])].map(({ href, label, icon: Icon }) => (
             <Link key={href} href={href} className="nav" aria-current={on(href)}>
               <Icon aria-hidden />
               <span className="nav__label">{label}</span>

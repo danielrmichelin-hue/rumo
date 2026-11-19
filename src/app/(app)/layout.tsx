@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: perfil }, { data: contextos }, { count: inbox }, { data: abertas }, { data: rotas }, { data: marcos }, { data: cursos }, { data: rotinasDb }, { data: marcas }] = await Promise.all([
+  const [{ data: perfil }, { data: contextos }, { count: inbox }, { data: abertas }, { data: rotas }, { data: marcos }, { data: cursos }, { data: rotinasDb }, { data: marcas }, { count: nNotas }] = await Promise.all([
     supabase.from("profiles").select("user_id, display_name, modules, onboarding, onboarded_at").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position", { ascending: true }),
     supabase.from("responsibilities").select("id", { count: "exact", head: true }).is("context_id", null).neq("state", "concluida"),
@@ -25,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     supabase.from("study_courses").select("id, title, context_id").neq("status", "concluido").order("created_at"),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").order("position"),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", segundaDa(hojeISO())),
+    supabase.from("notes").select("id", { count: "exact", head: true }),
   ]);
 
   // Primeira vez: as perguntas do começo montam o Rumo da pessoa
@@ -61,6 +62,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       rotas={moduloLigado(p.modules, "rotas") || listaRotas.length ? listaRotas : null}
       estudos={moduloLigado(p.modules, "estudos") || listaCursos.length ? listaCursos : null}
       rotinas={moduloLigado(p.modules, "rotinas") || listaRotinas.length ? listaRotinas : null}
+      notas={moduloLigado(p.modules, "notas") || !!nNotas}
     >
       {children}
     </Shell>

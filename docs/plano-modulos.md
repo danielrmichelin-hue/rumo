@@ -89,10 +89,17 @@ não é. Frequência realista ("4 vezes por semana"), acompanhamento da semana s
 - **Telas:** `/rotinas` (criar, a semana em pontos, "3 de 4", ajustar e pausar); seção Rotinas no Hoje; grupo na
   lateral com "3/4"; Busca. As respostas das perguntas do começo (Academia, Leitura…) vêm preenchidas.
 
-## Fase 8 · Notas
+## Fase 8 · Notas (em revisão com o Daniel)
 
 Notas vinculadas a uma empresa, projeto, matéria ou responsabilidade (Book 6.4). Decisões registradas com o
 que foi decidido, por quê e quando.
+
+- **Dados (migração 0008):** `notes` (nota ou decisão; título, texto, por quê, quando; ligada a contexto, projeto,
+  curso ou responsabilidade). Projeto e curso levam o contexto junto, para a nota aparecer também lá.
+- **Telas:** `/notas` (todas, com filtro Decisões/Notas); aba Notas na visão do contexto e decisões registradas na
+  aba Decisões; seção Notas no projeto e no curso; Busca procura no título, no texto e no porquê. "Notas" aparece
+  na lateral quando já existe alguma nota.
+- As decisões que ainda vão ser tomadas continuam sendo responsabilidades (`kind = 'decidir'`).
 
 ## Depois
 

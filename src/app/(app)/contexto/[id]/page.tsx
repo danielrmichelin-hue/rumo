@@ -11,28 +11,33 @@ import { slug } from "@/lib/captura";
 import { agoraHora, diaMes, ehId, hojeISO, horaDe, inicioDoDia, prazoPassou, rotuloData, somarDias } from "@/lib/datas";
 import { resumirProjeto, type Projeto } from "@/lib/projetos";
 import { CAMPOS_LISTA, ordenar, type Compromisso, type Responsabilidade } from "@/lib/tipos";
+import { ListaNotas, NovaNota } from "@/components/Notas";
+import { CAMPOS_NOTA, type Nota } from "@/lib/notas";
 
 export const metadata = { title: "Contexto" };
 
-type Aba = "responsabilidades" | "projetos" | "decisoes" | "compromissos";
+type Aba = "responsabilidades" | "projetos" | "decisoes" | "notas" | "compromissos";
 
 export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ aba?: string }> }) {
   const { id } = await params;
   const { aba: param } = await searchParams;
   if (!ehId(id)) notFound();
-  const aba: Aba = (["projetos", "decisoes", "compromissos"] as const).find((a) => a === param) ?? "responsabilidades";
+  const aba: Aba = (["projetos", "decisoes", "notas", "compromissos"] as const).find((a) => a === param) ?? "responsabilidades";
 
   const hoje = hojeISO();
   const agora = agoraHora();
   const supabase = await createClient();
-  const [{ data: contexto }, { data: itens }, { data: projetos }, { data: eventos }, { data: contextos }] = await Promise.all([
+  const [{ data: contexto }, { data: itens }, { data: projetos }, { data: eventos }, { data: contextos }, { data: notasDb }] = await Promise.all([
     supabase.from("contexts").select("id, name, color, kind, archived").eq("id", id).maybeSingle(),
     supabase.from("responsibilities").select(CAMPOS_LISTA).eq("context_id", id),
     supabase.from("projects").select("id, name, context_id, status, due_date, note").eq("context_id", id),
     supabase.from("events").select("id, title, context_id, starts_at, ends_at, location").eq("context_id", id).gte("starts_at", inicioDoDia(hoje)).order("starts_at").limit(30),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
+    supabase.from("notes").select(CAMPOS_NOTA).eq("context_id", id).order("created_at", { ascending: false }),
   ]);
   if (!contexto) notFound();
+  const notas = (notasDb ?? []) as Nota[];
+  const decisoesRegistradas = notas.filter((n) => n.kind === "decisao");
 
   const todas = (itens ?? []) as Responsabilidade[];
   const abertas = todas.filter((i) => i.state !== "concluida").sort(ordenar);
@@ -82,7 +87,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       <nav className="tabs" aria-label="Visão">
         <Link href={url("responsabilidades")} aria-current={aba === "responsabilidades" ? "page" : undefined}>Responsabilidades<em>{abertas.length}</em></Link>
         <Link href={url("projetos")} aria-current={aba === "projetos" ? "page" : undefined}>Projetos<em>{projs.length}</em></Link>
-        <Link href={url("decisoes")} aria-current={aba === "decisoes" ? "page" : undefined}>Decisões<em>{decisoes.length}</em></Link>
+        <Link href={url("decisoes")} aria-current={aba === "decisoes" ? "page" : undefined}>Decisões<em>{decisoes.length + decisoesRegistradas.length}</em></Link>
+        <Link href={url("notas")} aria-current={aba === "notas" ? "page" : undefined}>Notas<em>{notas.length}</em></Link>
         <Link href={url("compromissos")} aria-current={aba === "compromissos" ? "page" : undefined}>Compromissos<em>{evs.length}</em></Link>
       </nav>
 
@@ -113,11 +119,20 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         </>
       )}
 
+      {aba === "notas" && (
+        <>
+          <div style={{ marginBottom: 16 }}><NovaNota vinculo={`c:${id}`} /></div>
+          {notas.length ? <ListaNotas notas={notas} /> : <div className="empty"><b>Nenhuma nota aqui.</b>O que vale lembrar sobre {contexto.name}: combinados, referências, contexto de uma decisão.</div>}
+        </>
+      )}
+
       {aba === "decisoes" && (
-        decisoes.length === 0 ? (
-          <div className="empty"><b>Nenhuma decisão ainda.</b>Decisões ficam registradas aqui: o que foi decidido, por quê e quando. Use Nova decisão.</div>
+        decisoes.length === 0 && !decisoesRegistradas.length ? (
+          <div className="empty"><b>Nenhuma decisão ainda.</b>Decisões ficam registradas aqui: o que foi decidido, por quê e quando. Use Nova decisão para o que ainda vai decidir, ou registre uma decisão já tomada.<div style={{ marginTop: 10 }}><NovaNota vinculo={`c:${id}`} decisao rotulo="Registrar decisão" /></div></div>
         ) : (
           <>
+            <div style={{ marginBottom: 8 }}><NovaNota vinculo={`c:${id}`} decisao rotulo="Registrar decisão tomada" /></div>
+            {decisoesRegistradas.length > 0 && <section className="sec"><h2 className="sec__h">Registradas <em>{decisoesRegistradas.length}</em></h2><ListaNotas notas={decisoesRegistradas} /></section>}
             {decAbertas.length > 0 && <section className="sec"><h2 className="sec__h">Para decidir <em>{decAbertas.length}</em></h2><ListaResponsabilidades itens={decAbertas} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
             {decFeitas.length > 0 && (
               <section className="sec">

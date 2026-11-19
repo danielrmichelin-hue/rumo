@@ -46,7 +46,7 @@ Google Agenda, captura pelo WhatsApp. (Rotas, Estudos, Contextos sob medida, Rot
 | 5 · Estudos | Matérias, ciclos, sessões no calendário e no Hoje, progresso | Em revisão com o Daniel |
 | 6 · Contextos sob medida | Cada empresa e área com a própria cara: modelo, números, seções, atalhos e frentes | — |
 | 7 · Rotinas e hábitos | Recorrências que aparecem no Hoje na hora certa, semana sem culpa | Em revisão com o Daniel |
-| 8 · Notas | Notas e decisões vinculadas | — |
+| 8 · Notas | Notas e decisões vinculadas | Em revisão com o Daniel |
 
 Decisão do Daniel (19/11/2026): construir os módulos (fases 4 a 8) antes do teste de 90 dias, começando pelas
 Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termina com algo que ele usa e aprova.
@@ -102,7 +102,7 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   módulos e respostas do começo) 0005 (Rotas: `routes`, `route_milestones`, `route_entries`, e `route_id`/`milestone_id`
   em responsibilities) e 0006 (Estudos: `study_courses`, `study_subjects`; `course_id`, `subject_id` e `done_at` em events;
   `course_id` em routes) e 0007 (Rotinas: `routines`, com dias fixos ou N vezes por semana, e `routine_checks`, um registro
-  por dia feito) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
+  por dia feito) e 0008 (Notas: `notes`, nota ou decisão com porquê e data, ligada a contexto, projeto ou curso) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`; o layout manda para `/comecar` quem ainda não respondeu as perguntas do
   começo. A casca (`src/components/Shell.tsx`) monta a lateral pelo perfil e pelos contextos (Negócios = tipo
@@ -111,7 +111,7 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   `src/lib/projetos.ts`; cálculo das Rotas (ritmo, previsão, recálculo, próximo passo, igual ao simulador do Book)
   em `src/lib/rotas.ts`; Estudos (semana em barras, ciclo, matérias, próxima sessão) em `src/lib/estudos.ts`, com as
   sessões como compromissos do Core (events com `course_id`); Rotinas (quando é dia dela, a semana em pontos, sem sequência)
-  em `src/lib/rotinas.ts`. Ações do servidor em `src/app/(app)/acoes.ts`.
+  em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`. Ações do servidor em `src/app/(app)/acoes.ts`.
 - Antes de escrever de novo, reaproveite: datas, fuso de São Paulo, nomes de dias e meses, `ehId` e `numeroBR` em
   `src/lib/datas.ts`; `CampoContexto`, `Painel` (painel por cima da tela) e `AdicionarRapido` em `src/components/Comuns.tsx`;
   o logo oficial em `src/components/Logo.tsx`; o anel e o caminho das Rotas em `src/components/Caminho.tsx`.

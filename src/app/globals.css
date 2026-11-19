@@ -660,3 +660,15 @@ a.route__t:hover { color: var(--accent-text); }
   .routine__week { grid-column: 2; }
   .routine__week + .subj__toggle { grid-row: 1; grid-column: 3; }
 }
+
+/* ---------- Notas (Book 6.4) ---------- */
+.notes { display: grid; gap: 12px; }
+.note-card { position: relative; display: grid; gap: 6px; padding: 16px 18px; border-radius: var(--r-lg); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.note-card__k { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; color: var(--text-2); }
+.note-card__t { margin: 0; font: 600 16px/1.35 var(--font); letter-spacing: -0.01em; color: var(--text-strong); }
+.note-card__b { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text); white-space: pre-wrap; }
+.note-card__why { display: grid; gap: 2px; margin: 4px 0 0; padding: 10px 12px; border-radius: var(--r-md); background: var(--sunk); font-size: 14px; color: var(--text); }
+.note-card__why small { font-size: 12px; font-weight: 500; color: var(--text-2); }
+.note-card__act { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; opacity: 0; transition: opacity var(--dur-fast); }
+.note-card:hover .note-card__act, .note-card:focus-within .note-card__act { opacity: 1; }
+@media (hover: none) { .note-card__act { opacity: 1; } }

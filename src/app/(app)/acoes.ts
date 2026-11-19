@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { lerCaptura } from "@/lib/captura";
-import { diaDaSemana, hojeISO, instante, numeroBR, somarDias, somarDiasUteis } from "@/lib/datas";
+import { diaDaSemana, ehId, hojeISO, instante, numeroBR, somarDias, somarDiasUteis } from "@/lib/datas";
 import { ESCOLHAS, type ChaveEscolha } from "@/lib/modulos";
 import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, type TipoRota, TIPOS } from "@/lib/rotas";
 import { CORES_CONTEXTO, proximaCor, type Estado } from "@/lib/tipos";
@@ -444,14 +444,14 @@ export async function adicionarNoProjeto(projetoId: string, bruto: string): Prom
 
 // ---------- busca ----------
 
-export type Achado = { tipo: "responsabilidade" | "projeto" | "rota" | "curso" | "rotina" | "contexto" | "compromisso" | "pessoa"; id: string; titulo: string; detalhe: string; href: string; cor?: string };
+export type Achado = { tipo: "responsabilidade" | "projeto" | "rota" | "curso" | "rotina" | "nota" | "contexto" | "compromisso" | "pessoa"; id: string; titulo: string; detalhe: string; href: string; cor?: string };
 
 export async function buscar(termo: string): Promise<Achado[]> {
   const q = termo.trim().replace(/[%,()]/g, " ").replace(/\s+/g, " ").slice(0, 80);
   if (q.length < 2) return [];
   const like = `%${q}%`;
   const supabase = await createClient();
-  const [r, p, c, e, g, ctxs, rt, cs, ms, rn] = await Promise.all([
+  const [r, p, c, e, g, ctxs, rt, cs, ms, rn, nt] = await Promise.all([
     supabase.from("responsibilities").select("id, title, note, state, context_id, waiting_note").or(`title.ilike.${like},note.ilike.${like},waiting_note.ilike.${like}`).order("updated_at", { ascending: false }).limit(20),
     supabase.from("projects").select("id, name, note, context_id").or(`name.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("contexts").select("id, name, color").ilike("name", like).limit(8),
@@ -462,6 +462,7 @@ export async function buscar(termo: string): Promise<Achado[]> {
     supabase.from("study_courses").select("id, title, kind, context_id").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("study_subjects").select("id, title, course_id, next_topic").or(`title.ilike.${like},next_topic.ilike.${like}`).limit(8),
     supabase.from("routines").select("id, title, days, times_per_week, at_time").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
+    supabase.from("notes").select("id, kind, title, context_id").or(`title.ilike.${like},body.ilike.${like},why.ilike.${like}`).order("created_at", { ascending: false }).limit(8),
   ]);
   const nomeCtx = (id: string | null) => (ctxs.data ?? []).find((x) => x.id === id);
   const estados: Record<string, string> = { a_fazer: "A fazer", aguardando: "Aguardando alguém", concluida: "Concluída" };
@@ -488,6 +489,10 @@ export async function buscar(termo: string): Promise<Achado[]> {
     achados.push({ tipo: "curso", id: x.id, titulo: x.title, detalhe: `Matéria${curso ? ` · ${curso.title}` : ""}${x.next_topic ? ` · próxima: ${x.next_topic}` : ""}`, href: `/estudos/${x.course_id}` });
   }
   for (const x of rn.data ?? []) achados.push({ tipo: "rotina", id: x.id, titulo: x.title, detalhe: `Rotina · ${textoFrequencia(x)}${x.at_time ? ` · ${x.at_time.slice(0, 5)}` : ""}`, href: `/rotinas#${x.id}` });
+  for (const x of nt.data ?? []) {
+    const ctx = nomeCtx(x.context_id);
+    achados.push({ tipo: "nota", id: x.id, titulo: x.title, detalhe: `${x.kind === "decisao" ? "Decisão" : "Nota"}${ctx ? ` · ${ctx.name}` : ""}`, href: `/notas#${x.id}`, cor: ctx?.color });
+  }
   for (const x of c.data ?? []) achados.push({ tipo: "contexto", id: x.id, titulo: x.name, detalhe: "Contexto", href: `/contexto/${x.id}`, cor: x.color });
   for (const x of e.data ?? []) {
     const ctx = nomeCtx(x.context_id);
@@ -985,5 +990,45 @@ export async function marcarRotina(id: string, dia: string, feita: boolean) {
   const supabase = await createClient();
   if (feita) await supabase.from("routine_checks").upsert({ routine_id: id, done_on: dia }, { onConflict: "routine_id,done_on", ignoreDuplicates: true });
   else await supabase.from("routine_checks").delete().eq("routine_id", id).eq("done_on", dia);
+  atualizar();
+}
+
+// ---------- notas (Book 6.4) ----------
+
+export type DadosNota = { id?: string; kind: "nota" | "decisao"; title: string; body: string; why: string; decided_on: string; vinculo: string };
+
+/** Cria ou altera a nota. O vínculo ("c:", "p:" ou "e:" + id) diz onde ela mora; projeto e curso levam o contexto junto. */
+export async function salvarNota(d: DadosNota): Promise<{ ok: boolean; erro?: string }> {
+  const title = d.title.trim().slice(0, 200);
+  if (!title) return { ok: false, erro: d.kind === "decisao" ? "Escreva o que foi decidido." : "Dê um título à nota." };
+  const [tipo, id] = d.vinculo.split(":");
+  if (!ehId(id) || !["c", "p", "e"].includes(tipo)) return { ok: false, erro: "Escolha onde a nota mora." };
+  if (d.kind === "decisao" && d.decided_on && !DATA.test(d.decided_on)) return { ok: false, erro: "Data inválida." };
+  const supabase = await createClient();
+  let context_id: string | null = tipo === "c" ? id : null;
+  if (tipo !== "c") {
+    const { data } = await supabase.from(tipo === "p" ? "projects" : "study_courses").select("context_id").eq("id", id).single();
+    context_id = data?.context_id ?? null;
+  }
+  const decisao = d.kind === "decisao";
+  const linha = {
+    kind: decisao ? "decisao" : "nota",
+    title,
+    body: d.body.trim() || null,
+    why: decisao ? d.why.trim() || null : null,
+    decided_on: decisao ? d.decided_on || hojeISO() : null,
+    context_id,
+    project_id: tipo === "p" ? id : null,
+    course_id: tipo === "e" ? id : null,
+  };
+  const { error } = d.id ? await supabase.from("notes").update(linha).eq("id", d.id) : await supabase.from("notes").insert(linha);
+  if (error) return { ok: false, erro: "Não foi possível guardar a nota." };
+  atualizar();
+  return { ok: true };
+}
+
+export async function apagarNota(id: string) {
+  const supabase = await createClient();
+  await supabase.from("notes").delete().eq("id", id);
   atualizar();
 }

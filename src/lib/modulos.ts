@@ -16,7 +16,7 @@ export const MODULOS: Modulo[] = [
   { chave: "negocios", nome: "Negócios", grupo: "Negócios", disponivel: true },
   { chave: "estudos", nome: "Estudos", grupo: "Estudos", disponivel: true },
   { chave: "rotinas", nome: "Rotinas & Hábitos", grupo: "Rotinas", disponivel: true },
-  { chave: "notas", nome: "Notas", grupo: "Notas", disponivel: false },
+  { chave: "notas", nome: "Notas", grupo: "Notas", disponivel: true },
   { chave: "rotas", nome: "Rotas", grupo: "Rotas", disponivel: true },
 ];
 

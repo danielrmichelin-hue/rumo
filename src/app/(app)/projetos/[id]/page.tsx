@@ -7,6 +7,8 @@ import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
 import { resumirProjeto, type Projeto } from "@/lib/projetos";
 import { CAMPOS_LISTA, ordenar, type Responsabilidade } from "@/lib/tipos";
 import { ehId } from "@/lib/datas";
+import { ListaNotas, NovaNota } from "@/components/Notas";
+import { CAMPOS_NOTA, type Nota } from "@/lib/notas";
 
 export const metadata = { title: "Projeto" };
 
@@ -14,10 +16,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const { id } = await params;
   if (!ehId(id)) notFound();
   const supabase = await createClient();
-  const [{ data: projeto }, { data: etapas }, { data: contextos }] = await Promise.all([
+  const [{ data: projeto }, { data: etapas }, { data: contextos }, { data: notas }] = await Promise.all([
     supabase.from("projects").select("id, name, context_id, status, due_date, note").eq("id", id).maybeSingle(),
     supabase.from("responsibilities").select(CAMPOS_LISTA).eq("project_id", id),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
+    supabase.from("notes").select(CAMPOS_NOTA).eq("project_id", id).order("created_at", { ascending: false }),
   ]);
   if (!projeto) notFound();
   const p = projeto as Projeto;
@@ -78,6 +81,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       {lista.length === 0 && (
         <div className="empty"><b>Nenhuma etapa ainda.</b>Comece pelo próximo passo: escreva acima e aperte Enter.</div>
       )}
+
+      <section className="sec">
+        <h2 className="sec__h">Notas <em>{(notas ?? []).length}</em><span className="sec__act"><NovaNota vinculo={`p:${p.id}`} /></span></h2>
+        {(notas ?? []).length > 0 ? <ListaNotas notas={(notas ?? []) as Nota[]} /> : <p className="empty">Combinados, referências e decisões deste projeto ficam aqui.</p>}
+      </section>
 
       <section className="card" style={{ marginTop: 12 }}>
         <h2 className="card__t">Detalhes do projeto</h2>
