@@ -123,8 +123,8 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
 
 - Login: o lado direito está "seco". Ele quer algo vivo ali: imagem de fundo com o logo e a assinatura, ou um
   vídeo curto em loop. (Atenção ao Book: movimento não chama atenção sozinho; respeitar `prefers-reduced-motion`.)
-- Transições suaves nas seleções: trocar entre "Entrar" e "Criar conta" (e segmentados em geral) com animação
-  macia, não um corte seco.
+- Transições suaves nas seleções: feito (o destaque dos segmentados desliza; o título do login troca com fade;
+  respeita `prefers-reduced-motion`). Aguardando o Daniel ver.
 
 ## Como trabalhar neste repositório
 

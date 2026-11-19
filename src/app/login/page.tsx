@@ -85,8 +85,10 @@ export default function LoginPage() {
 
       <form className="auth__card" onSubmit={onSubmit} noValidate>
         <Logo forma="horizontal" alt="Rumo" className="auth__logo" />
-        <h1>{modo === "entrar" ? "Que bom te ver de novo." : "Boas-vindas ao Rumo."}</h1>
-        <p>{modo === "entrar" ? "Continue de onde parou." : "Crie sua conta com e-mail e senha."}</p>
+        <div key={modo} className="troca">
+          <h1>{modo === "entrar" ? "Que bom te ver de novo." : "Boas-vindas ao Rumo."}</h1>
+          <p>{modo === "entrar" ? "Continue de onde parou." : "Crie sua conta com e-mail e senha."}</p>
+        </div>
 
         <div className="seg" role="radiogroup" aria-label="Entrar ou criar conta">
           {(["entrar", "criar"] as const).map((m) => (
