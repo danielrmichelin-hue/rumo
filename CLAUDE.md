@@ -107,7 +107,8 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   `topic_id` nas sessões) e 0010 (rotinas mensais: `month_day`, uma frequência por rotina) e 0011 (estudos: `study_modules` opcionais, revisões
   `review_step`/`next_review_on` nas aulas) e 0012 (Finanças: `fin_entries`, `fin_budgets`; `amount` e `category` nas rotinas = conta
   fixa) e 0013 (Saúde: `dose` e `ends_on` nas rotinas = remédio com fim; `health_kind` nos events = consulta, exame, vacina,
-  procedimento; `health_measures` com peso, pressão etc.) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
+  procedimento; `health_measures` com peso, pressão etc.) e 0014 (Finanças completas: `fin_settings` com dia do pagamento, envelopes
+  e saldo da conta; `fin_installments` parcelamentos; `installment_id` nos lançamentos; `fin_investments` e `fin_inv_moves`) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`; o layout manda para `/comecar` quem ainda não respondeu as perguntas do
   começo. A casca (`src/components/Shell.tsx`) monta a lateral pelo perfil e pelos contextos (Negócios = tipo
@@ -118,7 +119,8 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   com pomodoro em `src/components/Foco.tsx`) em `src/lib/estudos.ts`, com as
   sessões como compromissos do Core (events com `course_id`); Rotinas (quando é dia dela, a semana em pontos, sem sequência; mensais "todo dia 10" ficam no Hoje até serem feitas)
   em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`; Finanças do mês (resumo, contas fixas = rotinas mensais com valor,
-  categorias, planilha CSV) em `src/lib/financas.ts`; Saúde (remédio = rotina com dose, um horário por rotina; consultas = compromissos
+  categorias, planilha CSV; o mês vai do dia do pagamento à véspera do próximo, sexta antes se cair no fim de semana; parcelamentos,
+  investimentos com projeção, envelopes parcelas/investir/livre, saldo da conta somado a partir do informado) em `src/lib/financas.ts`; Saúde (remédio = rotina com dose, um horário por rotina; consultas = compromissos
   com `health_kind`; medidas e tendência) em `src/lib/saude.ts`, página `/saude`; Negócios (empresas lado a lado, quem me deve o quê) em `/negocios`. Ações do servidor em `src/app/(app)/acoes.ts`.
 - Antes de escrever de novo, reaproveite: datas, fuso de São Paulo, nomes de dias e meses, `ehId` e `numeroBR` em
   `src/lib/datas.ts`; `CampoContexto`, `Painel` (painel por cima da tela) e `AdicionarRapido` em `src/components/Comuns.tsx`;

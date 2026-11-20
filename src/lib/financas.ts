@@ -1,6 +1,7 @@
 // Finanças do mês: o que entrou, o que saiu, o que falta pagar e onde o dinheiro foi.
 // Contas fixas são rotinas mensais com valor ("Condomínio · R$ 800 · todo dia 10"): pagar = marcar a rotina + lançar a saída.
-import { diaNoMes, mesDaRotina, type Marcacao, type Rotina } from "./rotinas";
+import { diaDaSemana, montarISO, somarDias } from "./datas";
+import { diaNoMes, type Marcacao, type Rotina } from "./rotinas";
 
 export type Lancamento = {
   id: string;
@@ -12,12 +13,14 @@ export type Lancamento = {
   paid: boolean;
   routine_id: string | null;
   context_id: string | null;
+  /** parcela de um parcelamento */
+  installment_id?: string | null;
 };
 export type Orcamento = { id: string; category: string; monthly_limit: number };
 
-export const CAMPOS_LANCAMENTO = "id, kind, amount, description, category, happened_on, paid, routine_id, context_id";
+export const CAMPOS_LANCAMENTO = "id, kind, amount, description, category, happened_on, paid, routine_id, context_id, installment_id";
 
-export const CATEGORIAS_SAIDA = ["Moradia", "Mercado", "Contas da casa", "Transporte", "Saúde", "Educação", "Lazer", "Assinaturas", "Compras", "Impostos", "Outros"];
+export const CATEGORIAS_SAIDA = ["Moradia", "Mercado", "Restaurantes e delivery", "Contas da casa", "Transporte", "Saúde", "Cuidados pessoais", "Educação", "Lazer", "Assinaturas", "Compras", "Presentes e doações", "Impostos", "Outros"];
 export const CATEGORIAS_ENTRADA = ["Salário", "Pró-labore", "Vendas", "Serviços", "Rendimentos", "Outros"];
 
 /** "R$ 1.234,56" */
@@ -41,14 +44,16 @@ export function mesVizinho(mes: string, delta: number) {
 
 export type ContaFixa = { rotina: Rotina; dia: string; valor: number; paga: boolean; pagaEm: string | null; texto: string };
 
-/** As contas fixas do mês (rotinas mensais com valor), com o estado de cada uma */
-export function contasDoMes(rotinas: Rotina[], marcas: Marcacao[], mes: string, hoje: string): ContaFixa[] {
-  const referencia = hoje.slice(0, 7) === mes ? hoje : `${mes}-01`;
+/** As contas fixas do ciclo (rotinas mensais com valor): o dia de cada uma dentro do ciclo e se já foi paga
+ *  (a marcação vale para o mês do calendário daquele dia) */
+export function contasDoMes(rotinas: Rotina[], marcas: Marcacao[], inicio: string, fim: string): ContaFixa[] {
   return rotinas
     .filter((r) => r.month_day && r.amount)
     .map((r) => {
-      const m = mesDaRotina(r, marcas.filter((x) => x.done_on.slice(0, 7) === mes), referencia);
-      return { rotina: r, dia: diaNoMes(r, referencia), valor: Number(r.amount), paga: !!m.feitaEm, pagaEm: m.feitaEm, texto: m.texto };
+      let dia = diaNoMes(r, inicio);
+      if (dia < inicio) dia = diaNoMes(r, fim);
+      const pagaEm = marcas.filter((x) => x.routine_id === r.id && x.done_on.slice(0, 7) === dia.slice(0, 7)).map((x) => x.done_on).sort()[0] ?? null;
+      return { rotina: r, dia, valor: Number(r.amount), paga: !!pagaEm, pagaEm, texto: pagaEm ? "Paga" : `Dia ${Number(dia.slice(8))}` };
     })
     .sort((a, b) => a.dia.localeCompare(b.dia));
 }
@@ -71,4 +76,154 @@ export function resumoDoMes(lancamentos: Lancamento[], contas: ContaFixa[], orca
     })
     .sort((a, b) => b.gasto - a.gasto);
   return { entrou, saiu, saldo: entrou - saiu, aPagar, aReceber, categorias };
+}
+
+// ---------- o mês do dinheiro: do dia do pagamento até a véspera do próximo ----------
+
+export type Ajustes = { pay_day: number | null; weekend_shift: boolean; pct_parcelas: number; pct_investir: number; pct_livre: number; cash_balance: number | null; cash_on: string | null };
+export const AJUSTES_PADRAO: Ajustes = { pay_day: null, weekend_shift: true, pct_parcelas: 50, pct_investir: 20, pct_livre: 30, cash_balance: null, cash_on: null };
+export const normalizarAjustes = (a: Record<string, unknown> | null): Ajustes =>
+  a ? { ...AJUSTES_PADRAO, ...(a as Ajustes), cash_balance: a.cash_balance === null || a.cash_balance === undefined ? null : Number(a.cash_balance) } : AJUSTES_PADRAO;
+
+/** Dia em que o mês "AAAA-MM" começa: o dia do pagamento (dia 31 em mês curto vira o último);
+ *  caiu no sábado ou domingo e o ajuste está ligado, vale a sexta antes (é quando o dinheiro entra) */
+function inicioDoCiclo(mes: string, a: Pick<Ajustes, "pay_day" | "weekend_shift">): string {
+  const [ano, m] = mes.split("-").map(Number);
+  if (!a.pay_day) return `${mes}-01`;
+  const ultimo = new Date(Date.UTC(ano, m, 0)).getUTCDate();
+  let dia = montarISO(ano, m, Math.min(a.pay_day, ultimo));
+  if (a.weekend_shift) {
+    const sem = diaDaSemana(dia);
+    if (sem === 6) dia = somarDias(dia, -1);
+    if (sem === 0) dia = somarDias(dia, -2);
+  }
+  return dia;
+}
+
+/** O ciclo que tem o nome do mês "AAAA-MM": começa no pagamento desse mês e vai até a véspera do próximo */
+export function ciclo(mes: string, a: Pick<Ajustes, "pay_day" | "weekend_shift">) {
+  if (!a.pay_day) return limitesDoMes(mes);
+  return { inicio: inicioDoCiclo(mes, a), fim: somarDias(inicioDoCiclo(mesVizinho(mes, 1), a), -1) };
+}
+
+/** Em que ciclo está um dia (o de hoje, por exemplo) */
+export function cicloDoDia(dia: string, a: Pick<Ajustes, "pay_day" | "weekend_shift">): string {
+  const mes = dia.slice(0, 7);
+  return dia >= ciclo(mes, a).inicio ? mes : mesVizinho(mes, -1);
+}
+
+/** "20 out – 19 nov" */
+export function rotuloCiclo(inicio: string, fim: string) {
+  const c = (iso: string) => `${Number(iso.slice(8))} ${["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"][Number(iso.slice(5, 7)) - 1]}`;
+  return `${c(inicio)} – ${c(fim)}`;
+}
+
+// ---------- parcelamentos ----------
+
+export type Parcelamento = { id: string; title: string; category: string; total: number; installments: number; paid_count: number; first_due: string; creditor: string | null; context_id: string | null; note: string | null };
+export const CAMPOS_PARCELAMENTO = "id, title, category, total, installments, paid_count, first_due, creditor, context_id, note";
+export const normalizarParcelamento = (p: Record<string, unknown>): Parcelamento => ({ ...(p as Parcelamento), total: Number(p.total), installments: Number(p.installments), paid_count: Number(p.paid_count) });
+
+/** Mesmo dia, N meses depois (31 em mês curto vira o último dia) */
+export function somarMeses(iso: string, n: number): string {
+  const [a, m, d] = iso.split("-").map(Number);
+  const alvo = new Date(Date.UTC(a, m - 1 + n, 1));
+  const ultimo = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
+  return montarISO(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, Math.min(d, ultimo));
+}
+
+const MES_CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+/** "dez/27" */
+export const mesCurto = (iso: string) => `${MES_CURTO[Number(iso.slice(5, 7)) - 1]}/${iso.slice(2, 4)}`;
+
+export function situacaoParcelamento(p: Parcelamento, hoje: string) {
+  const parcela = Math.round((p.total / p.installments) * 100) / 100;
+  const faltam = p.installments - p.paid_count;
+  const restante = Math.max(0, Math.round((p.total - parcela * p.paid_count) * 100) / 100);
+  const ultima = somarMeses(p.first_due, p.installments - 1);
+  const proxima = faltam > 0 ? somarMeses(p.first_due, p.paid_count) : null;
+  const estado: "quitado" | "pagando" | "a_comecar" = faltam === 0 ? "quitado" : p.paid_count === 0 && p.first_due > hoje ? "a_comecar" : "pagando";
+  return { parcela, faltam, restante: faltam ? restante : 0, ultima, proxima, estado };
+}
+
+/** As parcelas que vencem no ciclo (ou que ficaram de ciclos anteriores): uma por parcelamento, a próxima a pagar */
+export function parcelasDoCiclo(lista: Parcelamento[], inicio: string, fim: string, hoje: string) {
+  return lista
+    .map((p) => ({ p, s: situacaoParcelamento(p, hoje) }))
+    .filter(({ s }) => s.proxima && s.proxima <= fim)
+    .map(({ p, s }) => ({ p, s, numero: p.paid_count + 1, vence: s.proxima!, atrasada: s.proxima! < inicio }))
+    .sort((a, b) => a.vence.localeCompare(b.vence) || a.p.title.localeCompare(b.p.title));
+}
+
+/** Quanto se deve, quanto sai por mês e quando tudo termina */
+export function resumoParcelamentos(lista: Parcelamento[], hoje: string) {
+  const ativos = lista.map((p) => ({ p, s: situacaoParcelamento(p, hoje) })).filter(({ s }) => s.estado !== "quitado");
+  return {
+    deve: ativos.reduce((t, { s }) => t + s.restante, 0),
+    porMes: ativos.reduce((t, { s }) => t + s.parcela, 0),
+    ultima: ativos.map(({ s }) => s.ultima).sort().pop() ?? null,
+    emCurso: ativos.length,
+    quitados: lista.length - ativos.length,
+  };
+}
+
+// ---------- investimentos ----------
+
+export type TipoInvestimento = "caixinha" | "renda_fixa" | "tesouro" | "fundos" | "acoes" | "previdencia" | "cripto" | "outro";
+export const TIPOS_INVESTIMENTO: Record<TipoInvestimento, string> = {
+  caixinha: "Caixinha / conta remunerada",
+  renda_fixa: "Renda fixa (CDB, RDB, LCI)",
+  tesouro: "Tesouro Direto",
+  fundos: "Fundos",
+  acoes: "Ações e FIIs",
+  previdencia: "Previdência",
+  cripto: "Cripto",
+  outro: "Outro",
+};
+export type Investimento = { id: string; name: string; kind: TipoInvestimento; institution: string | null; balance: number; balance_on: string; monthly_rate: number | null; monthly_plan: number | null; status: "ativo" | "encerrado"; note: string | null };
+export type Movimento = { id: string; investment_id: string; kind: "aporte" | "resgate" | "rendimento"; amount: number; happened_on: string; note: string | null };
+export const CAMPOS_INVESTIMENTO = "id, name, kind, institution, balance, balance_on, monthly_rate, monthly_plan, status, note";
+export const CAMPOS_MOVIMENTO = "id, investment_id, kind, amount, happened_on, note";
+const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+export const normalizarInvestimento = (i: Record<string, unknown>): Investimento => ({ ...(i as Investimento), balance: Number(i.balance), monthly_rate: num(i.monthly_rate), monthly_plan: num(i.monthly_plan) });
+export const normalizarMovimento = (m: Record<string, unknown>): Movimento => ({ ...(m as Movimento), amount: Number(m.amount) });
+
+/** Saldo de hoje: o informado, mais o que entrou e menos o que saiu depois daquele dia */
+export function saldoAtual(i: Investimento, movs: Movimento[]) {
+  return movs
+    .filter((m) => m.investment_id === i.id && m.happened_on > i.balance_on)
+    .reduce((t, m) => t + (m.kind === "resgate" ? -m.amount : m.amount), i.balance);
+}
+
+/** Juros compostos com aporte mensal: onde o saldo chega em N meses */
+export function projetar(saldo: number, taxa: number, aporte: number, meses: number) {
+  let s = saldo;
+  for (let i = 0; i < meses; i++) s = s * (1 + taxa) + aporte;
+  return s;
+}
+
+// ---------- onde está o dinheiro e quanto posso gastar ----------
+
+/** Conta corrente: o saldo informado, mais entradas e menos saídas pagas depois daquele dia, menos aportes, mais resgates */
+export function saldoDaConta(a: Ajustes, lancamentos: Lancamento[], movs: Movimento[]) {
+  if (a.cash_balance === null || !a.cash_on) return null;
+  const depois = (d: string) => d > a.cash_on!;
+  const l = lancamentos.filter((x) => x.paid && depois(x.happened_on)).reduce((t, x) => t + (x.kind === "entrada" ? x.amount : -x.amount), 0);
+  const m = movs.filter((x) => depois(x.happened_on) && x.kind !== "rendimento").reduce((t, x) => t + (x.kind === "aporte" ? -x.amount : x.amount), 0);
+  return a.cash_balance + l + m;
+}
+
+/** Os envelopes do ciclo: do que entrou, a parte das parcelas e a de investir saem primeiro; o resto é gasto livre.
+ *  Se as parcelas passam da parte delas, a diferença sai do gasto livre. */
+export function envelopes(a: Ajustes, entrou: number, parcelasDoCiclo: number, aportes: number, gastoLivre: number) {
+  const alvoParcelas = (entrou * a.pct_parcelas) / 100;
+  const alvoInvestir = (entrou * a.pct_investir) / 100;
+  const excesso = Math.max(0, parcelasDoCiclo - alvoParcelas);
+  const livre = Math.max(0, (entrou * a.pct_livre) / 100 - excesso);
+  return {
+    parcelas: { alvo: alvoParcelas, usado: parcelasDoCiclo },
+    investir: { alvo: alvoInvestir, usado: aportes },
+    livre: { alvo: livre, usado: gastoLivre, sobra: livre - gastoLivre },
+    excesso,
+  };
 }

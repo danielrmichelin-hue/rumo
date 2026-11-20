@@ -1,4 +1,4 @@
-import { GraduationCap, Pill, Repeat } from "lucide-react";
+import { GraduationCap, Pill, Repeat, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
 import { BotaoNova, ProximoPasso } from "@/components/ProximoPasso";
@@ -15,7 +15,7 @@ import { Logo } from "@/components/Logo";
 import { moduloLigado, type ChaveModulo } from "@/lib/modulos";
 import { Children } from "react";
 import { RevisoesDoDia } from "@/components/Aulas";
-import { moeda } from "@/lib/financas";
+import { CAMPOS_PARCELAMENTO, moeda, normalizarParcelamento, parcelasDoCiclo } from "@/lib/financas";
 
 export const metadata = { title: "Hoje" };
 
@@ -27,7 +27,7 @@ export default async function Page() {
   const inicio = inicioDoDia(hoje);
   const fim = fimDoDia(hoje);
 
-  const [{ data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }, { data: cursosDb }, { data: materiasDb }] = await Promise.all([
+  const [{ data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }, { data: cursosDb }, { data: materiasDb }, { data: parcDb }] = await Promise.all([
     supabase.from("profiles").select("display_name, modules").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").order("position"),
     supabase.from("projects").select("id, name"),
@@ -40,7 +40,10 @@ export default async function Page() {
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", desdeMarcas(hoje)),
     supabase.from("study_courses").select(CAMPOS_CURSO).eq("status", "ativo").order("created_at"),
     supabase.from("study_subjects").select(CAMPOS_MATERIA).order("position"),
+    supabase.from("fin_installments").select(CAMPOS_PARCELAMENTO),
   ]);
+  // Parcelas que vencem hoje ou já venceram e ainda não foram pagas
+  const parcelasHoje = parcelasDoCiclo((parcDb ?? []).map(normalizarParcelamento), "0000-01-01", hoje, hoje);
   // Estudos: a matéria da vez em cada ciclo (some quando já há sessão de estudo marcada para hoje)
   const cursos = (cursosDb ?? []) as Curso[];
   const materias = (materiasDb ?? []) as Materia[];
@@ -173,6 +176,18 @@ export default async function Page() {
                   })}
                 </ul>
               )}
+            </Bloco>
+          )}
+
+          {parcelasHoje.length > 0 && (
+            <Bloco titulo="Para pagar" n={parcelasHoje.length} acao={<Link href="/financas" className="sec__act">Finanças</Link>} vazio="">
+              <Link href="/financas" className="pagar-hoje">
+                <Wallet aria-hidden />
+                <span>
+                  <b>{parcelasHoje.length === 1 ? `Parcela de ${parcelasHoje[0].p.title}` : `${parcelasHoje.length} parcelas`} · {moeda(parcelasHoje.reduce((t, x) => t + x.s.parcela, 0))}</b>
+                  <small>{parcelasHoje.map((x) => x.p.title).slice(0, 4).join(", ")}{parcelasHoje.length > 4 ? "…" : ""}{parcelasHoje.some((x) => x.vence < hoje) ? " · algumas desde antes" : " · vencem hoje"}</small>
+                </span>
+              </Link>
             </Bloco>
           )}
 

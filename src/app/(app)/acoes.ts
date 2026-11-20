@@ -10,7 +10,7 @@ import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, t
 import { CORES_CONTEXTO, proximaCor, type Estado } from "@/lib/tipos";
 import { CORES_MATERIA, INTERVALOS, proximaRevisao, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 import { textoFrequencia } from "@/lib/rotinas";
-import { limitesDoMes } from "@/lib/financas";
+import { limitesDoMes, TIPOS_INVESTIMENTO } from "@/lib/financas";
 import { TIPOS_SAUDE, type TipoMedida, MEDIDAS } from "@/lib/saude";
 
 function atualizar() {
@@ -1221,6 +1221,142 @@ export async function salvarOrcamento(categoria: string, limite: number): Promis
   }
   atualizar();
   return { ok: true };
+}
+
+// ---------- finanças: ajustes, parcelamentos, investimentos ----------
+
+export type DadosAjustes = { pay_day: number | null; weekend_shift: boolean; pct_parcelas: number; pct_investir: number; pct_livre: number; cash_balance: number | null };
+
+export async function salvarAjustesFinancas(d: DadosAjustes): Promise<{ ok: boolean; erro?: string }> {
+  const pct = [d.pct_parcelas, d.pct_investir, d.pct_livre].map((x) => Math.round(Number(x) || 0));
+  if (pct.some((x) => x < 0 || x > 100) || pct[0] + pct[1] + pct[2] !== 100) return { ok: false, erro: "As três partes precisam somar 100%." };
+  const dia = d.pay_day ? Math.round(d.pay_day) : null;
+  if (dia !== null && (dia < 1 || dia > 31)) return { ok: false, erro: "Escolha um dia entre 1 e 31." };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, erro: "Entre de novo." };
+  const { data: antes } = await supabase.from("fin_settings").select("cash_balance").maybeSingle();
+  // Saldo informado vale a partir de hoje (o Rumo soma o que vier depois)
+  const saldoMudou = d.cash_balance !== null && Number(antes?.cash_balance ?? NaN) !== d.cash_balance;
+  const { error } = await supabase.from("fin_settings").upsert({
+    user_id: user.id, pay_day: dia, weekend_shift: !!d.weekend_shift, pct_parcelas: pct[0], pct_investir: pct[1], pct_livre: pct[2],
+    ...(d.cash_balance === null ? { cash_balance: null, cash_on: null } : saldoMudou ? { cash_balance: Math.round(d.cash_balance * 100) / 100, cash_on: hojeISO() } : {}),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" });
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true };
+}
+
+export type DadosParcelamento = { title: string; category: string; total: number; installments: number; paid_count: number; first_due: string; creditor: string | null; context_id: string | null };
+
+export async function criarParcelamento(d: DadosParcelamento): Promise<{ ok: boolean; erro?: string }> {
+  const title = d.title.trim().slice(0, 120);
+  if (!title) return { ok: false, erro: "O que foi comprado?" };
+  if (!(d.total > 0)) return { ok: false, erro: "Informe o valor total." };
+  const n = Math.round(d.installments);
+  if (!(n >= 1 && n <= 120)) return { ok: false, erro: "Em quantas vezes? De 1 a 120." };
+  const pagas = Math.max(0, Math.min(n, Math.round(d.paid_count) || 0));
+  if (!DATA.test(d.first_due)) return { ok: false, erro: "Quando vence a primeira parcela?" };
+  const supabase = await createClient();
+  const { error } = await supabase.from("fin_installments").insert({
+    title, category: d.category.trim().slice(0, 40) || "Compras", total: Math.round(d.total * 100) / 100, installments: n, paid_count: pagas,
+    first_due: d.first_due, creditor: d.creditor?.trim().slice(0, 60) || null, context_id: d.context_id || null,
+  });
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true };
+}
+
+/** Paguei a próxima parcela: lança a saída de hoje e conta a parcela como paga */
+export async function pagarParcela(id: string): Promise<{ ok: boolean; lancamento?: string }> {
+  if (!ehId(id)) return { ok: false };
+  const supabase = await createClient();
+  const { data: p } = await supabase.from("fin_installments").select("title, category, total, installments, paid_count, context_id").eq("id", id).single();
+  if (!p || p.paid_count >= p.installments) return { ok: false };
+  const parcela = Math.round((Number(p.total) / p.installments) * 100) / 100;
+  const numero = p.paid_count + 1;
+  const { data: l } = await supabase.from("fin_entries").insert({
+    kind: "saida", amount: parcela, description: `${p.title.trim()} · parcela ${numero} de ${p.installments}`.slice(0, 120), category: p.category,
+    happened_on: hojeISO(), paid: true, installment_id: id, context_id: p.context_id,
+  }).select("id").single();
+  await supabase.from("fin_installments").update({ paid_count: numero }).eq("id", id);
+  atualizar();
+  return { ok: true, lancamento: l?.id };
+}
+
+/** Desfaz o último pagamento (tira o lançamento, se houver, e volta uma parcela) */
+export async function desfazerParcela(id: string, lancamento?: string) {
+  if (!ehId(id)) return;
+  const supabase = await createClient();
+  const { data: p } = await supabase.from("fin_installments").select("paid_count").eq("id", id).single();
+  if (!p || p.paid_count <= 0) return;
+  if (lancamento && ehId(lancamento)) await supabase.from("fin_entries").delete().eq("id", lancamento).eq("installment_id", id);
+  await supabase.from("fin_installments").update({ paid_count: p.paid_count - 1 }).eq("id", id);
+  atualizar();
+}
+
+export async function apagarParcelamento(id: string) {
+  if (!ehId(id)) return;
+  const supabase = await createClient();
+  await supabase.from("fin_installments").delete().eq("id", id);
+  atualizar();
+}
+
+export type DadosInvestimento = { name: string; kind: string; institution: string | null; balance: number; monthly_rate: number | null; monthly_plan: number | null };
+
+export async function criarInvestimento(d: DadosInvestimento): Promise<{ ok: boolean; erro?: string }> {
+  const name = d.name.trim().slice(0, 80);
+  if (!name) return { ok: false, erro: "Dê um nome (ex.: Caixinha Nubank)." };
+  if (!(d.balance >= 0)) return { ok: false, erro: "Saldo inválido." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("fin_investments").insert({
+    name, kind: Object.hasOwn(TIPOS_INVESTIMENTO, d.kind) ? d.kind : "outro", institution: d.institution?.trim().slice(0, 60) || null,
+    balance: Math.round(d.balance * 100) / 100, balance_on: hojeISO(),
+    monthly_rate: d.monthly_rate && d.monthly_rate > 0 && d.monthly_rate <= 0.2 ? d.monthly_rate : null,
+    monthly_plan: d.monthly_plan && d.monthly_plan > 0 ? Math.round(d.monthly_plan * 100) / 100 : null,
+  });
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true };
+}
+
+/** Saldo de hoje (olhou no app do banco): passa a valer daqui para frente */
+export async function atualizarSaldoInvestimento(id: string, saldo: number, taxa?: number | null, plano?: number | null) {
+  if (!ehId(id) || !(saldo >= 0)) return;
+  const supabase = await createClient();
+  await supabase.from("fin_investments").update({
+    balance: Math.round(saldo * 100) / 100, balance_on: hojeISO(),
+    ...(taxa !== undefined ? { monthly_rate: taxa && taxa > 0 && taxa <= 0.2 ? taxa : null } : {}),
+    ...(plano !== undefined ? { monthly_plan: plano && plano > 0 ? Math.round(plano * 100) / 100 : null } : {}),
+  }).eq("id", id);
+  atualizar();
+}
+
+export async function movimentarInvestimento(id: string, kind: "aporte" | "resgate" | "rendimento", valor: number, dia: string): Promise<{ ok: boolean; erro?: string; id?: string }> {
+  if (!ehId(id)) return { ok: false };
+  if (!["aporte", "resgate", "rendimento"].includes(kind)) return { ok: false, erro: "Escolha o tipo." };
+  if (!(valor > 0)) return { ok: false, erro: "Informe o valor." };
+  if (!DATA.test(dia) || dia > hojeISO()) return { ok: false, erro: "Data inválida." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("fin_inv_moves").insert({ investment_id: id, kind, amount: Math.round(valor * 100) / 100, happened_on: dia }).select("id").single();
+  if (error || !data) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true, id: data.id };
+}
+
+export async function apagarMovimento(id: string) {
+  if (!ehId(id)) return;
+  const supabase = await createClient();
+  await supabase.from("fin_inv_moves").delete().eq("id", id);
+  atualizar();
+}
+
+export async function apagarInvestimento(id: string) {
+  if (!ehId(id)) return;
+  const supabase = await createClient();
+  await supabase.from("fin_investments").delete().eq("id", id);
+  atualizar();
 }
 
 // ---------- saúde ----------
