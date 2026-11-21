@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, CalendarDays, Folder, GraduationCap, HeartPulse, Home, Inbox, ListChecks, Menu, NotebookPen, Wallet, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
+import { Building2, CalendarDays, CalendarRange, Folder, GraduationCap, HeartPulse, Home, Inbox, ListChecks, Menu, NotebookPen, Wallet, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
 import { AvisosProvider } from "./Avisos";
 import { Captura, useAtalhoCaptura } from "./Captura";
 import { Logo } from "./Logo";
@@ -37,6 +37,7 @@ type Props = {
 
 const CORE = [
   { href: "/hoje", label: "Hoje", icon: Home },
+  { href: "/semana", label: "Semana", icon: CalendarRange },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/calendario", label: "Calendário", icon: CalendarDays },
   { href: "/responsabilidades", label: "Tarefas", icon: ListChecks },

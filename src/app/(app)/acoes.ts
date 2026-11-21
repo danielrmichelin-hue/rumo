@@ -248,6 +248,32 @@ export async function adiar(id: string, para: Adiamento): Promise<{ campo: "due_
   return { campo, antes: (data[campo] as string | null) ?? null, depois };
 }
 
+/** Planejar a semana: põe a tarefa num dia (ou tira a data). Devolve a data de antes, para desfazer. */
+export async function moverParaDia(id: string, dia: string | null): Promise<{ ok: boolean; antes?: string | null }> {
+  if (!ehId(id) || (dia !== null && !DATA.test(dia))) return { ok: false };
+  const supabase = await createClient();
+  const { data } = await supabase.from("responsibilities").select("due_date").eq("id", id).single();
+  if (!data) return { ok: false };
+  const { error } = await supabase.from("responsibilities").update({ due_date: dia, ...(dia ? {} : { due_time: null }) }).eq("id", id);
+  if (error) return { ok: false };
+  atualizar();
+  return { ok: true, antes: data.due_date ?? null };
+}
+
+/** Nova tarefa direto num dia da semana (o texto é lido como a captura; se trouxer data, vale a do texto) */
+export async function criarNoDia(bruto: string, dia: string): Promise<{ ok: boolean; erro?: string }> {
+  const original = bruto.trim();
+  if (!original || !DATA.test(dia)) return { ok: false, erro: "Escreva a tarefa." };
+  const { leitura, id } = await inserirCaptura(original);
+  if (!id) return { ok: false, erro: "Não foi possível guardar." };
+  if (!leitura.due_date) {
+    const supabase = await createClient();
+    await supabase.from("responsibilities").update({ due_date: dia }).eq("id", id);
+  }
+  atualizar();
+  return { ok: true };
+}
+
 export async function restaurarData(id: string, campo: "due_date" | "follow_up_on", valor: string | null) {
   const supabase = await createClient();
   await supabase.from("responsibilities").update({ [campo]: valor }).eq("id", id);

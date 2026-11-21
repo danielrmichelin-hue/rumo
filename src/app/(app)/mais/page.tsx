@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Building2, CalendarDays, ChevronRight, Folder, GraduationCap, HeartPulse, ListChecks, NotebookPen, Repeat, Wallet, Route, Search, Settings, Shapes } from "lucide-react";
+import { Building2, CalendarDays, CalendarRange, ChevronRight, Folder, GraduationCap, HeartPulse, ListChecks, NotebookPen, Repeat, Wallet, Route, Search, Settings, Shapes } from "lucide-react";
 
 export const metadata = { title: "Mais" };
 
 const ITENS = [
+  { href: "/semana", label: "Planejar a semana", Icon: CalendarRange },
   { href: "/responsabilidades", label: "Tarefas", Icon: ListChecks },
   { href: "/projetos", label: "Projetos", Icon: Folder },
   { href: "/rotas", label: "Rotas", Icon: Route },

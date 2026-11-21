@@ -54,7 +54,8 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`. A casca (`src/components/Shell.tsx`) tem a lateral fixa: Hoje, Inbox, Calendário,
   Tarefas, Projetos; Áreas da vida (Negócios, Estudos, Finanças, Saúde, Rotinas, Rotas, Notas); Contextos (só os de tipo
-  área; empresas ficam em Negócios). O Hoje é montado por `src/lib/hoje.ts`;
+  área; empresas ficam em Negócios). A tela Semana (`/semana`, `src/components/PlanoSemana.tsx`) planeja os 7 dias: arrastar a tarefa para um dia
+  (ou o menu ⋮), carga do dia (tarefas e horas de agenda), atrasadas e sem data no topo. O Hoje é montado por `src/lib/hoje.ts`;
   semana do calendário em `src/lib/semana.ts`; resumo de projeto (progresso, entrega, próximo passo) em
   `src/lib/projetos.ts`; cálculo das Rotas (ritmo, previsão, recálculo, próximo passo, igual ao simulador do Book)
   em `src/lib/rotas.ts`; Estudos como ciclo de estudos (matérias com horas por ciclo, matéria → módulo → aula, revisões 1/7/30 dias, modo foco
