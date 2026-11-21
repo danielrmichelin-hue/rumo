@@ -106,11 +106,3 @@ export function rotinasDoDia(rotinas: Rotina[], marcas: Marcacao[], hoje: string
 
 /** "07:00" a partir de "07:00:00" */
 export const hora = (t: string | null) => (t ? t.slice(0, 5) : null);
-
-/** Sugestões a partir da resposta das perguntas do começo */
-export const SUGESTOES: Record<string, { title: string; days: number[]; at_time: string; duration_min: number }> = {
-  Academia: { title: "Academia", days: [1, 3, 5], at_time: "07:00", duration_min: 60 },
-  Leitura: { title: "Ler 20 páginas", days: [0, 1, 2, 3, 4, 5, 6], at_time: "21:00", duration_min: 30 },
-  "Meditação": { title: "Meditar", days: [0, 1, 2, 3, 4, 5, 6], at_time: "07:00", duration_min: 10 },
-  "Revisar a semana": { title: "Revisar a semana", days: [5], at_time: "17:30", duration_min: 30 },
-};

@@ -64,7 +64,6 @@ export default async function Page({ params }: { params: Promise<{ id: string; m
 
       <section className="sec">
         <h2 className="sec__h">Aulas e temas <em>{t.total}</em></h2>
-        <p className="page__para" style={{ margin: "0 0 12px" }}>Marque a aula como vista e o Rumo agenda as revisões: amanhã, em 7 dias e em 30 dias. Use módulos se o curso for dividido assim.</p>
         <AulasDaMateria materia={materia} modulos={modulos} temas={temas} />
       </section>
 

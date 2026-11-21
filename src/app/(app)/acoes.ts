@@ -5,9 +5,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { lerCaptura } from "@/lib/captura";
 import { diaDaSemana, ehId, hojeISO, instante, numeroBR, somarDias, somarDiasUteis } from "@/lib/datas";
-import { ESCOLHAS, type ChaveEscolha } from "@/lib/modulos";
 import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, type TipoRota, TIPOS } from "@/lib/rotas";
-import { CORES_CONTEXTO, proximaCor, type Estado } from "@/lib/tipos";
+import { CORES_CONTEXTO, type Estado } from "@/lib/tipos";
 import { CORES_MATERIA, INTERVALOS, proximaRevisao, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 import { textoFrequencia } from "@/lib/rotinas";
 import { limitesDoMes, TIPOS_INVESTIMENTO } from "@/lib/financas";
@@ -255,78 +254,6 @@ export async function restaurarData(id: string, campo: "due_date" | "follow_up_o
   atualizar();
 }
 
-// ---------- perfil e perguntas do começo ----------
-
-export type DadosComeco = {
-  nome: string;
-  escolhas: ChaveEscolha[];
-  respostas: Partial<Record<ChaveEscolha, string[]>>;
-};
-
-/** Grava tudo de uma vez: perfil, contextos e projetos. Não duplica o que já existe (compara pelo nome). */
-export async function salvarComeco(dados: DadosComeco): Promise<{ ok: boolean; erro?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, erro: "Sua sessão terminou. Entre de novo." };
-
-  const nome = dados.nome.trim().slice(0, 60);
-  const escolhas = ESCOLHAS.filter((e) => dados.escolhas.includes(e.chave));
-  const limpar = (lista?: string[]) => [...new Set((lista ?? []).map((v) => v.trim()).filter(Boolean).map((v) => v.slice(0, 60)))];
-
-  const [{ data: contextos }, { data: projetos }] = await Promise.all([
-    supabase.from("contexts").select("name, color, position"),
-    supabase.from("projects").select("name"),
-  ]);
-  const existe = (lista: { name: string }[] | null, n: string) => (lista ?? []).some((c) => c.name.toLowerCase() === n.toLowerCase());
-  const cores = (contextos ?? []).map((c) => c.color);
-  let posicao = Math.max(-1, ...(contextos ?? []).map((c) => c.position)) + 1;
-
-  const novosContextos: { name: string; kind: "empresa" | "area"; color: string; position: number }[] = [];
-  const novosProjetos: { name: string }[] = [];
-  const addContexto = (name: string, kind: "empresa" | "area") => {
-    if (existe(contextos, name) || novosContextos.some((c) => c.name.toLowerCase() === name.toLowerCase())) return;
-    const color = proximaCor([...cores, ...novosContextos.map((c) => c.color)]);
-    novosContextos.push({ name, kind, color, position: posicao++ });
-  };
-
-  for (const e of escolhas) {
-    const resp = limpar(dados.respostas[e.chave]);
-    if (e.cria === "trabalho") addContexto("Trabalho", "area");
-    if (e.cria === "contexto-area") resp.forEach((r) => addContexto(r, "area"));
-    if (e.cria === "contexto-empresa") resp.forEach((r) => addContexto(r, "empresa"));
-    if (e.cria === "projeto") resp.forEach((r) => { if (!existe(projetos, r) && !novosProjetos.some((p) => p.name === r)) novosProjetos.push({ name: r }); });
-  }
-
-  const modules = [...new Set(escolhas.map((e) => e.modulo).filter((m): m is NonNullable<typeof m> => !!m))];
-  if (limpar(dados.respostas.vida).some((v) => /finan/i.test(v))) modules.push("financas");
-  if (limpar(dados.respostas.vida).some((v) => /sa[uú]de/i.test(v))) modules.push("saude");
-  const onboarding = {
-    escolhas: escolhas.map((e) => e.chave),
-    trabalho_origens: limpar(dados.respostas.trabalho),
-    vida: limpar(dados.respostas.vida),
-    negocios: limpar(dados.respostas.negocios),
-    projetos: limpar(dados.respostas.projetos),
-    estudos: limpar(dados.respostas.estudos),
-    rotinas: limpar(dados.respostas.rotinas),
-    objetivo: limpar(dados.respostas.objetivos)[0] ?? null,
-  };
-
-  if (novosContextos.length) {
-    const { error } = await supabase.from("contexts").insert(novosContextos);
-    if (error) return { ok: false, erro: "Não foi possível criar os contextos. Tente de novo." };
-  }
-  if (novosProjetos.length) {
-    const { error } = await supabase.from("projects").insert(novosProjetos);
-    if (error) return { ok: false, erro: "Não foi possível criar os projetos. Tente de novo." };
-  }
-  const { error } = await supabase
-    .from("profiles")
-    .upsert({ user_id: user.id, display_name: nome || null, modules, onboarding, onboarded_at: new Date().toISOString() }, { onConflict: "user_id" });
-  if (error) return { ok: false, erro: "Não foi possível salvar. Tente de novo." };
-
-  atualizar();
-  return { ok: true };
-}
 
 export async function salvarNome(_: EstadoForm, form: FormData): Promise<EstadoForm> {
   const nome = texto(form.get("nome")).slice(0, 60);

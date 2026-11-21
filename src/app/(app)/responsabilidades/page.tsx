@@ -4,7 +4,7 @@ import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
 import { BotaoNova } from "@/components/ProximoPasso";
 import { CAMPOS_LISTA, ordenar, type Estado, type Responsabilidade } from "@/lib/tipos";
 
-export const metadata = { title: "Responsabilidades" };
+export const metadata = { title: "Tarefas" };
 
 const ABAS: Array<{ estado: Estado; rotulo: string; vazio: string }> = [
   { estado: "a_fazer", rotulo: "A fazer", vazio: "O que você capturar num contexto aparece aqui." },
@@ -56,11 +56,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
     <div className="page">
       <div className="page__head">
         <div>
-          <h1 className="page__t">Responsabilidades</h1>
+          <h1 className="page__t">Tarefas</h1>
           <p className="page__sub">
             <b>{contagem.a_fazer}</b> a fazer · <b>{contagem.aguardando}</b> aguardando alguém
           </p>
-          <p className="page__para">Tudo o que depende de você, por contexto.</p>
         </div>
         <div className="page__actions hide-mobile"><BotaoNova /></div>
       </div>

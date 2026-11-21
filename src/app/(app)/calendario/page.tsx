@@ -88,7 +88,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
         <div>
           <h1 className="page__t">{tituloDoMes(segunda)}</h1>
           <p className="page__sub">Semana {numeroSemana(segunda)} · <b>{compromissos.length}</b> {compromissos.length === 1 ? "compromisso" : "compromissos"} · <b>{prazos.filter((p) => p.state !== "concluida").length}</b> prazos</p>
-          <p className="page__para">Compromissos e prazos de cada dia, juntos.</p>
         </div>
         <div className="page__actions">
           <AlternarVista vista="semana" semana={segunda} mes={(segunda <= hoje && hoje <= domingo ? hoje : segunda).slice(0, 7)} />

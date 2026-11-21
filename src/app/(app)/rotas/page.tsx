@@ -40,7 +40,6 @@ export default async function Page() {
       <div className="page__head">
         <div>
           <h1 className="page__t">Rotas</h1>
-          <p className="page__sub">Do destino ao próximo passo. O Rumo não pune desvios: recalcula o caminho.</p>
         </div>
         <div className="page__actions"><Link href="/rotas/nova" className="btn"><Plus aria-hidden />Nova Rota</Link></div>
       </div>

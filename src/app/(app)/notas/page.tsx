@@ -26,7 +26,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
       <div className="page__head">
         <div>
           <h1 className="page__t">Notas</h1>
-          <p className="page__sub">Notas e decisões, cada uma no seu lugar.</p>
         </div>
         <div className="page__actions">
           <NovaNota lugares={lugares} rotulo="Registrar decisão" decisao variante="btn btn--line" />

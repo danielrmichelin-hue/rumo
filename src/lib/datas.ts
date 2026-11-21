@@ -82,9 +82,9 @@ export function rotuloHora(hora: string): string {
 
 /** "Venceu ontem", "Venceu em 12/11", "Venceu às 10h" (hoje, com hora já passada) */
 export function rotuloVencido(iso: string, hora: string | null, hoje: string = hojeISO()): string {
-  if (iso === hoje) return hora ? `Venceu às ${rotuloHora(hora)}` : "Vence hoje";
-  if (diferencaDias(hoje, iso) === -1) return "Venceu ontem";
-  return `Venceu em ${rotuloData(iso, hoje)}`;
+  if (iso === hoje) return hora ? `Atrasada desde as ${rotuloHora(hora)}` : "Vence hoje";
+  const dias = -diferencaDias(hoje, iso);
+  return `Atrasada há ${dias} ${dias === 1 ? "dia" : "dias"}`;
 }
 
 /** Prazo passou? Considera a hora quando o prazo é hoje. */

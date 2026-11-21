@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Folder, GraduationCap, HeartPulse, Home, Inbox, LayoutGrid, ListChecks, Menu, NotebookPen, Wallet, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
+import { Building2, CalendarDays, Folder, GraduationCap, HeartPulse, Home, Inbox, ListChecks, Menu, NotebookPen, Wallet, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
 import { AvisosProvider } from "./Avisos";
 import { Captura, useAtalhoCaptura } from "./Captura";
 import { Logo } from "./Logo";
 import { ehSaude } from "@/lib/saude";
 
-export type EntradaModulo = { chave: "estudos" | "rotinas" | "rotas" | "notas" | "financas" | "saude"; n: number; quente?: boolean };
+export type EntradaModulo = { chave: "negocios" | "estudos" | "rotinas" | "rotas" | "notas" | "financas" | "saude"; n: number; quente?: boolean };
 
 const MODULO: Record<EntradaModulo["chave"], { href: string; label: string; icon: typeof Home }> = {
+  negocios: { href: "/negocios", label: "Negócios", icon: Building2 },
   estudos: { href: "/estudos", label: "Estudos", icon: GraduationCap },
   rotinas: { href: "/rotinas", label: "Rotinas", icon: Repeat },
   rotas: { href: "/rotas", label: "Rotas", icon: Route },
@@ -29,8 +30,6 @@ type Props = {
   inbox: number;
   hoje: number;
   atencao: number;
-  /** módulos ligados e disponíveis (hoje só "negocios") */
-  negocios: boolean;
   /** Módulos ligados: uma entrada cada na lateral, com o número do dia */
   modulos: EntradaModulo[];
   children: React.ReactNode;
@@ -40,7 +39,7 @@ const CORE = [
   { href: "/hoje", label: "Hoje", icon: Home },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/calendario", label: "Calendário", icon: CalendarDays },
-  { href: "/responsabilidades", label: "Responsabilidades", icon: ListChecks },
+  { href: "/responsabilidades", label: "Tarefas", icon: ListChecks },
   { href: "/projetos", label: "Projetos", icon: Folder },
 ];
 
@@ -50,7 +49,7 @@ export function iniciais(nome: string) {
   return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : partes[0][1] ?? "")).toUpperCase();
 }
 
-export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, modulos, children }: Props) {
+export function Shell({ contexts, nome, email, inbox, hoje, atencao, modulos, children }: Props) {
   const path = usePathname();
   const router = useRouter();
   const on = (href: string) => (path === href || path.startsWith(href + "/") ? "page" : undefined);
@@ -87,16 +86,8 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, m
     return () => window.removeEventListener("keydown", onKey);
   }, [router]);
 
-  // Grupos da lateral: Negócios (contextos tipo empresa) e Áreas (tipo área). Grupo vazio não aparece.
-  const empresas = contexts.filter((c) => c.kind === "empresa");
-  // Com o módulo Finanças ou Saúde ligado, a área de mesmo nome não se repete na lateral (o módulo é a porta de entrada)
-  const temFinancas = modulos.some((m) => m.chave === "financas");
-  const temSaude = modulos.some((m) => m.chave === "saude");
-  const areas = contexts.filter((c) => c.kind !== "empresa" && !(temFinancas && /finan/i.test(c.name)) && !(temSaude && ehSaude(c.name)));
-  const grupos = [
-    { titulo: negocios || empresas.length ? "Negócios" : "Contextos", itens: empresas },
-    { titulo: "Áreas", itens: areas },
-  ].filter((g) => g.itens.length);
+  // Contextos da lateral: só as áreas (empresas ficam em Negócios; Finanças e Saúde têm página própria)
+  const areas = contexts.filter((c) => c.kind !== "empresa" && !/finan/i.test(c.name) && !ehSaude(c.name));
 
   const contagem: Record<string, { n: number; hot?: boolean }> = {
     "/hoje": { n: hoje, hot: atencao > 0 },
@@ -125,7 +116,7 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, m
             </Link>
           ))}
 
-          {modulos.length > 0 && <div className="side__group"><span>Módulos</span></div>}
+          <div className="side__group"><span>Áreas da vida</span></div>
           {modulos.map((m) => {
             const { href, label, icon: Icon } = MODULO[m.chave];
             return (
@@ -137,29 +128,16 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, negocios, m
             );
           })}
 
-          {grupos.map((g, i) => (
-            <div key={g.titulo}>
-              <div className="side__group">
-                <span>{g.titulo}</span>
-                {i === 0 && <Link href="/contextos" aria-label="Organizar contextos" title="Organizar contextos"><Settings2 size={14} /></Link>}
-              </div>
-              {g.titulo === "Negócios" && g.itens.length > 1 && (
-                <Link href="/negocios" className="nav" aria-current={on("/negocios")}><LayoutGrid aria-hidden /><span className="nav__label">Todas as empresas</span></Link>
-              )}
-              {g.itens.map((c) => (
-                <Link key={c.id} href={`/contexto/${c.id}`} className="nav" aria-current={on(`/contexto/${c.id}`)}>
-                  <i className="nav__dot" style={{ background: c.color }} />
-                  <span className="nav__label">{c.name}</span>
-                </Link>
-              ))}
-            </div>
+          <div className="side__group">
+            <span>Contextos</span>
+            <Link href="/contextos" aria-label="Organizar contextos" title="Organizar contextos"><Settings2 size={14} /></Link>
+          </div>
+          {areas.map((c) => (
+            <Link key={c.id} href={`/contexto/${c.id}`} className="nav" aria-current={on(`/contexto/${c.id}`)}>
+              <i className="nav__dot" style={{ background: c.color }} />
+              <span className="nav__label">{c.name}</span>
+            </Link>
           ))}
-          {!grupos.length && (
-            <>
-              <div className="side__group"><span>Contextos</span></div>
-              <Link href="/contextos" className="nav"><Plus aria-hidden /><span className="nav__label">Criar contextos</span></Link>
-            </>
-          )}
 
           <div className="side__foot">
             <Link href="/ajustes" className="side__me" aria-current={on("/ajustes")} title={email}>

@@ -392,65 +392,13 @@ a.ctx__name:hover { color: var(--accent-text); }
 
 /* ---------- entrar (Peças de marca: login) ---------- */
 .auth { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); background: var(--bg); }
-.auth__brand { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 48px; color: #F8F7F4; background: var(--side-bg); }
-.auth__brand > img:first-child { height: 30px; width: auto; align-self: flex-start; }
-/* Filme da entrada: o problema que o Rumo resolve, em quatro atos, em loop (pedido do Daniel, exceção ao "nada em loop") */
-.auth__wordmark { position: relative; z-index: 1; }
-.filme { position: relative; flex: 1; display: grid; grid-template-rows: auto 1fr auto; gap: 20px; margin-top: 28px; min-height: 0; color: #F8F7F4; }
-.filme__barras { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; max-width: 420px; }
-.filme__barras i { height: 3px; overflow: hidden; border-radius: 2px; background: rgba(248, 247, 244, .16); }
-.filme__barras b { display: block; width: 0; height: 100%; border-radius: 2px; background: rgba(248, 247, 244, .85); }
-.filme__barras i.is-feito b { width: 100%; }
-.filme__barras i.is-agora b { animation: filme-barra linear forwards; }
-@keyframes filme-barra { to { width: 100%; } }
-.filme__palco { position: relative; width: 400px; height: 372px; align-self: center; justify-self: center; }
-.filme__cartao { position: absolute; inset: 0; border-radius: 18px; background: rgba(248, 247, 244, .05); box-shadow: inset 0 0 0 1px rgba(248, 247, 244, .12); opacity: 0; transform: scale(.96); transition: opacity 700ms var(--ease), transform 900ms var(--ease); }
-.filme__cab { position: absolute; left: 22px; top: 20px; font-size: 11.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: rgba(248, 247, 244, .62); }
-.filme__cab span { position: absolute; white-space: nowrap; transition: opacity 500ms var(--ease); }
-.filme__cab-dois { opacity: 0; }
-.frag { --x: var(--cx); --y: var(--cy); --r: var(--cr); position: absolute; left: 0; top: 0; width: 250px; transform: translate(var(--x), var(--y)) rotate(var(--r)); transition: transform 1100ms cubic-bezier(.2, 0, 0, 1), width 900ms cubic-bezier(.2, 0, 0, 1), opacity 600ms var(--ease); transition-delay: calc(var(--i) * 70ms); }
-.frag__corpo { display: flex; align-items: center; gap: 11px; padding: 10px 13px; border-radius: 12px; background: #F8F7F4; color: #1F1F1F; box-shadow: 0 10px 28px rgba(12, 6, 26, .35); transition: background 700ms var(--ease), color 700ms var(--ease), box-shadow 700ms var(--ease), padding 700ms var(--ease); }
-.frag__txt { display: grid; gap: 2px; min-width: 0; }
-.frag__txt b { overflow: hidden; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.frag__txt small { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #5E566B; transition: color 700ms var(--ease); }
-.frag__txt small i { width: 7px; height: 7px; flex: none; border-radius: 50%; }
-.frag__check { position: relative; width: 16px; height: 16px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1.5px #A7A0B3; transition: box-shadow 400ms var(--ease), background 400ms var(--ease); }
-.frag__check::after { content: ""; position: absolute; left: 5px; top: 4px; width: 6px; height: 3.5px; border-left: 1.75px solid #fff; border-bottom: 1.75px solid #fff; transform: rotate(-45deg) scale(0); transition: transform 300ms var(--ease) 150ms; }
-.filme[data-ato="0"] .frag__corpo { animation: filme-flutua 3.2s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -.6s); }
-@keyframes filme-flutua { to { transform: translateY(-7px); } }
-@keyframes subir { from { opacity: 0; transform: translateY(8px); } }
-/* ato 2: a lista */
-.filme[data-ato="1"] .filme__cartao, .filme[data-ato="2"] .filme__cartao { opacity: 1; transform: none; }
-.filme[data-ato="1"] .frag, .filme[data-ato="2"] .frag { --x: 14px; --y: var(--ly); --r: 0deg; width: 372px; }
-.filme[data-ato="1"] .frag__corpo, .filme[data-ato="2"] .frag:not(.frag--destaque) .frag__corpo { background: transparent; color: #F8F7F4; box-shadow: none; padding: 8px 10px; }
-.filme[data-ato="1"] .frag__txt small, .filme[data-ato="2"] .frag:not(.frag--destaque) .frag__txt small { color: rgba(248, 247, 244, .62); }
-.filme[data-ato="1"] .frag__check, .filme[data-ato="2"] .frag:not(.frag--destaque) .frag__check { box-shadow: inset 0 0 0 1.5px rgba(248, 247, 244, .45); }
-/* ato 3: o que importa agora */
-.filme[data-ato="2"] .filme__cab-um { opacity: 0; }
-.filme[data-ato="2"] .filme__cab-dois { opacity: 1; }
-.filme[data-ato="2"] .frag:not(.frag--destaque) { --y: calc(var(--ly) + 34px); opacity: .26; }
-.frag--destaque { z-index: 1; }
-.filme[data-ato="2"] .frag--destaque .frag__corpo { padding: 16px 16px; box-shadow: 0 14px 34px rgba(12, 6, 26, .4), inset 0 0 0 1.5px #6C4ED9; }
-.filme[data-ato="2"] .frag--destaque .frag__check { animation: filme-marca 1ms linear 2800ms forwards; }
-.filme[data-ato="2"] .frag--destaque .frag__check::after { animation: filme-visto 300ms var(--ease) 2900ms forwards; }
-@keyframes filme-marca { to { background: #6C4ED9; box-shadow: none; } }
-@keyframes filme-visto { to { transform: rotate(-45deg) scale(1); } }
-/* ato 4: a assinatura */
-.filme__simbolo { position: absolute; left: 50%; top: 50%; width: 132px; opacity: 0; transform: translate(-50%, -50%) scale(.9); transition: opacity 800ms var(--ease) 300ms, transform 1000ms var(--ease) 300ms; }
-.filme[data-ato="3"] .filme__simbolo { opacity: 1; transform: translate(-50%, -50%); }
-.filme[data-ato="3"] .frag { --x: 14px; --y: var(--ly); --r: 0deg; width: 372px; opacity: 0; }
-.filme__legenda { position: relative; min-height: 112px; }
-.filme__legenda p { max-width: 440px; margin: 0; font: 600 34px/40px var(--font); letter-spacing: -0.02em; animation: subir 700ms var(--ease-enter) both; }
-.filme__legenda small { display: block; margin-top: 10px; font-size: 15px; color: rgba(248, 247, 244, .7); animation: subir 700ms var(--ease-enter) 180ms both; }
-.filme[data-parado] *, .filme[data-parado] *::after { animation: none !important; transition: none !important; }
-.filme[data-parado] .frag--destaque .frag__check { background: #6C4ED9; box-shadow: none; }
-.filme[data-parado] .frag--destaque .frag__check::after { transform: rotate(-45deg) scale(1); }
-@media (max-height: 760px) { .filme__palco { transform: scale(.86); transform-origin: center; } .filme__legenda p { font-size: 28px; line-height: 34px; } }
+.auth--simples { grid-template-columns: 1fr; }
 .auth__card { width: min(380px, 100%); display: grid; gap: 16px; align-self: center; justify-self: center; padding: 32px 22px; }
 .auth__card h1 { margin: 0; font: 600 28px/34px var(--font); letter-spacing: -0.016em; color: var(--text-strong); }
 .auth__card .troca { gap: 8px; }
 .auth__card .troca > p { margin: 0; color: var(--text-2); }
 .auth__logo { display: none; height: 28px; width: auto; justify-self: start; }
+.auth--simples .auth__logo { display: block; margin-bottom: 8px; }
 .auth .input { height: 44px; }
 .auth .seg { display: grid; grid-template-columns: 1fr 1fr; }
 .password { position: relative; display: block; }
@@ -458,7 +406,6 @@ a.ctx__name:hover { color: var(--accent-text); }
 .password .icon-btn { position: absolute; right: 6px; top: 6px; }
 @media (max-width: 860px) {
   .auth { grid-template-columns: 1fr; align-content: start; }
-  .auth__brand { display: none; }
   .auth__card { padding: 40px 20px; }
   .auth__logo.logo-light { display: block; }
   :root[data-theme="dark"] .auth__logo.logo-light { display: none; }
@@ -1136,3 +1083,9 @@ a.route__t:hover { color: var(--accent-text); }
 .pagar-hoje b { font-size: 14px; font-weight: 500; }
 .pagar-hoje small { overflow: hidden; font-size: 12px; color: var(--text-2); text-overflow: ellipsis; white-space: nowrap; }
 .fin-cats .fin-cat__t b { white-space: nowrap; }
+
+/* Atraso direto (software pessoal): vermelho, com os dias */
+.prop--late { padding: 1px 7px; border-radius: 5px; background: var(--danger-bg); color: var(--danger); font-weight: 500; }
+.row[data-atrasada] .check { box-shadow: inset 0 0 0 1.75px var(--danger); }
+.bloco--alerta { box-shadow: inset 0 0 0 1px var(--danger-bg), inset 3px 0 0 var(--danger); }
+.bloco--alerta > .sec__h em { color: var(--danger); font-weight: 600; }

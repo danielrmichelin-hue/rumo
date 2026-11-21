@@ -12,7 +12,6 @@ import { AZUL_ESTUDO, CAMPOS_CURSO, CAMPOS_MATERIA, CAMPOS_SESSAO, CAMPOS_TEMA, 
 import { CAMPOS_ROTINA, desdeMarcas, feitaEm, hora, type Marcacao, mesDaRotina, type Rotina, rotinasDoDia, semanaDaRotina } from "@/lib/rotinas";
 import { ChecarRotina } from "@/components/Rotinas";
 import { Logo } from "@/components/Logo";
-import { moduloLigado, type ChaveModulo } from "@/lib/modulos";
 import { Children } from "react";
 import { RevisoesDoDia } from "@/components/Aulas";
 import { CAMPOS_PARCELAMENTO, moeda, normalizarParcelamento, parcelasDoCiclo } from "@/lib/financas";
@@ -76,7 +75,6 @@ export default async function Page() {
   const doDiaComFeitas = [...dia.doDia, ...dia.concluidasHoje];
   const marcas = (marcasDb ?? []) as Marcacao[];
   const rotinas = rotinasDoDia((rotinasDb ?? []) as Rotina[], marcas, hoje);
-  const ligado = (m: ChaveModulo) => moduloLigado((perfil?.modules as string[] | null) ?? [], m);
   const proximoEvento = dia.agenda.find((e) => !e.done_at && horaDe(e.starts_at) >= agora);
 
   return (
@@ -114,10 +112,10 @@ export default async function Page() {
 
       <div className="painel">
         <div className="painel__col">
-          <Bloco titulo="Atenção" n={dia.atencao.length} vazio="Nada atrasado e nenhum retorno para cobrar hoje.">
+          <Bloco titulo="Atenção" n={dia.atencao.length} alerta={dia.numeros.atrasadas > 0} vazio="Nada atrasado e nenhum retorno para cobrar hoje.">
             {dia.atencao.length > 0 && <ListaResponsabilidades itens={dia.atencao} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} cobravel />}
           </Bloco>
-          <Bloco titulo="Hoje" n={dia.doDia.length} acao={doDiaComFeitas.length ? <span className="sec__act">Por horário</span> : null} vazio="Nada com prazo para hoje. O que tiver data aparece aqui no dia.">
+          <Bloco titulo="Hoje" n={dia.doDia.length} acao={doDiaComFeitas.length ? <span className="sec__act">Por horário</span> : null} vazio="Nada com prazo para hoje.">
             {doDiaComFeitas.length > 0 && <ListaResponsabilidades itens={doDiaComFeitas} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} semHoje />}
           </Bloco>
           <Bloco titulo="Aguardando alguém" n={dia.aguardando.length} acao={dia.aguardando.length > 4 ? <Link href="/responsabilidades?estado=aguardando" className="sec__act">Ver todos</Link> : null} vazio="Ninguém te deve retorno agora.">
@@ -153,7 +151,7 @@ export default async function Page() {
             )}
           </Bloco>
 
-          {(ligado("rotinas") || rotinas.length > 0) && (
+          {(
             <Bloco titulo={rotinas.some((r) => r.dose) ? "Rotinas e remédios" : "Rotinas"} n={rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length} acao={<Link href="/rotinas" className="sec__act">Rotinas</Link>} vazio="Nenhuma rotina para hoje.">
               {rotinas.length > 0 && (
                 <ul className="list">
@@ -191,7 +189,7 @@ export default async function Page() {
             </Bloco>
           )}
 
-          {(ligado("estudos") || cursos.length > 0) && (
+          {(
             <Bloco titulo="Estudos" n={estudos.length + revisoes.length} acao={<Link href="/estudos" className="sec__act">Estudos</Link>} vazio={cursos.length ? "Sessão de estudo já marcada para hoje, ou ciclo completo." : "Monte o seu ciclo de estudos para ver aqui a matéria da vez."}>
               {revisoes.length > 0 && <RevisoesDoDia temas={revisoes} materias={materias} cursoDe={cursoDaMateria} />}
               {estudos.length > 0 && (
@@ -213,8 +211,8 @@ export default async function Page() {
             </Bloco>
           )}
 
-          {(ligado("rotas") || rotas.length > 0) && (
-            <Bloco titulo="Rotas" n={rotas.length} acao={<Link href="/rotas" className="sec__act">Rotas</Link>} vazio="Nenhuma Rota em andamento. Um destino com prazo vira ritmo e passo no Hoje.">
+          {(
+            <Bloco titulo="Rotas" n={rotas.length} acao={<Link href="/rotas" className="sec__act">Rotas</Link>} vazio="Nenhuma Rota em andamento.">
               {rotas.length > 0 && (
                 <div className="agenda">
                   {rotas.slice(0, 4).map(({ r, resumo }) => (
@@ -239,9 +237,9 @@ export default async function Page() {
 }
 
 /** Um bloco do painel: sempre no mesmo lugar; vazio vira uma linha só */
-function Bloco({ titulo, n, acao, vazio, children }: { titulo: string; n: number; acao?: React.ReactNode; vazio: string; children?: React.ReactNode }) {
+function Bloco({ titulo, n, acao, vazio, alerta = false, children }: { titulo: string; n: number; acao?: React.ReactNode; vazio: string; alerta?: boolean; children?: React.ReactNode }) {
   return (
-    <section className="bloco">
+    <section className={`bloco${alerta ? " bloco--alerta" : ""}`}>
       <h2 className="sec__h">{titulo}{n > 0 && <em>{n}</em>}{acao}</h2>
       {Children.toArray(children).length ? children : <p className="bloco__vazio">{vazio}</p>}
     </section>

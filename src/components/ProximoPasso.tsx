@@ -86,7 +86,7 @@ export function ProximoPasso({ proximo, contextos, projeto, rota }: { proximo: T
         {simbolo}
         <Link href={`/responsabilidades/${item.id}`} className="next__t">{item.title}</Link>
         <span className="props">
-          <span className="prop">{aguardando ? <Hourglass aria-hidden /> : <Clock aria-hidden />}{proximo.porque}</span>
+          <span className={`prop${/^Atrasada/.test(proximo.porque) ? " prop--late" : ""}`}>{aguardando ? <Hourglass aria-hidden /> : <Clock aria-hidden />}{proximo.porque}</span>
           {aguardando && item.waiting_note && <span className="prop">{item.waiting_note}</span>}
           {ctx && <span className="prop"><i className="dot" style={{ background: ctx.color }} />{ctx.name}</span>}
           {projeto && <span className="prop"><Folder aria-hidden />{projeto}</span>}

@@ -59,7 +59,6 @@ export default async function Page() {
       <div className="page__head">
         <div>
           <h1 className="page__t">Estudos</h1>
-          <p className="page__sub">Seu ciclo de estudos: matérias, horas, aulas e sessões.</p>
         </div>
         <div className="page__actions"><Link href="/estudos/novo" className="btn"><Plus aria-hidden />Novo estudo</Link></div>
       </div>

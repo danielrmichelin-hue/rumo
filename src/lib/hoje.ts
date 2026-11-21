@@ -93,7 +93,7 @@ export function resumoDoDia(m: MontagemHoje, rotinas = 0, estudos = 0): string {
     partes.push(min < 1 ? "1 compromisso começando agora" : `1 compromisso em ${min} ${min === 1 ? "minuto" : "minutos"}`);
   }
   const n = m.numeros;
-  if (n.atrasadas) partes.push(`${n.atrasadas} ${n.atrasadas === 1 ? "responsabilidade atrasada" : "responsabilidades atrasadas"}`);
+  if (n.atrasadas) partes.push(`${n.atrasadas} ${n.atrasadas === 1 ? "tarefa atrasada" : "tarefas atrasadas"}`);
   if (n.cobrar) partes.push(`${n.cobrar} ${n.cobrar === 1 ? "retorno para cobrar" : "retornos para cobrar"}`);
   if (n.doDia) partes.push(`${n.doDia} para hoje`);
   if (rotinas) partes.push(`${rotinas} ${rotinas === 1 ? "rotina" : "rotinas"}`);

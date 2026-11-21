@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, LogOut, Shapes, Sparkles } from "lucide-react";
+import { ChevronRight, LogOut, Shapes } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { FormNome } from "@/components/FormNome";
 import { SeletorTema } from "@/components/Tema";
@@ -35,7 +35,6 @@ export default async function Page() {
         </section>
 
         <ul className="menu">
-          <li><Link href="/comecar"><Sparkles aria-hidden />O que você organiza<em>Refazer as perguntas do começo</em><ChevronRight aria-hidden /></Link></li>
           <li><Link href="/contextos"><Shapes aria-hidden />Contextos<ChevronRight aria-hidden style={{ marginLeft: "auto" }} /></Link></li>
           <li>
             <form action="/auth/sair" method="post">

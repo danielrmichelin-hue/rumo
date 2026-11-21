@@ -45,7 +45,6 @@ export default async function Page() {
       <div className="page__head">
         <div>
           <h1 className="page__t">Negócios</h1>
-          <p className="page__para">Suas empresas lado a lado, só com o que depende de você.</p>
         </div>
       </div>
 
@@ -92,7 +91,7 @@ export default async function Page() {
             <section className="bloco">
               <h2 className="sec__h">Quem me deve o quê {aguardando.length > 0 && <em>{aguardando.length}</em>}</h2>
               {!pessoas.length ? (
-                <p className="bloco__vazio">Ninguém te deve retorno agora. Quando você marca algo como “aguardando alguém”, ele aparece aqui, agrupado por pessoa.</p>
+                <p className="bloco__vazio">Ninguém te deve retorno.</p>
               ) : (
                 <div className="pessoas">
                   {pessoas.map(([quem, lista]) => (

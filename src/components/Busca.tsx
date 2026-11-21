@@ -68,7 +68,7 @@ export function Busca({ inicial }: { inicial: string }) {
       </div>
 
       <div id="resultados" role="listbox" aria-busy={pendente}>
-        {q.trim().length < 2 && <p className="empty">Procure em responsabilidades, notas, projetos, contextos, compromissos e pessoas.</p>}
+        {q.trim().length < 2 && <p className="empty">Procure em tarefas, notas, projetos, contextos, compromissos e pessoas.</p>}
         {buscou && !achados.length && !pendente && <p className="empty"><b>Nada encontrado para “{q.trim()}”.</b>Tente outra palavra ou parte do nome.</p>}
         {grupos.map((g) => (
           <section key={g.tipo} className="sec" style={{ marginBottom: 20 }}>

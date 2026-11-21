@@ -4,7 +4,7 @@ import { Building2, CalendarDays, ChevronRight, Folder, GraduationCap, HeartPuls
 export const metadata = { title: "Mais" };
 
 const ITENS = [
-  { href: "/responsabilidades", label: "Responsabilidades", Icon: ListChecks },
+  { href: "/responsabilidades", label: "Tarefas", Icon: ListChecks },
   { href: "/projetos", label: "Projetos", Icon: Folder },
   { href: "/rotas", label: "Rotas", Icon: Route },
   { href: "/estudos", label: "Estudos", Icon: GraduationCap },

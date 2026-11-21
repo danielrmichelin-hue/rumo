@@ -1,100 +1,42 @@
 # Rumo · contexto para o Claude Code
 
-Rumo é um **sistema operacional pessoal modular**. Promessa: **Clareza para o seu próximo passo.**
-Proposta comercial: *Tudo o que depende de você, em um só lugar.*
-Dono do produto: Daniel. Toda a comunicação, interface e textos do app são em **português do Brasil**.
+O Rumo é o **software pessoal de gestão da vida do Daniel**: tarefas, empresas (Iter Mídia, Iter Contábil, Quintal
+Escola…), estudos para a prova, finanças, saúde, rotinas e metas. **Não é um produto**: não há outros usuários,
+cadastro, onboarding nem marketing. Decisão do Daniel (21/11/2026): continuar construindo só para o uso dele,
+mantendo o nome e a interface atuais; o Brand Book deixa de ser regra.
+Toda a comunicação, a interface e os textos são em **português do Brasil**.
 
-## Antes de qualquer tarefa
+## Como decidir o que construir
 
-1. Leia **`docs/rumo-completo.md` inteiro**. É a explicação completa do Rumo: marca e voz, problema e
-   estratégia, público, Core (Hoje, Inbox, Responsabilidades, Calendário, Projetos, Busca), arquitetura
-   modular, cada módulo, Rotas, Connect, as perguntas do começo, identidade visual, interface e
-   componentes, mercado, futuro e o que o MVP constrói. Sem entender o todo, não construa nenhuma parte.
-2. Para construir ou mudar uma tela, abra a imagem correspondente em `docs/telas/` (Hoje, visão por
-   contexto, calendário, mobile e componentes) e compare o resultado com ela.
-3. Para escopo, dados e regras, `docs/mvp.md`; para as perguntas do começo, `docs/onboarding.md`;
-   resumo rápido em `docs/LEIA-PRIMEIRO.md`.
+- A pergunta é uma só: **isso ajuda o Daniel no dia a dia dele?** Não importa se serviria para outras pessoas.
+- Funcionalidade nova só quando ele pedir ou quando algo atrapalhar o uso. Na dúvida, pergunte a ele.
+- Sem textos explicativos ("pra que serve"), sem telas de boas-vindas, sem listas vazias com parágrafo: frases curtas.
+- Os documentos em `docs/` (Book, `rumo-completo.md`, `mvp.md`, `onboarding.md`) são histórico do tempo em que o Rumo
+  era pensado como produto. Consulte se ajudar, mas não são obrigação.
 
-Tudo isso está no repositório: o *Brand & Product Book v1.0* (interativo em `docs/brand-book/index.html`,
-em texto em `docs/book/`) e a *Especificação do MVP* (`docs/mvp.md`). Este arquivo resume o essencial.
+## Regras que valem
 
-## O que é o MVP
+- Tarefa (no banco: `responsibilities`) tem 3 estados: `a_fazer`, `aguardando`, `concluida`. "Atrasada" é exibição
+  quando o prazo passou, e é **direta**: vermelho, "Atrasada há N dias", no topo do Hoje.
+- `aguardando` exige quem e `follow_up_on` (padrão: 3 dias úteis); no dia, volta para o Hoje em Atenção.
+- Sem contexto, sem projeto e sem Rota = Inbox. Com data = aparece no Hoje no dia.
+- A captura entende: hoje, amanhã, dias da semana, datas (12/11), horas (10h, 14:30) e `#contexto`. O texto
+  original fica em `raw_capture`.
+- Ordem do Hoje: próximo passo; Atenção (atrasadas + cobranças); Hoje; Agenda; Rotinas e remédios; Para pagar;
+  Estudos; Rotas; Aguardando alguém.
+- Decisões são tarefas com `kind = 'decidir'`; a decisão fica na nota ao concluir.
 
-O Core para o **uso diário do Daniel**, num teste de 90 dias. A hipótese: ele passa a confiar no Rumo
-como o lugar onde mora tudo o que depende dele e abre o Hoje todo dia.
+## Interface
 
-Entra: Perguntas do começo (onboarding adaptativo, `docs/onboarding.md`) · Hoje · Captura rápida + Inbox · Responsabilidades com follow-up · Contextos (Iter Mídia, Rumo, Casa…)
-· Projetos · Calendário simples · Busca · nota de texto em responsabilidades e projetos.
-
-O Rumo é **modular**: as perguntas do começo ligam os módulos e criam os contextos de cada pessoa. Entenda o
-todo em `docs/rumo-completo.md` antes de construir qualquer parte, e construa pronto para os módulos entrarem
-(lista de módulos em código, barra lateral montada pelo perfil).
-
-**Fica fora (não construir sem o Daniel pedir):** Connect, IA/MCP, vários usuários na interface, sincronização com
-Google Agenda, captura pelo WhatsApp. (Rotas, Estudos, Contextos sob medida, Rotinas e Notas: o Daniel pediu, ver as fases 4 a 8.)
-
-## Fases
-
-| Fase | Entrega | Situação |
-| --- | --- | --- |
-| 0 · Fundação | Login com e-mail e senha (Supabase), banco com RLS, PWA instalável, casca de navegação | Feita |
-| 1 · Capturar | Captura que lê o texto, Inbox, Responsabilidades, Contextos | Em revisão com o Daniel |
-| 1b · Começo | Perguntas do começo: o que organizar, contextos e módulos, barra lateral montada pelo perfil (`docs/onboarding.md`) | Em revisão com o Daniel |
-| 2 · Hoje | Tela Hoje, follow-up e cobrança, notificações | Em revisão (falta: notificações) |
-| 3 · Completar o Core | Projetos, Calendário, Busca, visão por contexto | Em revisão com o Daniel |
-| 4 · Rotas | Destino → ritmo → marcos → próximo passo no Hoje; recalcula sem culpa (`docs/plano-modulos.md`) | Em revisão com o Daniel |
-| 5 · Estudos | Matérias, ciclos, sessões no calendário e no Hoje, progresso | Em revisão com o Daniel |
-| 6 · Contextos sob medida | Painel do contexto que se monta pelo conteúdo, sem configurar nada (empresa: retornos e decisões; área: rotinas e lembretes do mês) | Em revisão com o Daniel |
-| 7 · Rotinas e hábitos | Recorrências que aparecem no Hoje na hora certa, semana sem culpa | Em revisão com o Daniel |
-| 8 · Notas | Notas e decisões vinculadas | Em revisão com o Daniel |
-
-Público inicial (avaliação de 20/11/2026, `docs/publico.md`): quem leva várias frentes ao mesmo tempo (trabalho, estudo,
-saúde, um objetivo), com organização pessoal; depois profissionais liberais. Decisão do Daniel (19/11/2026): construir os módulos (fases 4 a 8) antes do teste de 90 dias, começando pelas
-Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termina com algo que ele usa e aprova.
-
-## Regras do produto
-
-- Responsabilidade tem 3 estados: `a_fazer`, `aguardando`, `concluida`. **"Atrasada" não é estado**: é
-  exibição quando o prazo passou.
-- `aguardando` exige quem (pessoa ou texto) e `follow_up_on` (padrão: 3 dias úteis). No dia da cobrança,
-  volta para o Hoje em "Atenção" e notifica.
-- Sem contexto = Inbox. Com contexto e sem data = Responsabilidades. Com data = aparece no Hoje no dia.
-- A captura entende: hoje, amanhã, dias da semana, datas (12/11), horas (10h, 14:30) e `#contexto`.
-  O que não entender fica no título, sem erro. Meta: anotar em menos de 5 segundos. Guardar o texto
-  original em `raw_capture`.
-- Ordem do Hoje: 1) próximo passo (primeiro item de Atenção, ou compromisso em menos de 2 h);
-  2) Atenção (atrasadas + follow-ups do dia); 3) Hoje (prazo hoje ou marcadas, por horário);
-  4) Agenda do dia; 5) Aguardando alguém (recolhido).
-- Decisões são responsabilidades com `kind = 'decidir'`; a decisão fica na nota ao concluir.
-- **Atraso sem alarme**: texto e tom discreto, nunca vermelho chapado nem contador de culpa.
-- Regra de produto (filtro para qualquer funcionalidade nova): melhora a clareza? ajuda a organizar o
-  que depende da pessoa? a saber o que importa agora? a chegar onde ela quer? facilita o próximo passo?
-  Se não responder sim a nenhuma, não entra.
-
-## Identidade visual
-
-- Fonte Inter (local em `public/fonts`). Paleta: Deep `#2B1E4B`, Purple `#6C4ED9`, Lavender `#DCCEF6`,
-  Warm `#F8F7F4`, Charcoal `#1F1F1F`, Gray `#A7A0B3` (Gray nunca em texto: contraste baixo).
-- Tokens em `src/app/globals.css`, com tema claro e escuro (escuro tem paleta própria, não é inversão).
-  O tema vem de `data-theme` no `<html>`; a pessoa escolhe Claro, Escuro ou Auto (segue o aparelho), guardado
-  no navegador (`src/lib/tema.ts`, `src/components/Tema.tsx`).
-- Direção visual: a do Book. Os estilos seguem os tokens oficiais (`docs/brand-book/tokens/tokens.css`) e as
-  telas conceituais (`docs/brand-book/assets/css/product.css`, "Direção 2026": menos caixas, hierarquia por tipo
-  e espaço). Lateral e barra do celular em Deep (componente Sidebar do Book), item ativo em Purple; título de
-  tela 28/600; linhas leves sem cartão; o Próximo passo é o único bloco com destaque; captura num painel claro
-  (folha no celular) com os trechos entendidos marcados no próprio texto. Sem brilhos de fundo, sem degradê
-  fora da lateral e do item ativo, sem peso 700.
-- Logo: só os SVGs oficiais em `public/brand` (pacote rumo-brand-assets-v1). Nunca redesenhar ou recriar o logo.
-- Direção das telas (Book, cap. 11): hierarquia por tipografia e espaço, um destaque por tela, propriedades
-  em linha (contexto, prazo, origem) em vez de colunas, cor de contexto (bolinha) e roxo só para ação,
-  teclado em primeiro plano (⌘K, atalhos), sombras suaves e linhas de 1 px.
-- Voz: clara, calma, direta. Microcopy curta. Sem gamificação, sem exclamações, sem culpa.
+- Manter a interface atual: fonte Inter (`public/fonts`), lateral Deep `#2B1E4B`, ação em Purple `#6C4ED9`, tokens e
+  tema claro/escuro em `src/app/globals.css` (o tema vem de `data-theme`; Claro, Escuro ou Auto em `src/lib/tema.ts`).
+- Logo: os SVGs em `public/brand`; não redesenhar.
+- Pode usar vermelho, contadores, mais de um destaque por tela: o que for mais claro para o Daniel.
 
 ## Tecnologia
 
 - Next.js 15 (App Router, `src/`), TypeScript, CSS próprio (sem Tailwind), ícones `lucide-react`.
-- Login: cadastro e entrada com e-mail e senha (`src/app/login/page.tsx`), sem link por e-mail. No Supabase,
-  "Confirm email" deve ficar desligado para a conta valer na hora.
+- Login: só entrada com e-mail e senha (`src/app/login/page.tsx`); não há cadastro nem perguntas do começo.
 - Supabase via `@supabase/ssr`: `src/lib/supabase/{client,server,middleware}.ts`; `src/middleware.ts`
   protege as rotas (públicas: `/login`, `/auth`).
 - Banco: projeto Supabase `rumo` (região São Paulo). `supabase/migrations/0001_core.sql` (contexts, people, projects,
@@ -110,9 +52,9 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   procedimento; `health_measures` com peso, pressão etc.) e 0014 (Finanças completas: `fin_settings` com dia do pagamento, envelopes
   e saldo da conta; `fin_installments` parcelamentos; `installment_id` nos lançamentos; `fin_investments` e `fin_inv_moves`) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
-- Rotas do app em `src/app/(app)/…`; o layout manda para `/comecar` quem ainda não respondeu as perguntas do
-  começo. A casca (`src/components/Shell.tsx`) monta a lateral pelo perfil e pelos contextos (Negócios = tipo
-  empresa, Áreas = tipo área). Módulos em `src/lib/modulos.ts`; o Hoje é montado por `src/lib/hoje.ts`;
+- Rotas do app em `src/app/(app)/…`. A casca (`src/components/Shell.tsx`) tem a lateral fixa: Hoje, Inbox, Calendário,
+  Tarefas, Projetos; Áreas da vida (Negócios, Estudos, Finanças, Saúde, Rotinas, Rotas, Notas); Contextos (só os de tipo
+  área; empresas ficam em Negócios). O Hoje é montado por `src/lib/hoje.ts`;
   semana do calendário em `src/lib/semana.ts`; resumo de projeto (progresso, entrega, próximo passo) em
   `src/lib/projetos.ts`; cálculo das Rotas (ritmo, previsão, recálculo, próximo passo, igual ao simulador do Book)
   em `src/lib/rotas.ts`; Estudos como ciclo de estudos (matérias com horas por ciclo, matéria → módulo → aula, revisões 1/7/30 dias, modo foco
@@ -129,17 +71,8 @@ Rotas; notificações depois. Plano em `docs/plano-modulos.md`. Cada fase termin
   `main` cada etapa terminada e conferida.
 - Variáveis: `.env.local` com `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`).
 
-## Acabamento pedido pelo Daniel (fazer depois das funcionalidades)
-
-- Login: feito (`src/components/FilmeRumo.tsx`). Um "filme" em loop, pedido do Daniel (exceção ao "nada em loop" do
-  Book), em quatro atos com legenda: tudo espalhado → o Rumo junta num lugar só → mostra o que importa agora (o próximo
-  passo é marcado) → "Clareza para o seu próximo passo" com o símbolo oficial. Barras de progresso como stories;
-  pausa com a aba escondida; com `prefers-reduced-motion`, fica parado no ato 3.
-- Transições suaves nas seleções: feito (o destaque dos segmentados desliza; o título do login troca com fade;
-  respeita `prefers-reduced-motion`). Aguardando o Daniel ver.
-
 ## Como trabalhar neste repositório
 
 - Antes de dizer que algo está pronto: `npm run build` sem erros e a tela aberta no navegador.
 - Commits pequenos, mensagem em português dizendo o que muda para o Daniel.
-- Na dúvida sobre escopo, pergunte ao Daniel em vez de construir algo fora do MVP.
+- O Daniel autorizou levar à `main` cada etapa terminada e conferida (a Vercel publica a `main`).

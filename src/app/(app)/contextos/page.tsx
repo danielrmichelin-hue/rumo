@@ -19,7 +19,6 @@ export default async function Page() {
       <div className="page__head">
         <div>
           <h1 className="page__t">Contextos</h1>
-          <p className="page__sub">Empresas e áreas da sua vida.</p>
         </div>
       </div>
       <GerirContextos contextos={(contextos ?? []) as Contexto[]} abertas={contagem} />

@@ -91,7 +91,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
       <div className="page__head">
         <div>
           <h1 className="page__t">Finanças</h1>
-          <p className="page__para">O mês numa tela, as parcelas até a última e o que está investido. Tudo lançado por você, sem banco conectado.</p>
         </div>
         <div className="page__actions">
           <AjustesFinancas ajustes={aj} saldoConta={conta} />
@@ -155,7 +154,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
               <section className="bloco">
                 <h2 className="sec__h">Contas fixas {contas.length > 0 && <em>{contas.filter((c) => !c.paga).length} de {contas.length} abertas</em>}<span className="sec__act"><NovaContaFixa contextos={ctx} /></span></h2>
                 {contas.length === 0 ? (
-                  <p className="bloco__vazio">Condomínio, internet, assinaturas: crie uma conta fixa com o dia e o valor. Ela aparece no Hoje no dia e, ao marcar, o pagamento entra aqui.</p>
+                  <p className="bloco__vazio">Nenhuma conta fixa.</p>
                 ) : (
                   <ul className="list">
                     {contas.map((c) => (
@@ -210,7 +209,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
               <section className="bloco">
                 <h2 className="sec__h">Para onde foi</h2>
                 {r.categorias.length === 0 ? (
-                  <p className="bloco__vazio">Os gastos do mês aparecem aqui por categoria. Dá para pôr um limite em cada uma.</p>
+                  <p className="bloco__vazio">Nenhum gasto neste mês.</p>
                 ) : (
                   <ul className="fin-cats">
                     {r.categorias.map((c) => (
@@ -240,7 +239,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           </div>
           <div style={{ marginBottom: 16 }}><NovoParcelamento contextos={ctx} credores={credores} /></div>
           {parcelamentos.length === 0 ? (
-            <p className="empty">Compras em várias vezes: guarde o total, em quantas vezes e quando vence a primeira. O Rumo mostra quanto falta e quando termina.</p>
+            <p className="empty">Nenhum parcelamento.</p>
           ) : (
             <>
               {(["pagando", "a_comecar", "quitado"] as const).map((estado) => {
@@ -285,7 +284,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
           <div className="fin-cols">
             <div>
-              {investimentos.length === 0 && <p className="empty">Caixinha, CDB, Tesouro, ações: guarde cada lugar com o saldo de hoje. Aportes, resgates e rendimentos ficam no histórico.</p>}
+              {investimentos.length === 0 && <p className="empty">Nenhum investimento.</p>}
               {investimentos.map((i) => {
                 const saldo = saldoAtual(i, movs);
                 const meus = movs.filter((m) => m.investment_id === i.id);

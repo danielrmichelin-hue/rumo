@@ -14,8 +14,6 @@ export const TIPOS_CURSO: Record<TipoCurso, string> = {
   curso: "Curso livre",
 };
 
-/** A resposta de "O que você estuda agora?" (perguntas do começo) vira o tipo */
-export const TIPO_DO_COMECO = Object.fromEntries(Object.entries(TIPOS_CURSO).map(([k, v]) => [v, k])) as Record<string, TipoCurso>;
 
 export type Curso = {
   id: string;

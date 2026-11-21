@@ -87,7 +87,6 @@ export default async function Page() {
       <div className="page__head">
         <div>
           <h1 className="page__t">Saúde</h1>
-          <p className="page__para">Remédios no horário, consultas e exames, e as medidas que você acompanha.</p>
         </div>
         <div className="page__actions">
           <NovoCompromisso contextos={ctx} data={hoje} saude contexto={saude?.id ?? null} rotulo="Consulta ou exame" />
@@ -119,7 +118,7 @@ export default async function Page() {
           <section className="bloco">
             <h2 className="sec__h">Remédios {emUso.length > 0 && <em>{emUso.length}</em>}<span className="sec__act"><NovoRemedio contexto={saude?.id ?? null} /></span></h2>
             {emUso.length === 0 ? (
-              <p className="bloco__vazio">Guarde o remédio com a dose e os horários. Cada horário aparece no Hoje, e você marca quando tomar.</p>
+              <p className="bloco__vazio">Nenhum remédio.</p>
             ) : (
               <ul className="remedios">
                 {emUso.map((m) => (
@@ -152,7 +151,7 @@ export default async function Page() {
           <section className="bloco">
             <h2 className="sec__h">Consultas e exames {proximas.length > 0 && <em>{proximas.length}</em>}<span className="sec__act"><NovoCompromisso contextos={ctx} data={hoje} saude contexto={saude?.id ?? null} rotulo="Marcar" variante="btn btn--ghost btn--sm" /></span></h2>
             {proximas.length === 0 ? (
-              <p className="bloco__vazio">Nada marcado. Consultas e exames entram no calendário e aparecem no Hoje no dia.</p>
+              <p className="bloco__vazio">Nada marcado.</p>
             ) : (
               <div className="agenda">
                 {proximas.map((c) => (
@@ -182,7 +181,7 @@ export default async function Page() {
             <section className="bloco">
               <h2 className="sec__h">Para resolver {tarefas.length > 0 && <em>{tarefas.length}</em>}<Link href={`/contexto/${saude.id}`} className="sec__act">{saude.name}</Link></h2>
               {tarefas.length === 0 ? (
-                <p className="bloco__vazio">Pedir receita, marcar o check-up, buscar resultado: anote no contexto {saude.name} e aparece aqui.</p>
+                <p className="bloco__vazio">Nada para resolver.</p>
               ) : (
                 <ListaResponsabilidades itens={tarefas} contextos={ctx} comContexto={false} />
               )}
@@ -195,7 +194,7 @@ export default async function Page() {
             <h2 className="sec__h">Medidas</h2>
             <NovaMedida />
             {series.length === 0 ? (
-              <p className="bloco__vazio">Peso, pressão, glicemia, sono: registre de vez em quando e veja a tendência aqui.</p>
+              <p className="bloco__vazio">Nenhuma medida ainda.</p>
             ) : (
               <ul className="medidas">
                 {series.map((s) => (
@@ -215,7 +214,7 @@ export default async function Page() {
           <section className="bloco">
             <h2 className="sec__h">Hábitos<Link href="/rotinas" className="sec__act">Rotinas</Link></h2>
             {habitos.length === 0 ? (
-              <p className="bloco__vazio">Academia, caminhada, beber água: crie uma rotina{saude ? ` no contexto ${saude.name}` : ""} e ela aparece aqui com a semana.</p>
+              <p className="bloco__vazio">Nenhum hábito no contexto Saúde.</p>
             ) : (
               <ul className="habitos">
                 {habitos.map((r) => (

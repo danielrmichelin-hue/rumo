@@ -97,7 +97,7 @@ function Linha({ item, contextos, comContexto, organizavel, cobravel, semHoje, r
   if (saiu) return null;
 
   return (
-    <li className="row" data-feita={feita || undefined}>
+    <li className="row" data-feita={feita || undefined} data-atrasada={vencida || undefined}>
       <button
         type="button"
         className={`check${aguardando && !feita ? " check--wait" : ""}`}
