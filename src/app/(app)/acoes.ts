@@ -1275,15 +1275,56 @@ export async function pagarParcela(id: string): Promise<{ ok: boolean; lancament
   return { ok: true, lancamento: l?.id };
 }
 
-/** Desfaz o último pagamento (tira o lançamento, se houver, e volta uma parcela) */
+/** Desfaz o último pagamento (tira o lançamento dele, se houver, e volta uma parcela) */
 export async function desfazerParcela(id: string, lancamento?: string) {
   if (!ehId(id)) return;
   const supabase = await createClient();
   const { data: p } = await supabase.from("fin_installments").select("paid_count").eq("id", id).single();
   if (!p || p.paid_count <= 0) return;
-  if (lancamento && ehId(lancamento)) await supabase.from("fin_entries").delete().eq("id", lancamento).eq("installment_id", id);
+  let alvo = lancamento && ehId(lancamento) ? lancamento : null;
+  if (!alvo) {
+    const { data: ultimo } = await supabase.from("fin_entries").select("id").eq("installment_id", id).order("happened_on", { ascending: false }).order("created_at", { ascending: false }).limit(1);
+    alvo = ultimo?.[0]?.id ?? null;
+  }
+  if (alvo) await supabase.from("fin_entries").delete().eq("id", alvo).eq("installment_id", id);
   await supabase.from("fin_installments").update({ paid_count: p.paid_count - 1 }).eq("id", id);
   atualizar();
+}
+
+/** Corrigir um parcelamento (nome, valores, quantas pagas, datas) */
+export async function salvarParcelamento(id: string, d: DadosParcelamento): Promise<{ ok: boolean; erro?: string }> {
+  if (!ehId(id)) return { ok: false };
+  const title = d.title.trim().slice(0, 120);
+  const n = Math.round(d.installments);
+  if (!title) return { ok: false, erro: "Dê um nome." };
+  if (!(d.total > 0)) return { ok: false, erro: "Valor total inválido." };
+  if (!(n >= 1 && n <= 120)) return { ok: false, erro: "De 1 a 120 parcelas." };
+  if (!DATA.test(d.first_due)) return { ok: false, erro: "Data da primeira parcela inválida." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("fin_installments").update({
+    title, category: d.category.trim().slice(0, 40) || "Compras", total: Math.round(d.total * 100) / 100, installments: n,
+    paid_count: Math.max(0, Math.min(n, Math.round(d.paid_count) || 0)), first_due: d.first_due, creditor: d.creditor?.trim().slice(0, 60) || null,
+  }).eq("id", id);
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true };
+}
+
+/** Editar um lançamento na tabela (como numa planilha) */
+export async function editarLancamento(id: string, d: { kind: "entrada" | "saida"; amount: number; description: string; category: string; happened_on: string; paid: boolean }): Promise<{ ok: boolean; erro?: string }> {
+  if (!ehId(id)) return { ok: false };
+  const description = d.description.trim().slice(0, 120);
+  if (!description) return { ok: false, erro: "Descrição vazia." };
+  if (!(d.amount > 0)) return { ok: false, erro: "Valor inválido." };
+  if (!DATA.test(d.happened_on)) return { ok: false, erro: "Data inválida." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("fin_entries").update({
+    kind: d.kind === "entrada" ? "entrada" : "saida", amount: Math.round(d.amount * 100) / 100, description,
+    category: d.category.trim().slice(0, 40) || "Outros", happened_on: d.happened_on, paid: !!d.paid,
+  }).eq("id", id);
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true };
 }
 
 export async function apagarParcelamento(id: string) {

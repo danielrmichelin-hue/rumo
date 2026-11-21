@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Download, Route } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, ApagarParcelamento, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
+import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
 import { ChecarRotina } from "@/components/Rotinas";
+import { GradeParcelas, TabelaLancamentos } from "@/components/FinancasPlanilha";
 import { Anel } from "@/components/Caminho";
 import type { ContextItem } from "@/components/Shell";
 import { diaMes, hojeISO, rotuloData } from "@/lib/datas";
@@ -18,12 +19,15 @@ export const metadata = { title: "Finanças" };
 
 const ABAS = [
   { v: "mes", r: "O mês" },
-  { v: "parcelas", r: "Parcelamentos" },
+  { v: "lancamentos", r: "Lançamentos" },
+  { v: "parcelas", r: "Parcelas" },
   { v: "investimentos", r: "Investimentos" },
+  { v: "resumo", r: "Resumo" },
 ] as const;
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string; aba?: string }> }) {
-  const { mes: param, aba: abaParam } = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string; aba?: string; periodo?: string }> }) {
+  const { mes: param, aba: abaParam, periodo: periodoParam } = await searchParams;
+  const periodo = periodoParam === "ano" || periodoParam === "tudo" ? periodoParam : "mes";
   const aba = ABAS.find((a) => a.v === abaParam)?.v ?? "mes";
   const hoje = hojeISO();
   const supabase = await createClient();
@@ -50,6 +54,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
     aj.cash_on ? supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).eq("paid", true).gt("happened_on", aj.cash_on) : Promise.resolve({ data: [] }),
   ]);
   const lancamentos = (lancDb ?? []).map(normalizarLancamento);
+  // Lançamentos (ano ou tudo) e Resumo: todos os lançamentos
+  const precisaTodos = aba === "resumo" || (aba === "lancamentos" && periodo !== "mes");
+  const { data: todosDb } = precisaTodos ? await supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).order("happened_on", { ascending: false }) : { data: [] };
+  const todos = (todosDb ?? []).map(normalizarLancamento);
   const atrasados = (atrasadosDb ?? []).map(normalizarLancamento);
   const contas = contasDoMes((rotinasDb ?? []) as Rotina[], (marcasDb ?? []) as Marcacao[], inicio, fim);
   const r = resumoDoMes([...lancamentos, ...atrasados], contas, (orcDb ?? []) as Orcamento[]);
@@ -229,48 +237,95 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         </>
       )}
 
-      {aba === "parcelas" && (
+      {aba === "parcelas" && (() => {
+        const comSit = parcelamentos.map((p) => ({ p, s: situacaoParcelamento(p, hoje) }));
+        const emCurso = comSit.filter(({ s }) => s.estado !== "quitado").sort((a, b) => a.s.ultima.localeCompare(b.s.ultima)).map(({ p }) => p);
+        const quitados = comSit.filter(({ s }) => s.estado === "quitado").sort((a, b) => b.s.ultima.localeCompare(a.s.ultima)).map(({ p }) => p);
+        const totalComprado = parcelamentos.reduce((t, p) => t + p.total, 0);
+        return (
+          <>
+            <div className="nums">
+              <div><small>Ainda devo</small><b>{moeda(divida.deve)}</b><span>Já paguei {moeda(totalComprado - divida.deve)} de {moeda(totalComprado)}</span></div>
+              <div><small>Sai por mês</small><b>{moeda(divida.porMes)}</b><span>{divida.emCurso} {divida.emCurso === 1 ? "parcelamento" : "parcelamentos"} em curso</span></div>
+              <div><small>Livre de parcelas em</small><b className="nums__texto">{divida.ultima ? mesCurto(divida.ultima) : "—"}</b><span>{divida.ultima ? diaMes(divida.ultima) : "Nada parcelado"}</span></div>
+              <div><small>Já quitados</small><b>{divida.quitados}</b></div>
+            </div>
+            <div style={{ marginBottom: 16 }}><NovoParcelamento contextos={ctx} credores={credores} /></div>
+            {parcelamentos.length === 0 ? <p className="empty">Nenhum parcelamento.</p> : (
+              <>
+                {emCurso.length > 0 && <section className="sec"><h2 className="sec__h">Em curso <em>{emCurso.length}</em></h2><GradeParcelas parcelamentos={emCurso} hoje={hoje} /></section>}
+                {quitados.length > 0 && (
+                  <details className="sec fold"><summary className="sec__h"><ChevronRight aria-hidden />Quitados <em>{quitados.length}</em></summary><GradeParcelas parcelamentos={quitados} hoje={hoje} /></details>
+                )}
+              </>
+            )}
+          </>
+        );
+      })()}
+
+      {aba === "lancamentos" && (
         <>
-          <div className="nums">
-            <div><small>Ainda devo</small><b>{moeda(divida.deve)}</b></div>
-            <div><small>Sai por mês</small><b>{moeda(divida.porMes)}</b><span>{divida.emCurso} {divida.emCurso === 1 ? "parcelamento" : "parcelamentos"} em curso</span></div>
-            <div><small>Livre de parcelas em</small><b className="nums__texto">{divida.ultima ? mesCurto(divida.ultima) : "—"}</b><span>{divida.ultima ? diaMes(divida.ultima) : "Nada parcelado"}</span></div>
-            <div><small>Já quitados</small><b>{divida.quitados}</b></div>
+          <div className="fin-ciclo">
+            <div className="seg seg--sm" role="radiogroup" aria-label="Período">
+              {([["mes", "Mês"], ["ano", "Ano"], ["tudo", "Tudo"]] as const).map(([v, r]) => (
+                <Link key={v} href={`/financas?${new URLSearchParams({ aba: "lancamentos", ...(v !== "mes" ? { periodo: v } : {}), ...(mes !== atual ? { mes } : {}) })}`} aria-current={periodo === v ? "page" : undefined}>{r}</Link>
+              ))}
+            </div>
+            {periodo === "mes" && (
+              <>
+                <Link href={url({ mes: mesVizinho(mes, -1) })} className="icon-btn" aria-label="Mês anterior"><ChevronLeft size={18} /></Link>
+                <span className="fin-mes">{titulo}</span>
+                <Link href={url({ mes: mesVizinho(mes, 1) })} className="icon-btn" aria-label="Próximo mês"><ChevronRight size={18} /></Link>
+              </>
+            )}
+            {periodo === "ano" && <span className="fin-mes">{mes.slice(0, 4)}</span>}
           </div>
-          <div style={{ marginBottom: 16 }}><NovoParcelamento contextos={ctx} credores={credores} /></div>
-          {parcelamentos.length === 0 ? (
-            <p className="empty">Nenhum parcelamento.</p>
-          ) : (
-            <>
-              {(["pagando", "a_comecar", "quitado"] as const).map((estado) => {
-                const grupo = parcelamentos.map((p) => ({ p, s: situacaoParcelamento(p, hoje) })).filter(({ s }) => s.estado === estado).sort((a, b) => a.s.ultima.localeCompare(b.s.ultima));
-                if (!grupo.length) return null;
-                const lista = (
-                  <ul className="parcs">
-                    {grupo.map(({ p, s }) => (
-                      <li key={p.id} className="parc">
-                        <span className="parc__t"><b>{p.title}</b><small>{p.category}{p.creditor ? ` · ${p.creditor}` : ""} · {moeda(p.total)} em {p.installments}x</small></span>
-                        <span className="parc__prog">
-                          <span className="parc__pontos" aria-label={`${p.paid_count} de ${p.installments} pagas`}>{Array.from({ length: p.installments }, (_, i) => <i key={i} className={i < p.paid_count ? "on" : undefined} />)}</span>
-                          <small>{estado === "quitado" ? `Quitado em ${mesCurto(s.ultima)}` : estado === "a_comecar" ? `Começa ${rotuloData(p.first_due, hoje)}` : `${p.paid_count} de ${p.installments} · última em ${mesCurto(s.ultima)}`}</small>
-                        </span>
-                        <span className="parc__v"><b>{moeda(s.parcela)}</b><small>{s.restante > 0 ? `falta ${moeda(s.restante)}` : "pago"}</small></span>
-                        <ApagarParcelamento id={p.id} titulo={p.title} />
-                      </li>
-                    ))}
-                  </ul>
-                );
-                const nome = estado === "pagando" ? "Pagando" : estado === "a_comecar" ? "A começar" : "Quitados";
-                return estado === "quitado" ? (
-                  <details key={estado} className="sec fold"><summary className="sec__h"><ChevronRight aria-hidden />{nome} <em>{grupo.length}</em></summary>{lista}</details>
-                ) : (
-                  <section key={estado} className="sec"><h2 className="sec__h">{nome} <em>{grupo.length}</em></h2>{lista}</section>
-                );
-              })}
-            </>
-          )}
+          <NovoLancamento contextos={ctx} mes={inicio.slice(0, 7)} />
+          <TabelaLancamentos lancamentos={periodo === "mes" ? lancamentos : periodo === "ano" ? todos.filter((l) => l.happened_on.startsWith(mes.slice(0, 4))) : todos} />
         </>
       )}
+
+      {aba === "resumo" && (() => {
+        const ciclos = Array.from({ length: 12 }, (_, k) => { const m = mesVizinho(atual, k - 11); return { m, ...ciclo(m, aj) }; });
+        const daqui = (l: { happened_on: string }, c: { inicio: string; fim: string }) => l.happened_on >= c.inicio && l.happened_on <= c.fim;
+        const pagos = todos.filter((l) => l.paid);
+        const usados = ciclos.filter((c) => pagos.some((l) => daqui(l, c)) || movs.some((m) => daqui(m, c)));
+        const soma = (lista: { amount: number }[]) => lista.reduce((t, l) => t + l.amount, 0);
+        const cats = [...new Set(pagos.filter((l) => l.kind === "saida").map((l) => l.category))]
+          .map((cat) => ({ cat, valores: usados.map((c) => soma(pagos.filter((l) => l.kind === "saida" && l.category === cat && daqui(l, c)))) }))
+          .map((x) => ({ ...x, total: x.valores.reduce((a, b) => a + b, 0) }))
+          .sort((a, b) => b.total - a.total);
+        const linha = (valores: number[]) => ({ valores, total: valores.reduce((a, b) => a + b, 0) });
+        const entrou = linha(usados.map((c) => soma(pagos.filter((l) => l.kind === "entrada" && daqui(l, c)))));
+        const saiu = linha(usados.map((c) => soma(pagos.filter((l) => l.kind === "saida" && daqui(l, c)))));
+        const parcelasL = linha(usados.map((c) => soma(pagos.filter((l) => l.kind === "saida" && l.installment_id && daqui(l, c)))));
+        const investiu = linha(usados.map((c) => movs.filter((m) => daqui(m, c)).reduce((t, m) => t + (m.kind === "aporte" ? m.amount : m.kind === "resgate" ? -m.amount : 0), 0)));
+        const cel = (v: number) => (Math.abs(v) < 0.005 ? <span className="tabela__zero">—</span> : moeda(v).replace("R$", "").trim());
+        const n = Math.max(1, usados.length);
+        const rotulo = (c: { inicio: string }) => mesCurto(aj.pay_day ? somarMeses(c.inicio, 0) : c.inicio);
+        if (!usados.length) return <p className="empty">Nada lançado nos últimos 12 meses.</p>;
+        return (
+          <>
+            <p className="field__hint" style={{ margin: "0 0 10px" }}>Valores em R$, por mês{aj.pay_day ? ` (do dia ${aj.pay_day} ao dia ${aj.pay_day - 1 || "último"})` : ""}. Média dos meses com movimento.</p>
+            <div className="planilha__rolo">
+              <table className="tabela tabela--resumo">
+                <thead><tr><th>Categoria</th>{usados.map((c) => <th key={c.m} className="num">{rotulo(c)}</th>)}<th className="num">Total</th><th className="num">Média</th></tr></thead>
+                <tbody>
+                  <tr className="tabela__forte"><td>Entrou</td>{entrou.valores.map((v, i) => <td key={i} className="num pos">{cel(v)}</td>)}<td className="num pos">{cel(entrou.total)}</td><td className="num">{cel(entrou.total / n)}</td></tr>
+                  <tr className="tabela__forte"><td>Saiu</td>{saiu.valores.map((v, i) => <td key={i} className="num">{cel(v)}</td>)}<td className="num">{cel(saiu.total)}</td><td className="num">{cel(saiu.total / n)}</td></tr>
+                  <tr className="tabela__forte"><td>Sobrou</td>{entrou.valores.map((v, i) => <td key={i} className={`num ${v - saiu.valores[i] < 0 ? "neg" : "pos"}`}>{cel(v - saiu.valores[i])}</td>)}<td className="num">{cel(entrou.total - saiu.total)}</td><td className="num">{cel((entrou.total - saiu.total) / n)}</td></tr>
+                  <tr><td>Investiu (aportes − resgates)</td>{investiu.valores.map((v, i) => <td key={i} className="num">{cel(v)}</td>)}<td className="num">{cel(investiu.total)}</td><td className="num">{cel(investiu.total / n)}</td></tr>
+                  <tr><td>Parcelas pagas</td>{parcelasL.valores.map((v, i) => <td key={i} className="num">{cel(v)}</td>)}<td className="num">{cel(parcelasL.total)}</td><td className="num">{cel(parcelasL.total / n)}</td></tr>
+                  <tr className="tabela__sep"><td colSpan={usados.length + 3}>Saídas por categoria</td></tr>
+                  {cats.map((c) => (
+                    <tr key={c.cat}><td>{c.cat}</td>{c.valores.map((v, i) => <td key={i} className="num">{cel(v)}</td>)}<td className="num"><b>{cel(c.total)}</b></td><td className="num">{cel(c.total / n)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        );
+      })()}
 
       {aba === "investimentos" && (
         <>
