@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Download, Plus, Route } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Route } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
+import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, GavetaLancamento, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
 import { ChecarRotina } from "@/components/Rotinas";
 import { ExtratoMes, GradeParcelas, RolarAteMes } from "@/components/FinancasPlanilha";
 import { Anel } from "@/components/Caminho";
@@ -9,7 +9,7 @@ import type { ContextItem } from "@/components/Shell";
 import { diaMes, hojeISO, rotuloData } from "@/lib/datas";
 import {
   CAMPOS_INVESTIMENTO, CAMPOS_LANCAMENTO, CAMPOS_MOVIMENTO, CAMPOS_PARCELAMENTO, ciclo, cicloDoDia, contasDoMes, envelopes, mesCurto, mesVizinho, moeda,
-  normalizarAjustes, normalizarInvestimento, normalizarLancamento, normalizarMovimento, normalizarParcelamento, parcelasDoCiclo, projetar, resumoDoMes,
+  movimentosDe, naConta, normalizarAjustes, normalizarInvestimento, normalizarLancamento, normalizarMovimento, normalizarParcelamento, parcelasDoCiclo, projetar, resumoDoMes,
   resumoParcelamentos, rotuloCiclo, saldoAtual, saldoDaConta, situacaoParcelamento, somarMeses, TIPOS_INVESTIMENTO, type Orcamento,
 } from "@/lib/financas";
 import { CAMPOS_ROTINA, type Marcacao, type Rotina } from "@/lib/rotinas";
@@ -37,7 +37,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const { inicio, fim } = ciclo(mes, aj);
   const esteCiclo = mes === atual;
 
-  const [{ data: lancDb }, { data: rotinasDb }, { data: marcasDb }, { data: orcDb }, { data: contextos }, { data: rotasDb }, { data: atrasadosDb }, { data: parcDb }, { data: invDb }, { data: movDb }, { data: depoisDb }] = await Promise.all([
+  const [{ data: lancDb }, { data: rotinasDb }, { data: marcasDb }, { data: orcDb }, { data: contextos }, { data: rotasDb }, { data: atrasadosDb }, { data: parcDb }, { data: invDb }, { data: movDb }, { data: depoisDb }, { data: transfDb }] = await Promise.all([
     supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).gte("happened_on", inicio).lte("happened_on", fim).order("happened_on", { ascending: false }),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").not("month_day", "is", null).not("amount", "is", null),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", `${inicio.slice(0, 7)}-01`).lte("done_on", fim),
@@ -51,9 +51,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
     supabase.from("fin_inv_moves").select(CAMPOS_MOVIMENTO).order("happened_on", { ascending: false }),
     // Para o saldo da conta: o que entrou e saiu depois do saldo informado
     aj.cash_on ? supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).eq("paid", true).gt("happened_on", aj.cash_on) : Promise.resolve({ data: [] }),
+    // Investir e resgatar (lançamentos): o histórico e o saldo de cada investimento
+    supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).in("kind", ["aporte", "resgate"]).order("happened_on", { ascending: false }),
   ]);
   const lancamentos = (lancDb ?? []).map(normalizarLancamento);
-  // Lançamentos (ano ou tudo) e Resumo: todos os lançamentos
   // Lançamentos: o mês do calendário (lm), com o ano inteiro na faixa dos meses. Resumo: todos.
   const lm = lmParam && /^\d{4}-(0[1-9]|1[0-2])$/.test(lmParam) ? lmParam : hoje.slice(0, 7);
   const ano = lm.slice(0, 4);
@@ -69,11 +70,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const ctx = (contextos ?? []) as ContextItem[];
   const parcelamentos = (parcDb ?? []).map(normalizarParcelamento);
   const investimentos = (invDb ?? []).map(normalizarInvestimento);
-  const movs = (movDb ?? []).map(normalizarMovimento);
+  // Movimentos dos investimentos: aportes e resgates vêm dos lançamentos; rendimentos, da aba Investimentos
+  const movs = [...movimentosDe((transfDb ?? []).map(normalizarLancamento)), ...(movDb ?? []).map(normalizarMovimento)].sort((a, b) => b.happened_on.localeCompare(a.happened_on));
   const metas = (rotasDb ?? []).map(normalizar);
 
   // Onde está o dinheiro
-  const conta = saldoDaConta(aj, (depoisDb ?? []).map(normalizarLancamento), movs);
+  const conta = saldoDaConta(aj, (depoisDb ?? []).map(normalizarLancamento));
   const investido = investimentos.filter((i) => i.status === "ativo").reduce((t, i) => t + saldoAtual(i, movs), 0);
   const divida = resumoParcelamentos(parcelamentos, hoje);
 
@@ -142,7 +144,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
             <div><small>Falta pagar</small><b>{moeda(r.aPagar + aPagarParcelas.reduce((t, x) => t + x.s.parcela, 0))}</b><span>Contas, parcelas e a pagar</span></div>
           </div>
 
-          <NovoLancamento contextos={ctx} mes={inicio.slice(0, 7)} />
+          <NovoLancamento contextos={ctx} mes={inicio.slice(0, 7)} investimentos={investimentos.filter((i) => i.status === "ativo")} />
 
           <div className="fin-cols">
             <div>
@@ -275,7 +277,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           const pagos = lista.filter((l) => l.paid);
           const entrou = pagos.filter((l) => l.kind === "entrada").reduce((t, l) => t + l.amount, 0);
           const saiu = pagos.filter((l) => l.kind === "saida").reduce((t, l) => t + l.amount, 0);
-          return { entrou, saiu, saldo: entrou - saiu, aPagar: lista.filter((l) => !l.paid && l.kind === "saida").reduce((t, l) => t + l.amount, 0), n: lista.length };
+          // Investiu = aportes menos resgates; ficou na conta = o efeito de tudo na conta
+          const investiu = pagos.filter((l) => l.kind === "aporte").reduce((t, l) => t + l.amount, 0) - pagos.filter((l) => l.kind === "resgate").reduce((t, l) => t + l.amount, 0);
+          return { entrou, saiu, investiu, saldo: pagos.reduce((t, l) => t + naConta(l), 0), aPagar: lista.filter((l) => !l.paid && l.kind === "saida").reduce((t, l) => t + l.amount, 0), n: lista.length };
         };
         const desteMes = doMes(lm);
         const t = totais(desteMes);
@@ -308,18 +312,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
             <div className="nums">
               <div><small>Entrou em {nomeMes}</small><b className="pos">{moeda(t.entrou)}</b></div>
-              <div><small>Saiu</small><b>{moeda(t.saiu)}</b></div>
-              <div><small>Saldo do mês</small><b className={t.saldo < 0 ? "neg" : "pos"}>{moeda(t.saldo)}</b></div>
-              <div><small>A pagar</small><b>{moeda(t.aPagar)}</b><span>{t.n} {t.n === 1 ? "lançamento" : "lançamentos"}</span></div>
+              <div><small>Saiu</small><b>{moeda(t.saiu)}</b>{t.aPagar > 0 && <span>e {moeda(t.aPagar)} a pagar</span>}</div>
+              <div><small>Investiu</small><b className="transf">{t.investiu < 0 ? "−" : ""}{moeda(Math.abs(t.investiu))}</b><span>{t.investiu < 0 ? "Resgatou mais do que pôs" : "Aportes menos resgates"}</span></div>
+              <div><small>Ficou na conta</small><b className={t.saldo < 0 ? "neg" : "pos"}>{moeda(t.saldo)}</b><span>{t.n} {t.n === 1 ? "lançamento" : "lançamentos"}</span></div>
             </div>
 
-            <details className="fin-novo" open={!desteMes.length}>
-              <summary className="btn btn--sm"><Plus aria-hidden />Lançamento</summary>
-              <NovoLancamento key={lm} contextos={ctx} mes={lm} />
-            </details>
+            <GavetaLancamento key={lm} abertaNoInicio={!desteMes.length}>
+              <NovoLancamento key={lm} contextos={ctx} mes={lm} investimentos={investimentos.filter((i) => i.status === "ativo")} />
+            </GavetaLancamento>
 
             <div className="fin-cols">
-              <ExtratoMes key={lm} lancamentos={desteMes} hoje={hoje} />
+              <ExtratoMes key={lm} lancamentos={desteMes} hoje={hoje} investimentos={investimentos} />
               <aside className="fin-lado">
                 <section className="bloco">
                   <h2 className="sec__h">Para onde foi em {nomeMes}</h2>
@@ -418,7 +421,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                           {meus.slice(0, 60).map((m) => (
                             <li key={m.id}>
                               <time>{rotuloData(m.happened_on, hoje)}</time>
-                              <span>{m.kind === "aporte" ? "Aporte" : m.kind === "resgate" ? "Resgate" : "Rendimento"}{m.note ? ` · ${m.note}` : ""}</span>
+                              <span>{m.kind === "aporte" ? "Investi" : m.kind === "resgate" ? "Resgatei" : "Rendimento"}{m.note ? ` · ${m.note}` : ""}{m.origem === "lancamento" ? <small> · lançamento</small> : null}</span>
                               <b className={m.kind === "resgate" ? undefined : "pos"}>{m.kind === "resgate" ? "−" : "+"}{moeda(m.amount)}</b>
                               <ApagarMovimento m={m} />
                             </li>

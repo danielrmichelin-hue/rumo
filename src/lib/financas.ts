@@ -3,9 +3,11 @@
 import { diaDaSemana, montarISO, somarDias } from "./datas";
 import { diaNoMes, type Marcacao, type Rotina } from "./rotinas";
 
+export type TipoLancamento = "entrada" | "saida" | "aporte" | "resgate";
 export type Lancamento = {
   id: string;
-  kind: "entrada" | "saida";
+  /** aporte = investi (sai da conta, entra no investimento); resgate = resgatei (o contrário) */
+  kind: TipoLancamento;
   amount: number;
   description: string;
   category: string;
@@ -15,13 +17,21 @@ export type Lancamento = {
   context_id: string | null;
   /** parcela de um parcelamento */
   installment_id?: string | null;
+  /** investir ou resgatar: de qual investimento */
+  investment_id?: string | null;
 };
 export type Orcamento = { id: string; category: string; monthly_limit: number };
 
-export const CAMPOS_LANCAMENTO = "id, kind, amount, description, category, happened_on, paid, routine_id, context_id, installment_id";
+export const CAMPOS_LANCAMENTO = "id, kind, amount, description, category, happened_on, paid, routine_id, context_id, installment_id, investment_id";
 
 export const CATEGORIAS_SAIDA = ["Moradia", "Mercado", "Restaurantes e delivery", "Contas da casa", "Transporte", "Saúde", "Cuidados pessoais", "Educação", "Lazer", "Assinaturas", "Compras", "Presentes e doações", "Impostos", "Outros"];
 export const CATEGORIAS_ENTRADA = ["Salário", "Pró-labore", "Vendas", "Serviços", "Rendimentos", "Outros"];
+
+export const ROTULO_TIPO: Record<TipoLancamento, string> = { saida: "Saída", entrada: "Entrada", aporte: "Investi", resgate: "Resgatei" };
+/** Investir e resgatar são transferências entre a conta e o investimento: não são gasto nem renda */
+export const ehTransferencia = (l: Pick<Lancamento, "kind">) => l.kind === "aporte" || l.kind === "resgate";
+/** Efeito na conta: entrada e resgate somam; saída e aporte tiram */
+export const naConta = (l: Pick<Lancamento, "kind" | "amount">) => (l.kind === "entrada" || l.kind === "resgate" ? l.amount : -l.amount);
 
 /** "R$ 1.234,56" */
 export const moeda = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -181,12 +191,18 @@ export const TIPOS_INVESTIMENTO: Record<TipoInvestimento, string> = {
   outro: "Outro",
 };
 export type Investimento = { id: string; name: string; kind: TipoInvestimento; institution: string | null; balance: number; balance_on: string; monthly_rate: number | null; monthly_plan: number | null; status: "ativo" | "encerrado"; note: string | null };
-export type Movimento = { id: string; investment_id: string; kind: "aporte" | "resgate" | "rendimento"; amount: number; happened_on: string; note: string | null };
+/** Movimento de um investimento: aportes e resgates vêm dos lançamentos; rendimentos, da aba Investimentos */
+export type Movimento = { id: string; investment_id: string; kind: "aporte" | "resgate" | "rendimento"; amount: number; happened_on: string; note: string | null; origem: "lancamento" | "rendimento"; descricao?: string };
 export const CAMPOS_INVESTIMENTO = "id, name, kind, institution, balance, balance_on, monthly_rate, monthly_plan, status, note";
 export const CAMPOS_MOVIMENTO = "id, investment_id, kind, amount, happened_on, note";
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 export const normalizarInvestimento = (i: Record<string, unknown>): Investimento => ({ ...(i as Investimento), balance: Number(i.balance), monthly_rate: num(i.monthly_rate), monthly_plan: num(i.monthly_plan) });
-export const normalizarMovimento = (m: Record<string, unknown>): Movimento => ({ ...(m as Movimento), amount: Number(m.amount) });
+export const normalizarMovimento = (m: Record<string, unknown>): Movimento => ({ ...(m as Movimento), amount: Number(m.amount), origem: "rendimento" });
+/** Os lançamentos de investir e resgatar, como movimentos do investimento */
+export const movimentosDe = (lancamentos: Lancamento[]): Movimento[] =>
+  lancamentos.filter((l) => ehTransferencia(l) && l.investment_id).map((l) => ({
+    id: l.id, investment_id: l.investment_id!, kind: l.kind as "aporte" | "resgate", amount: l.amount, happened_on: l.happened_on, note: null, origem: "lancamento", descricao: l.description,
+  }));
 
 /** Saldo de hoje: o informado, mais o que entrou e menos o que saiu depois daquele dia */
 export function saldoAtual(i: Investimento, movs: Movimento[]) {
@@ -204,13 +220,11 @@ export function projetar(saldo: number, taxa: number, aporte: number, meses: num
 
 // ---------- onde está o dinheiro e quanto posso gastar ----------
 
-/** Conta corrente: o saldo informado, mais entradas e menos saídas pagas depois daquele dia, menos aportes, mais resgates */
-export function saldoDaConta(a: Ajustes, lancamentos: Lancamento[], movs: Movimento[]) {
+/** Conta corrente: o saldo informado, mais o efeito de cada lançamento pago depois daquele dia
+ *  (entradas e resgates somam; saídas e aportes tiram) */
+export function saldoDaConta(a: Ajustes, lancamentos: Lancamento[]) {
   if (a.cash_balance === null || !a.cash_on) return null;
-  const depois = (d: string) => d > a.cash_on!;
-  const l = lancamentos.filter((x) => x.paid && depois(x.happened_on)).reduce((t, x) => t + (x.kind === "entrada" ? x.amount : -x.amount), 0);
-  const m = movs.filter((x) => depois(x.happened_on) && x.kind !== "rendimento").reduce((t, x) => t + (x.kind === "aporte" ? -x.amount : x.amount), 0);
-  return a.cash_balance + l + m;
+  return lancamentos.filter((x) => x.paid && x.happened_on > a.cash_on!).reduce((t, x) => t + naConta(x), a.cash_balance);
 }
 
 /** Os envelopes do ciclo: do que entrou, a parte das parcelas e a de investir saem primeiro; o resto é gasto livre.

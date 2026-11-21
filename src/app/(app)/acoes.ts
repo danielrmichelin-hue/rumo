@@ -1130,17 +1130,29 @@ export async function apagarNota(id: string) {
 
 // ---------- finanças (o mês numa tela) ----------
 
-export type DadosLancamento = { kind: "entrada" | "saida"; amount: number; description: string; category: string; happened_on: string; paid: boolean; context_id: string | null };
+export type DadosLancamento = { kind: "entrada" | "saida" | "aporte" | "resgate"; amount: number; description: string; category: string; happened_on: string; paid: boolean; context_id: string | null; investment_id?: string | null };
+
+/** Tipo e investimento válidos: investir e resgatar exigem o investimento */
+function tipoLancamento(kind: string, investimento?: string | null): { erro: string } | { kind: "entrada" | "saida" | "aporte" | "resgate"; investment_id: string | null } {
+  if (kind === "aporte" || kind === "resgate") {
+    if (!ehId(investimento)) return { erro: "Escolha o investimento." };
+    return { kind, investment_id: investimento };
+  }
+  return { kind: kind === "entrada" ? "entrada" : "saida", investment_id: null };
+}
 
 export async function lancar(d: DadosLancamento): Promise<{ ok: boolean; erro?: string; id?: string }> {
   const description = d.description.trim().slice(0, 120);
   if (!(d.amount > 0)) return { ok: false, erro: "Informe o valor." };
   if (!description) return { ok: false, erro: "Diga o que foi." };
   if (!DATA.test(d.happened_on)) return { ok: false, erro: "Data inválida." };
+  const t = tipoLancamento(d.kind, d.investment_id);
+  if ("erro" in t) return { ok: false, erro: t.erro };
+  const transferencia = t.kind === "aporte" || t.kind === "resgate";
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("fin_entries")
-    .insert({ kind: d.kind === "entrada" ? "entrada" : "saida", amount: Math.round(d.amount * 100) / 100, description, category: d.category.trim().slice(0, 40) || "Outros", happened_on: d.happened_on, paid: d.paid, context_id: d.context_id || null })
+    .insert({ ...t, amount: Math.round(d.amount * 100) / 100, description, category: transferencia ? "Investimentos" : d.category.trim().slice(0, 40) || "Outros", happened_on: d.happened_on, paid: transferencia ? true : d.paid, context_id: d.context_id || null })
     .select("id")
     .single();
   if (error || !data) return { ok: false, erro: "Não foi possível lançar." };
@@ -1311,16 +1323,19 @@ export async function salvarParcelamento(id: string, d: DadosParcelamento): Prom
 }
 
 /** Editar um lançamento na tabela (como numa planilha) */
-export async function editarLancamento(id: string, d: { kind: "entrada" | "saida"; amount: number; description: string; category: string; happened_on: string; paid: boolean }): Promise<{ ok: boolean; erro?: string }> {
+export async function editarLancamento(id: string, d: { kind: DadosLancamento["kind"]; amount: number; description: string; category: string; happened_on: string; paid: boolean; investment_id?: string | null }): Promise<{ ok: boolean; erro?: string }> {
   if (!ehId(id)) return { ok: false };
   const description = d.description.trim().slice(0, 120);
   if (!description) return { ok: false, erro: "Descrição vazia." };
   if (!(d.amount > 0)) return { ok: false, erro: "Valor inválido." };
   if (!DATA.test(d.happened_on)) return { ok: false, erro: "Data inválida." };
+  const t = tipoLancamento(d.kind, d.investment_id);
+  if ("erro" in t) return { ok: false, erro: t.erro };
+  const transferencia = t.kind === "aporte" || t.kind === "resgate";
   const supabase = await createClient();
   const { error } = await supabase.from("fin_entries").update({
-    kind: d.kind === "entrada" ? "entrada" : "saida", amount: Math.round(d.amount * 100) / 100, description,
-    category: d.category.trim().slice(0, 40) || "Outros", happened_on: d.happened_on, paid: !!d.paid,
+    ...t, amount: Math.round(d.amount * 100) / 100, description,
+    category: transferencia ? "Investimentos" : d.category.trim().slice(0, 40) || "Outros", happened_on: d.happened_on, paid: transferencia ? true : !!d.paid,
   }).eq("id", id);
   if (error) return { ok: false, erro: "Não foi possível guardar." };
   atualizar();
@@ -1364,16 +1379,22 @@ export async function atualizarSaldoInvestimento(id: string, saldo: number, taxa
   atualizar();
 }
 
-export async function movimentarInvestimento(id: string, kind: "aporte" | "resgate" | "rendimento", valor: number, dia: string): Promise<{ ok: boolean; erro?: string; id?: string }> {
+/** Na aba Investimentos: investir e resgatar viram lançamentos (a base de tudo); rendimento fica só no investimento */
+export async function movimentarInvestimento(id: string, kind: "aporte" | "resgate" | "rendimento", valor: number, dia: string): Promise<{ ok: boolean; erro?: string; id?: string; origem?: "lancamento" | "rendimento" }> {
   if (!ehId(id)) return { ok: false };
   if (!["aporte", "resgate", "rendimento"].includes(kind)) return { ok: false, erro: "Escolha o tipo." };
   if (!(valor > 0)) return { ok: false, erro: "Informe o valor." };
   if (!DATA.test(dia) || dia > hojeISO()) return { ok: false, erro: "Data inválida." };
   const supabase = await createClient();
+  if (kind !== "rendimento") {
+    const { data: inv } = await supabase.from("fin_investments").select("name").eq("id", id).single();
+    const r = await lancar({ kind, amount: valor, description: `${kind === "aporte" ? "Investi" : "Resgatei"} · ${inv?.name ?? "investimento"}`, category: "Investimentos", happened_on: dia, paid: true, context_id: null, investment_id: id });
+    return { ...r, origem: "lancamento" };
+  }
   const { data, error } = await supabase.from("fin_inv_moves").insert({ investment_id: id, kind, amount: Math.round(valor * 100) / 100, happened_on: dia }).select("id").single();
   if (error || !data) return { ok: false, erro: "Não foi possível guardar." };
   atualizar();
-  return { ok: true, id: data.id };
+  return { ok: true, id: data.id, origem: "rendimento" };
 }
 
 export async function apagarMovimento(id: string) {

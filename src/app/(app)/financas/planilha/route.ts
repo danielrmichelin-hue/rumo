@@ -1,7 +1,7 @@
 // Planilha do mês (CSV para Excel/Planilhas): separador ";" e vírgula decimal, como o Excel em português abre.
 import { createClient } from "@/lib/supabase/server";
 import { hojeISO } from "@/lib/datas";
-import { CAMPOS_LANCAMENTO, ciclo, cicloDoDia, normalizarAjustes, normalizarLancamento } from "@/lib/financas";
+import { CAMPOS_LANCAMENTO, ciclo, cicloDoDia, naConta, normalizarAjustes, normalizarLancamento, ROTULO_TIPO } from "@/lib/financas";
 
 export async function GET(req: Request) {
   const param = new URL(req.url).searchParams.get("mes") ?? "";
@@ -20,10 +20,10 @@ export async function GET(req: Request) {
     ...(data ?? []).map(normalizarLancamento).map((l) =>
       [
         l.happened_on.split("-").reverse().join("/"),
-        l.kind === "entrada" ? "Entrada" : "Saída",
+        ROTULO_TIPO[l.kind],
         campo(l.description),
         campo(l.category),
-        (l.kind === "saida" ? -l.amount : l.amount).toFixed(2).replace(".", ","),
+        naConta(l).toFixed(2).replace(".", ","),
         l.paid ? "Pago" : l.kind === "saida" ? "A pagar" : "A receber",
         campo((contextos ?? []).find((c) => c.id === l.context_id)?.name ?? ""),
       ].join(";"),

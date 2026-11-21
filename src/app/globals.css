@@ -1266,3 +1266,8 @@ a.route__t:hover { color: var(--accent-text); }
   .extrato__edit-a { grid-column: 1 / -1; }
   .extrato__filtros { grid-template-columns: 1fr; }
 }
+
+/* Investir e resgatar: transferência entre a conta e o investimento (roxo, nem gasto nem renda) */
+.extrato__v.transf, .nums b.transf, .fin-l__v--aporte, .fin-l__v--resgate { color: var(--accent-text); }
+.extrato__l.is-inv .extrato__d small { color: var(--accent-text); }
+.inv__hist small { color: var(--text-3); }

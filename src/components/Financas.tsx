@@ -4,56 +4,71 @@ import { useOptimistic, useState, useTransition } from "react";
 import { Check, Plus, Settings2, Trash2 } from "lucide-react";
 import { apagarInvestimento, apagarLancamento, apagarMovimento, apagarParcelamento, atualizarSaldoInvestimento, criarInvestimento, criarParcelamento, criarRotina, desfazerParcela, lancar, marcarLancamentoPago, movimentarInvestimento, pagarParcela, salvarAjustesFinancas, salvarOrcamento } from "@/app/(app)/acoes";
 import { hojeISO, numeroBR, rotuloData } from "@/lib/datas";
-import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA, moeda, TIPOS_INVESTIMENTO, type Ajustes, type Investimento, type Lancamento, type Movimento } from "@/lib/financas";
+import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA, moeda, naConta, ROTULO_TIPO, TIPOS_INVESTIMENTO, type Ajustes, type Investimento, type Lancamento, type Movimento, type TipoLancamento } from "@/lib/financas";
 import { useAvisar } from "./Avisos";
 import { CampoContexto, Painel } from "./Comuns";
 import type { ContextItem } from "./Shell";
 
-/** Lançar uma entrada ou saída em segundos; "ainda vou pagar" vira conta a pagar no mês */
-export function NovoLancamento({ contextos, mes }: { contextos: ContextItem[]; mes: string }) {
+/** Lançar em segundos: saída, entrada, investir ou resgatar ("ainda vou pagar" vira conta a pagar no mês) */
+export function NovoLancamento({ contextos, mes, investimentos = [] }: { contextos: ContextItem[]; mes: string; investimentos?: Investimento[] }) {
   const hoje = hojeISO();
   const padraoDia = hoje.slice(0, 7) === mes ? hoje : `${mes}-01`;
-  const [tipo, setTipo] = useState<"saida" | "entrada">("saida");
+  const [tipo, setTipo] = useState<TipoLancamento>("saida");
   const [valor, setValor] = useState("");
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState(CATEGORIAS_SAIDA[1]);
+  const [investimento, setInvestimento] = useState(investimentos[0]?.id ?? "");
   const [dia, setDia] = useState(padraoDia);
   const [aPagar, setAPagar] = useState(false);
   const [contexto, setContexto] = useState("");
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
+  const transferencia = tipo === "aporte" || tipo === "resgate";
   const categorias = tipo === "saida" ? CATEGORIAS_SAIDA : CATEGORIAS_ENTRADA;
+  const nomeInv = investimentos.find((i) => i.id === investimento)?.name ?? "";
+  const escolher = (t: TipoLancamento) => { setTipo(t); if (t === "saida") setCategoria(CATEGORIAS_SAIDA[1]); if (t === "entrada") setCategoria(CATEGORIAS_ENTRADA[0]); };
 
   return (
     <form
       className="fin-form"
       onSubmit={(e) => {
         e.preventDefault();
+        const desc = descricao.trim() || (transferencia ? `${ROTULO_TIPO[tipo]} · ${nomeInv}` : "");
         iniciar(async () => {
-          const r = await lancar({ kind: tipo, amount: numeroBR(valor), description: descricao, category: categoria, happened_on: dia, paid: !aPagar, context_id: contexto || null });
+          const r = await lancar({ kind: tipo, amount: numeroBR(valor), description: desc, category: categoria, happened_on: dia, paid: !aPagar, context_id: contexto || null, investment_id: transferencia ? investimento : null });
           if (!r.ok) return avisar({ texto: r.erro ?? "Não foi possível lançar." });
-          avisar({ texto: `${tipo === "saida" ? "Saída" : "Entrada"} de ${moeda(numeroBR(valor))} lançada${aPagar ? " como a pagar" : ""}.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => apagarLancamento(r.id!)) } });
+          avisar({ texto: `${ROTULO_TIPO[tipo]}: ${moeda(numeroBR(valor))}${transferencia ? ` em ${nomeInv}` : ""}${aPagar && !transferencia ? ", a pagar" : ""}.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => apagarLancamento(r.id!)) } });
           setValor(""); setDescricao(""); setAPagar(false);
         });
       }}
     >
       <div className="seg" role="radiogroup" aria-label="Tipo">
-        <label><input type="radio" checked={tipo === "saida"} onChange={() => { setTipo("saida"); setCategoria(CATEGORIAS_SAIDA[1]); }} /><span>Saída</span></label>
-        <label><input type="radio" checked={tipo === "entrada"} onChange={() => { setTipo("entrada"); setCategoria(CATEGORIAS_ENTRADA[0]); }} /><span>Entrada</span></label>
+        {(["saida", "entrada", "aporte", "resgate"] as const).map((t) => (
+          <label key={t}><input type="radio" checked={tipo === t} onChange={() => escolher(t)} disabled={(t === "aporte" || t === "resgate") && !investimentos.length} /><span>{ROTULO_TIPO[t]}</span></label>
+        ))}
       </div>
       <div className="fin-form__linha">
         <label className="field">Valor<input className="input" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" required aria-label="Valor" /></label>
-        <label className="field fin-form__desc">O que foi<input className="input" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={tipo === "saida" ? "Ex.: Mercado da semana" : "Ex.: Salário"} maxLength={120} required /></label>
-        <label className="field">
-          Categoria
-          <select className="input" value={categoria} onChange={(e) => setCategoria(e.target.value)}>{categorias.map((c) => <option key={c}>{c}</option>)}</select>
-        </label>
+        <label className="field fin-form__desc">O que foi<input className="input" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={transferencia ? `${ROTULO_TIPO[tipo]} · ${nomeInv}` : tipo === "saida" ? "Ex.: Mercado da semana" : "Ex.: Salário"} maxLength={120} required={!transferencia} /></label>
+        {transferencia ? (
+          <label className="field">
+            Investimento
+            <select className="input" value={investimento} onChange={(e) => setInvestimento(e.target.value)}>{investimentos.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}</select>
+          </label>
+        ) : (
+          <label className="field">
+            Categoria
+            <select className="input" value={categoria} onChange={(e) => setCategoria(e.target.value)}>{categorias.map((c) => <option key={c}>{c}</option>)}</select>
+          </label>
+        )}
         <label className="field">{aPagar ? "Vence em" : "Dia"}<input className="input" type="date" value={dia} onChange={(e) => setDia(e.target.value)} required /></label>
       </div>
       <div className="fin-form__pe">
-        <label className="check-line"><input type="checkbox" checked={aPagar} onChange={(e) => setAPagar(e.target.checked)} />{tipo === "saida" ? "Ainda vou pagar" : "Ainda vou receber"}</label>
-        <details className="fin-form__mais"><summary>Contexto</summary><CampoContexto contextos={contextos} value={contexto} onChange={setContexto} /></details>
-        <button className="btn btn--sm" type="submit" disabled={pendente || !valor || !descricao.trim()}><Plus aria-hidden />Lançar</button>
+        {transferencia
+          ? <span className="field__hint">{tipo === "aporte" ? "Sai da conta e entra no investimento." : "Sai do investimento e volta para a conta."}</span>
+          : <label className="check-line"><input type="checkbox" checked={aPagar} onChange={(e) => setAPagar(e.target.checked)} />{tipo === "saida" ? "Ainda vou pagar" : "Ainda vou receber"}</label>}
+        {!transferencia && <details className="fin-form__mais"><summary>Contexto</summary><CampoContexto contextos={contextos} value={contexto} onChange={setContexto} /></details>}
+        <button className="btn btn--sm" type="submit" disabled={pendente || !valor || (!transferencia && !descricao.trim()) || (transferencia && !investimento)}><Plus aria-hidden />Lançar</button>
       </div>
     </form>
   );
@@ -67,9 +82,9 @@ export function LinhaLancamento({ l, contexto }: { l: Lancamento; contexto?: Con
       <time>{rotuloData(l.happened_on).replace(/^./, (c) => c.toUpperCase())}</time>
       <span className="fin-l__d">
         <b>{l.description}</b>
-        <small>{l.category}{contexto && <> · <i className="dot" style={{ background: contexto.color }} />{contexto.name}</>}{l.routine_id ? " · conta fixa" : ""}{!l.paid ? (l.kind === "saida" ? " · a pagar" : " · a receber") : ""}</small>
+        <small>{l.category}{contexto && <> · <i className="dot" style={{ background: contexto.color }} />{contexto.name}</>}{l.routine_id ? " · conta fixa" : ""}{l.kind === "aporte" ? " · investi" : l.kind === "resgate" ? " · resgatei" : ""}{!l.paid ? (l.kind === "saida" ? " · a pagar" : " · a receber") : ""}</small>
       </span>
-      <span className={`fin-l__v fin-l__v--${l.kind}`}>{l.kind === "saida" ? "−" : "+"}{moeda(l.amount)}</span>
+      <span className={`fin-l__v fin-l__v--${l.kind}`}>{naConta(l) < 0 ? "−" : "+"}{moeda(l.amount)}</span>
       <span className="fin-l__a">
         {!l.paid && (
           <button type="button" className="btn btn--line btn--sm" disabled={pendente} onClick={() => iniciar(async () => { await marcarLancamentoPago(l.id, true); avisar({ texto: l.kind === "saida" ? "Marcado como pago." : "Marcado como recebido." }); })}>
@@ -344,12 +359,12 @@ export function Movimentar({ inv }: { inv: Investimento }) {
       iniciar(async () => {
         const r = await movimentarInvestimento(inv.id, tipo, numeroBR(valor), dia);
         if (!r.ok) return avisar({ texto: r.erro ?? "Não foi possível guardar." });
-        avisar({ texto: `${tipo === "aporte" ? "Aporte" : tipo === "resgate" ? "Resgate" : "Rendimento"} de ${moeda(numeroBR(valor))} em ${inv.name}.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => apagarMovimento(r.id!)) } });
+        avisar({ texto: `${tipo === "aporte" ? "Investi" : tipo === "resgate" ? "Resgatei" : "Rendimento"} ${moeda(numeroBR(valor))} em ${inv.name}.${r.origem === "lancamento" ? " Está nos lançamentos." : ""}`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => (r.origem === "lancamento" ? apagarLancamento(r.id!) : apagarMovimento(r.id!))) } });
         setValor("");
       });
     }}>
       <select className="input" value={tipo} onChange={(e) => setTipo(e.target.value as typeof tipo)} aria-label="Tipo de movimento">
-        <option value="aporte">Aporte</option><option value="resgate">Resgate</option><option value="rendimento">Rendimento</option>
+        <option value="aporte">Investi</option><option value="resgate">Resgatei</option><option value="rendimento">Rendimento</option>
       </select>
       <input className="input" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" aria-label="Valor" required />
       <input className="input" type="date" value={dia} max={hojeISO()} onChange={(e) => setDia(e.target.value)} aria-label="Dia" required />
@@ -378,5 +393,16 @@ export function AjustarInvestimento({ inv, saldo }: { inv: Investimento; saldo: 
 
 export function ApagarMovimento({ m }: { m: Movimento }) {
   const [pendente, iniciar] = useTransition();
-  return <button type="button" className="icon-btn" aria-label="Apagar movimento" disabled={pendente} onClick={() => iniciar(() => apagarMovimento(m.id))}><Trash2 size={14} /></button>;
+  return <button type="button" className="icon-btn" aria-label="Apagar movimento" disabled={pendente} onClick={() => { if (confirm(m.origem === "lancamento" ? "Apagar este lançamento?" : "Apagar este rendimento?")) iniciar(() => (m.origem === "lancamento" ? apagarLancamento(m.id) : apagarMovimento(m.id))); }}><Trash2 size={14} /></button>;
+}
+
+/** O formulário de lançar, recolhido num botão; abre sozinho em mês vazio e só fecha quando a pessoa fecha */
+export function GavetaLancamento({ abertaNoInicio, children }: { abertaNoInicio: boolean; children: React.ReactNode }) {
+  const [aberta, setAberta] = useState(abertaNoInicio);
+  return (
+    <details className="fin-novo" open={aberta} onToggle={(e) => setAberta((e.currentTarget as HTMLDetailsElement).open)}>
+      <summary className="btn btn--sm"><Plus aria-hidden />Lançamento</summary>
+      {children}
+    </details>
+  );
 }

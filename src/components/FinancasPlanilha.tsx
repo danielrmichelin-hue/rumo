@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { Check, Trash2, X } from "lucide-react";
 import { apagarLancamento, apagarParcelamento, desfazerParcela, editarLancamento, pagarParcela, salvarParcelamento } from "@/app/(app)/acoes";
 import { numeroBR } from "@/lib/datas";
-import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA, mesCurto, moeda, situacaoParcelamento, somarMeses, type Lancamento, type Parcelamento } from "@/lib/financas";
+import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA, ehTransferencia, mesCurto, moeda, naConta, ROTULO_TIPO, situacaoParcelamento, somarMeses, type Investimento, type Lancamento, type Parcelamento } from "@/lib/financas";
 import { useAvisar } from "./Avisos";
 import { Painel } from "./Comuns";
 
@@ -21,7 +21,7 @@ const rotuloDia = (iso: string, hoje: string) => {
 };
 
 /** Os lançamentos de um mês, agrupados por dia (como o extrato do banco). Tocar num lançamento abre a edição. */
-export function ExtratoMes({ lancamentos, hoje }: { lancamentos: Lancamento[]; hoje: string }) {
+export function ExtratoMes({ lancamentos, hoje, investimentos = [] }: { lancamentos: Lancamento[]; hoje: string; investimentos?: Investimento[] }) {
   const [busca, setBusca] = useState("");
   const [cat, setCat] = useState("");
   const [editando, setEditando] = useState<string | null>(null);
@@ -49,19 +49,26 @@ export function ExtratoMes({ lancamentos, hoje }: { lancamentos: Lancamento[]; h
       )}
       {!dias.length && <p className="empty">{lancamentos.length ? "Nada com esse filtro." : "Nada lançado neste mês."}</p>}
       {dias.map(([dia, lista]) => {
-        const saldo = lista.filter((l) => l.paid).reduce((t, l) => t + (l.kind === "entrada" ? l.amount : -l.amount), 0);
+        const saldo = lista.filter((l) => l.paid).reduce((t, l) => t + naConta(l), 0);
         return (
           <section key={dia} className="extrato__dia">
             <h3><span>{rotuloDia(dia, hoje)}</span><b className={saldo >= 0 ? "pos" : undefined}>{saldo >= 0 ? "+" : "−"}{moeda(Math.abs(saldo))}</b></h3>
             <ul>
-              {lista.map((l) => editando === l.id ? <EditarLinha key={l.id} l={l} fechar={() => setEditando(null)} /> : (
-                <li key={l.id}>
-                  <button type="button" className={`extrato__l${l.paid ? "" : " is-aberto"}`} onClick={() => setEditando(l.id)} aria-label={`Editar ${l.description}`}>
-                    <span className="extrato__d"><b>{l.description}</b><small>{l.category}{l.installment_id ? " · parcela" : l.routine_id ? " · conta fixa" : ""}{!l.paid ? (l.kind === "saida" ? " · a pagar" : " · a receber") : ""}</small></span>
-                    <span className={`extrato__v${l.kind === "entrada" ? " pos" : ""}`}>{l.kind === "saida" ? "−" : "+"}{moeda(l.amount)}</span>
-                  </button>
-                </li>
-              ))}
+              {lista.map((l) => {
+                const inv = ehTransferencia(l);
+                const nomeInv = investimentos.find((i) => i.id === l.investment_id)?.name;
+                return editando === l.id ? <EditarLinha key={l.id} l={l} investimentos={investimentos} fechar={() => setEditando(null)} /> : (
+                  <li key={l.id}>
+                    <button type="button" className={`extrato__l${l.paid ? "" : " is-aberto"}${inv ? " is-inv" : ""}`} onClick={() => setEditando(l.id)} aria-label={`Editar ${l.description}`}>
+                      <span className="extrato__d">
+                        <b>{l.description}</b>
+                        <small>{inv ? (l.kind === "aporte" ? `Da conta para ${nomeInv ?? "o investimento"}` : `De ${nomeInv ?? "o investimento"} para a conta`) : l.category}{l.installment_id ? " · parcela" : l.routine_id ? " · conta fixa" : ""}{!l.paid ? (l.kind === "saida" ? " · a pagar" : " · a receber") : ""}</small>
+                      </span>
+                      <span className={`extrato__v${l.kind === "entrada" ? " pos" : inv ? " transf" : ""}`}>{naConta(l) < 0 ? "−" : "+"}{moeda(l.amount)}</span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         );
@@ -70,13 +77,14 @@ export function ExtratoMes({ lancamentos, hoje }: { lancamentos: Lancamento[]; h
   );
 }
 
-function EditarLinha({ l, fechar }: { l: Lancamento; fechar: () => void }) {
-  const [v, setV] = useState({ happened_on: l.happened_on, description: l.description, category: l.category, kind: l.kind, valor: String(l.amount).replace(".", ","), paid: l.paid });
+function EditarLinha({ l, fechar, investimentos }: { l: Lancamento; fechar: () => void; investimentos: Investimento[] }) {
+  const [v, setV] = useState({ happened_on: l.happened_on, description: l.description, category: l.category, kind: l.kind, valor: String(l.amount).replace(".", ","), paid: l.paid, investment_id: l.investment_id ?? investimentos[0]?.id ?? "" });
+  const transferencia = v.kind === "aporte" || v.kind === "resgate";
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
   const cats = v.kind === "saida" ? CATEGORIAS_SAIDA : CATEGORIAS_ENTRADA;
   const guardar = () => iniciar(async () => {
-    const r = await editarLancamento(l.id, { kind: v.kind, amount: numeroBR(v.valor), description: v.description, category: v.category, happened_on: v.happened_on, paid: v.paid });
+    const r = await editarLancamento(l.id, { kind: v.kind, amount: numeroBR(v.valor), description: v.description, category: v.category, happened_on: v.happened_on, paid: v.paid, investment_id: transferencia ? v.investment_id : null });
     if (!r.ok) return avisar({ texto: r.erro ?? "Não foi possível guardar." });
     fechar();
   });
@@ -84,13 +92,21 @@ function EditarLinha({ l, fechar }: { l: Lancamento; fechar: () => void }) {
     <li>
       <form className="extrato__edit" onSubmit={(e) => { e.preventDefault(); guardar(); }} onKeyDown={(e) => e.key === "Escape" && fechar()}>
         <input className="input extrato__edit-d" value={v.description} onChange={(e) => setV({ ...v, description: e.target.value })} aria-label="Descrição" autoFocus maxLength={120} />
-        <select className="input" value={v.kind} onChange={(e) => setV({ ...v, kind: e.target.value as Lancamento["kind"] })} aria-label="Tipo"><option value="saida">Saída</option><option value="entrada">Entrada</option></select>
-        <input className="input" inputMode="decimal" value={v.valor} onChange={(e) => setV({ ...v, valor: e.target.value })} aria-label="Valor" />
-        <select className="input" value={v.category} onChange={(e) => setV({ ...v, category: e.target.value })} aria-label="Categoria">
-          {[...new Set([v.category, ...cats])].map((c) => <option key={c}>{c}</option>)}
+        <select className="input" value={v.kind} onChange={(e) => setV({ ...v, kind: e.target.value as Lancamento["kind"] })} aria-label="Tipo">
+          {(["saida", "entrada", "aporte", "resgate"] as const).map((k) => <option key={k} value={k} disabled={(k === "aporte" || k === "resgate") && !investimentos.length}>{ROTULO_TIPO[k]}</option>)}
         </select>
+        <input className="input" inputMode="decimal" value={v.valor} onChange={(e) => setV({ ...v, valor: e.target.value })} aria-label="Valor" />
+        {transferencia ? (
+          <select className="input" value={v.investment_id} onChange={(e) => setV({ ...v, investment_id: e.target.value })} aria-label="Investimento">
+            {investimentos.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+          </select>
+        ) : (
+          <select className="input" value={v.category} onChange={(e) => setV({ ...v, category: e.target.value })} aria-label="Categoria">
+            {[...new Set([v.category, ...cats])].map((c) => <option key={c}>{c}</option>)}
+          </select>
+        )}
         <input className="input" type="date" value={v.happened_on} onChange={(e) => setV({ ...v, happened_on: e.target.value })} aria-label="Data" />
-        <label className="check-line"><input type="checkbox" checked={v.paid} onChange={(e) => setV({ ...v, paid: e.target.checked })} />{v.kind === "saida" ? "Pago" : "Recebido"}</label>
+        {transferencia ? <span /> : <label className="check-line"><input type="checkbox" checked={v.paid} onChange={(e) => setV({ ...v, paid: e.target.checked })} />{v.kind === "saida" ? "Pago" : "Recebido"}</label>}
         <span className="extrato__edit-a">
           <button type="button" className="btn btn--ghost btn--sm" disabled={pendente} onClick={() => { if (confirm(`Apagar "${l.description}"?`)) iniciar(async () => { await apagarLancamento(l.id); fechar(); }); }}><Trash2 aria-hidden />Apagar</button>
           <button type="button" className="btn btn--ghost btn--sm" onClick={fechar}><X aria-hidden />Cancelar</button>
