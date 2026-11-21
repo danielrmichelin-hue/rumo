@@ -915,7 +915,7 @@ a.route__t:hover { color: var(--accent-text); }
 .empresa__nums div { display: grid; gap: 2px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--sunk); }
 .empresa__nums dt { font-size: 11.5px; color: var(--text-2); }
 .empresa__nums dd { margin: 0; font: 600 18px/1.1 var(--font); font-variant-numeric: tabular-nums; }
-.empresa__nums .is-quente dd { color: var(--warn); }
+.empresa__nums .is-quente dd { color: var(--danger); }
 .empresa__linhas { display: grid; gap: 8px; }
 .empresa__linhas p { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 13.5px; color: var(--text-2); }
 .empresa__linhas p svg { width: 14px; height: 14px; flex: none; transform: translateY(2px); }
@@ -1162,3 +1162,21 @@ a.route__t:hover { color: var(--accent-text); }
   .plano__dias { grid-template-columns: 1fr; overflow: visible; }
   .pdia { min-height: 0; }
 }
+
+/* ---------- Negócios: quadro por empresa ---------- */
+.emp-chips { margin: 0 0 16px; }
+.emp-chips .chip em { margin-left: 2px; font-style: normal; color: var(--text-3); }
+.chip__late { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 600; }
+.quadro { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr); gap: 10px; overflow-x: auto; padding-bottom: 6px; align-items: start; }
+.qcol { display: flex; flex-direction: column; gap: 8px; min-height: 240px; padding: 10px; border-radius: var(--r-lg); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); transition: background var(--dur-fast), box-shadow var(--dur-fast); }
+.qcol--classificar { background: var(--sunk); }
+.qcol__h { display: flex; align-items: center; gap: 7px; font-size: 13.5px; }
+.qcol__h a { color: var(--text); }
+.qcol__h a:hover { color: var(--accent-text); }
+.qcol__h b { font-weight: 600; }
+.qcol__h em { font-style: normal; color: var(--text-3); }
+.qcol__late { margin-left: auto; font-size: 11.5px; font-weight: 500; color: var(--danger); }
+.qcol__vazio { margin: 0; font-size: 12.5px; color: var(--text-3); }
+.pcard__warn { color: var(--warn); font-weight: 500; }
+.sec__h--late { color: var(--danger); }
+@media (max-width: 760px) { .quadro { grid-auto-flow: row; grid-auto-columns: auto; } }
