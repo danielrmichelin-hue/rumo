@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
+import { Lista } from "@/components/Lista";
 import { BotaoNova } from "@/components/ProximoPasso";
 import { CAMPOS_LISTA, type Responsabilidade } from "@/lib/tipos";
 
@@ -39,7 +39,7 @@ export default async function Page() {
           {ctx.length === 0 && (
             <p className="note" style={{ marginBottom: 16 }}>Para organizar, <Link href="/contextos" className="link">crie seus contextos</Link>.</p>
           )}
-          <ListaResponsabilidades itens={lista} contextos={ctx} comContexto={false} organizavel />
+          <Lista itens={lista} contextos={ctx} comContexto={false} organizavel />
         </>
       )}
     </div>

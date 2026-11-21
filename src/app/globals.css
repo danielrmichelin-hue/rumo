@@ -1086,6 +1086,24 @@ a.route__t:hover { color: var(--accent-text); }
 
 /* Atraso direto (software pessoal): vermelho, com os dias */
 .prop--late { padding: 1px 7px; border-radius: 5px; background: var(--danger-bg); color: var(--danger); font-weight: 500; }
-.row[data-atrasada] .check { box-shadow: inset 0 0 0 1.75px var(--danger); }
+.row[data-atrasada] .check { border-color: var(--danger); }
 .bloco--alerta { box-shadow: inset 0 0 0 1px var(--danger-bg), inset 3px 0 0 var(--danger); }
 .bloco--alerta > .sec__h em { color: var(--danger); font-weight: 600; }
+.prop--ok { color: var(--ok); }
+
+/* Subtarefas */
+.subs { display: grid; gap: 8px; margin: 20px 0 4px; padding-top: 18px; border-top: 1px solid var(--line); }
+.subs > .sec__h { margin: 0; }
+.subs__barra { display: block; height: 4px; border-radius: 2px; background: var(--sunk); overflow: hidden; }
+.subs__barra i { display: block; height: 100%; background: var(--accent); transition: width var(--dur-base) var(--ease); }
+.subs__lista { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.sub { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 4px 6px; border-radius: var(--r-sm); }
+.sub:hover { background: var(--hover); }
+.sub .check { margin-top: 0; }
+.check--sm { width: 18px; height: 18px; }
+.sub__t { width: 100%; padding: 4px 0; border: 0; background: none; color: var(--text); font: 400 14.5px/1.4 var(--font); outline: none; }
+.sub__t:focus { box-shadow: 0 1px 0 var(--accent); }
+.sub[data-feita] .sub__t { color: var(--text-2); text-decoration: line-through; }
+.sub__x { opacity: 0; }
+.sub:hover .sub__x, .sub__x:focus-visible { opacity: 1; }
+@media (hover: none) { .sub__x { opacity: .6; } }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
+import { Lista } from "@/components/Lista";
 import { BotaoNova } from "@/components/ProximoPasso";
 import { CAMPOS_LISTA, ordenar, type Estado, type Responsabilidade } from "@/lib/tipos";
 
@@ -97,11 +97,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
               <Link href={`/contexto/${g.contexto.id}`}><i className="dot" style={{ background: g.contexto.color }} />{g.contexto.name}</Link>
               <em>{g.itens.length}</em>
             </h2>
-            <ListaResponsabilidades itens={g.itens} contextos={ctx} comContexto={false} projetos={nomesProjetos} />
+            <Lista itens={g.itens} contextos={ctx} comContexto={false} projetos={nomesProjetos} />
           </section>
         ))
       ) : (
-        <ListaResponsabilidades itens={lista} contextos={ctx} comContexto={!filtro} projetos={nomesProjetos} />
+        <Lista itens={lista} contextos={ctx} comContexto={!filtro} projetos={nomesProjetos} />
       )}
     </div>
   );

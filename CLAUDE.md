@@ -50,7 +50,7 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   `review_step`/`next_review_on` nas aulas) e 0012 (Finanças: `fin_entries`, `fin_budgets`; `amount` e `category` nas rotinas = conta
   fixa) e 0013 (Saúde: `dose` e `ends_on` nas rotinas = remédio com fim; `health_kind` nos events = consulta, exame, vacina,
   procedimento; `health_measures` com peso, pressão etc.) e 0014 (Finanças completas: `fin_settings` com dia do pagamento, envelopes
-  e saldo da conta; `fin_installments` parcelamentos; `installment_id` nos lançamentos; `fin_investments` e `fin_inv_moves`) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
+  e saldo da conta; `fin_installments` parcelamentos; `installment_id` nos lançamentos; `fin_investments` e `fin_inv_moves`) e 0015 (`subtasks`: checklist dentro da tarefa) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`. A casca (`src/components/Shell.tsx`) tem a lateral fixa: Hoje, Inbox, Calendário,
   Tarefas, Projetos; Áreas da vida (Negócios, Estudos, Finanças, Saúde, Rotinas, Rotas, Notas); Contextos (só os de tipo
@@ -63,7 +63,8 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`; Finanças do mês (resumo, contas fixas = rotinas mensais com valor,
   categorias, planilha CSV; o mês vai do dia do pagamento à véspera do próximo, sexta antes se cair no fim de semana; parcelamentos,
   investimentos com projeção, envelopes parcelas/investir/livre, saldo da conta somado a partir do informado) em `src/lib/financas.ts`; Saúde (remédio = rotina com dose, um horário por rotina; consultas = compromissos
-  com `health_kind`; medidas e tendência) em `src/lib/saude.ts`, página `/saude`; Negócios (empresas lado a lado, quem me deve o quê) em `/negocios`. Ações do servidor em `src/app/(app)/acoes.ts`.
+  com `health_kind`; medidas e tendência) em `src/lib/saude.ts`, página `/saude`; Negócios (empresas lado a lado, quem me deve o quê) em `/negocios`. Subtarefas em `src/lib/subtarefas.ts` e `src/components/Subtarefas.tsx`; nas páginas do servidor, use `<Lista>` (`src/components/Lista.tsx`), que
+  busca o "2/5" das subtarefas. Ações do servidor em `src/app/(app)/acoes.ts`.
 - Antes de escrever de novo, reaproveite: datas, fuso de São Paulo, nomes de dias e meses, `ehId` e `numeroBR` em
   `src/lib/datas.ts`; `CampoContexto`, `Painel` (painel por cima da tela) e `AdicionarRapido` em `src/components/Comuns.tsx`;
   o logo oficial em `src/components/Logo.tsx`; o anel e o caminho das Rotas em `src/components/Caminho.tsx`.

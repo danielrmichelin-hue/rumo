@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Folder, GraduationCap, Repeat, Scale } from "lucide-react";
 import { Anel } from "./Caminho";
-import { ListaResponsabilidades } from "./ListaResponsabilidades";
+import { Lista } from "./Lista";
 import { BotaoNova, ProximoPasso } from "./ProximoPasso";
 import { ChecarRotina } from "./Rotinas";
 import type { ContextItem } from "./Shell";
@@ -61,7 +61,7 @@ export function PainelContexto(d: DadosPainel) {
   }
 
   const lista = (itens: Responsabilidade[], cobravel = false) => (
-    <ListaResponsabilidades itens={itens} contextos={ctx} comContexto={false} projetos={d.nomesProjetos} cobravel={cobravel} />
+    <Lista itens={itens} contextos={ctx} comContexto={false} projetos={d.nomesProjetos} cobravel={cobravel} />
   );
 
   const atencao = d.atencao.length > 0 && (

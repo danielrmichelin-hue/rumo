@@ -1,6 +1,6 @@
 import { GraduationCap, Pill, Repeat, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
+import { Lista } from "@/components/Lista";
 import { BotaoNova, ProximoPasso } from "@/components/ProximoPasso";
 import { agoraHora, dataPorExtenso, fimDoDia, hojeISO, horaDe, inicioDoDia, saudacao } from "@/lib/datas";
 import { montarHoje, resumoDoDia } from "@/lib/hoje";
@@ -113,13 +113,13 @@ export default async function Page() {
       <div className="painel">
         <div className="painel__col">
           <Bloco titulo="Atenção" n={dia.atencao.length} alerta={dia.numeros.atrasadas > 0} vazio="Nada atrasado e nenhum retorno para cobrar hoje.">
-            {dia.atencao.length > 0 && <ListaResponsabilidades itens={dia.atencao} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} cobravel />}
+            {dia.atencao.length > 0 && <Lista itens={dia.atencao} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} cobravel />}
           </Bloco>
           <Bloco titulo="Hoje" n={dia.doDia.length} acao={doDiaComFeitas.length ? <span className="sec__act">Por horário</span> : null} vazio="Nada com prazo para hoje.">
-            {doDiaComFeitas.length > 0 && <ListaResponsabilidades itens={doDiaComFeitas} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} semHoje />}
+            {doDiaComFeitas.length > 0 && <Lista itens={doDiaComFeitas} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} semHoje />}
           </Bloco>
           <Bloco titulo="Aguardando alguém" n={dia.aguardando.length} acao={dia.aguardando.length > 4 ? <Link href="/responsabilidades?estado=aguardando" className="sec__act">Ver todos</Link> : null} vazio="Ninguém te deve retorno agora.">
-            {dia.aguardando.length > 0 && <ListaResponsabilidades itens={dia.aguardando.slice(0, 4)} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} />}
+            {dia.aguardando.length > 0 && <Lista itens={dia.aguardando.slice(0, 4)} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} />}
           </Bloco>
         </div>
 

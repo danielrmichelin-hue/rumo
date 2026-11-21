@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, Repeat } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
+import { Lista } from "@/components/Lista";
 import { NovoCompromisso } from "@/components/FormCompromisso";
 import { AcoesRemedio, Dose, HistoricoMedida, NovaMedida, NovoRemedio } from "@/components/Saude";
 import { SemanaRotina } from "@/components/Rotinas";
@@ -183,7 +183,7 @@ export default async function Page() {
               {tarefas.length === 0 ? (
                 <p className="bloco__vazio">Nada para resolver.</p>
               ) : (
-                <ListaResponsabilidades itens={tarefas} contextos={ctx} comContexto={false} />
+                <Lista itens={tarefas} contextos={ctx} comContexto={false} />
               )}
             </section>
           )}

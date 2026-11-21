@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Building2, CalendarClock, Hourglass, Scale } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
+import { Lista } from "@/components/Lista";
 import type { ContextItem } from "@/components/Shell";
 import { agoraHora, haDias, hojeISO, horaDe, inicioDoDia, prazoPassou, rotuloData, somarDias } from "@/lib/datas";
 import { CAMPOS_ROTINA, eDoDia, feitaEm, desdeMarcas, type Marcacao, type Rotina } from "@/lib/rotinas";
@@ -97,7 +97,7 @@ export default async function Page() {
                   {pessoas.map(([quem, lista]) => (
                     <div key={quem} className="pessoa">
                       <h3><span className="avatar avatar--sm" aria-hidden>{quem.slice(0, 1).toUpperCase()}</span>{quem}<em>{lista.length}</em><small>{(() => { const h = haDias(lista.map((i) => i.updated_at ?? i.created_at).sort()[0], hoje); return h === "hoje" ? "desde hoje" : `há ${h}`; })()}</small></h3>
-                      <ListaResponsabilidades itens={lista} contextos={empresas} cobravel />
+                      <Lista itens={lista} contextos={empresas} cobravel />
                     </div>
                   ))}
                 </div>
@@ -105,7 +105,7 @@ export default async function Page() {
             </section>
             <section className="bloco">
               <h2 className="sec__h"><Scale size={15} aria-hidden style={{ marginRight: 6, verticalAlign: -2 }} />Para decidir <em>{decisoes.length}</em></h2>
-              {decisoes.length ? <ListaResponsabilidades itens={decisoes} contextos={empresas} /> : <p className="bloco__vazio">Nenhuma decisão pendente nas empresas.</p>}
+              {decisoes.length ? <Lista itens={decisoes} contextos={empresas} /> : <p className="bloco__vazio">Nenhuma decisão pendente nas empresas.</p>}
             </section>
           </div>
         </>

@@ -7,7 +7,7 @@ import {
   AceitarRitmo, AdicionarPassoRota, ApagarMarco, ConcluirMarco, DesfazerRegistro, EscolhaRecalculo, FormRota, NovoMarco,
   PassoSugerido, RegistrarAvanco,
 } from "@/components/ControlesRota";
-import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
+import { Lista } from "@/components/Lista";
 import { ehId, hojeISO, nomeDoMes, rotuloData } from "@/lib/datas";
 import { CAMPOS_MARCO, CAMPOS_ROTA, ICONES_ROTA, type Marco, normalizar, PREFIXO_PASSO, resumirRota, textoValor, type TipoRota, TIPOS } from "@/lib/rotas";
 import { CAMPOS_LISTA, ordenar, type Responsabilidade } from "@/lib/tipos";
@@ -109,7 +109,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               <section className="sec">
                 <h2 className="sec__h">Marco atual · {atual.title} <em>{passosDoAtual.filter((p) => p.state === "concluida").length} de {passosDoAtual.length} passos</em></h2>
                 {passosDoAtual.length > 0 ? (
-                  <ListaResponsabilidades itens={passosDoAtual} contextos={ctx} comContexto={false} />
+                  <Lista itens={passosDoAtual} contextos={ctx} comContexto={false} />
                 ) : (
                   <p className="empty">Quais são os passos deste marco? Poucos e concretos, com data quando fizer sentido.</p>
                 )}
@@ -126,7 +126,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               {resumo.sugestao && !jaSugerido && rota.status === "ativa" && (
                 <div style={{ marginBottom: 8 }}><PassoSugerido routeId={rota.id} titulo={resumo.sugestao.title} quando={passoAntigo ? `substitui "${passoAntigo.title}"` : resumo.sugestao.quando} atualizar={!!passoAntigo} /></div>
               )}
-              {abertos.length > 0 && <ListaResponsabilidades itens={abertos} contextos={ctx} comContexto={false} />}
+              {abertos.length > 0 && <Lista itens={abertos} contextos={ctx} comContexto={false} />}
               <AdicionarPassoRota routeId={rota.id} exemplo={EXEMPLO_PASSO[rota.kind]} />
             </section>
           )}
@@ -175,7 +175,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           {feitos.length > 0 && (
             <details className="sec fold">
               <summary className="sec__h"><ChevronRight aria-hidden />Passos concluídos {feitos.length > 0 && <em>{feitos.length}</em>}</summary>
-              <ListaResponsabilidades itens={feitos} contextos={ctx} comContexto={false} />
+              <Lista itens={feitos} contextos={ctx} comContexto={false} />
             </details>
           )}
         </div>

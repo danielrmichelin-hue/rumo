@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CardProjeto } from "@/components/CardProjeto";
 import { NovoCompromisso } from "@/components/FormCompromisso";
 import { NovoProjeto } from "@/components/FormsProjeto";
-import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
+import { Lista } from "@/components/Lista";
 import { BotaoNova } from "@/components/ProximoPasso";
 import { slug } from "@/lib/captura";
 import { agoraHora, diaMes, ehId, hojeISO, horaDe, inicioDoDia, prazoPassou, rotuloData, somarDias } from "@/lib/datas";
@@ -139,10 +139,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </div>
         ) : (
           <>
-            {atrasadas.length > 0 && <section className="sec"><h2 className="sec__h">Atrasada {atrasadas.length > 0 && <em>{atrasadas.length}</em>}</h2><ListaResponsabilidades itens={atrasadas} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
-            {estaSemana.length > 0 && <section className="sec"><h2 className="sec__h">Esta semana {estaSemana.length > 0 && <em>{estaSemana.length}</em>}</h2><ListaResponsabilidades itens={estaSemana} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
-            {depois.length > 0 && <section className="sec"><h2 className="sec__h">Sem pressa {depois.length > 0 && <em>{depois.length}</em>}</h2><ListaResponsabilidades itens={depois} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
-            {aguardando.length > 0 && <section className="sec"><h2 className="sec__h">Aguardando outras pessoas {aguardando.length > 0 && <em>{aguardando.length}</em>}</h2><ListaResponsabilidades itens={aguardando} contextos={ctx} comContexto={false} projetos={nomesProjetos} cobravel /></section>}
+            {atrasadas.length > 0 && <section className="sec"><h2 className="sec__h">Atrasada {atrasadas.length > 0 && <em>{atrasadas.length}</em>}</h2><Lista itens={atrasadas} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
+            {estaSemana.length > 0 && <section className="sec"><h2 className="sec__h">Esta semana {estaSemana.length > 0 && <em>{estaSemana.length}</em>}</h2><Lista itens={estaSemana} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
+            {depois.length > 0 && <section className="sec"><h2 className="sec__h">Sem pressa {depois.length > 0 && <em>{depois.length}</em>}</h2><Lista itens={depois} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
+            {aguardando.length > 0 && <section className="sec"><h2 className="sec__h">Aguardando outras pessoas {aguardando.length > 0 && <em>{aguardando.length}</em>}</h2><Lista itens={aguardando} contextos={ctx} comContexto={false} projetos={nomesProjetos} cobravel /></section>}
           </>
         )
       )}
@@ -172,7 +172,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <>
             <div style={{ marginBottom: 8 }}><NovaNota vinculo={`c:${id}`} decisao rotulo="Registrar decisão tomada" /></div>
             {decisoesRegistradas.length > 0 && <section className="sec"><h2 className="sec__h">Registradas {decisoesRegistradas.length > 0 && <em>{decisoesRegistradas.length}</em>}</h2><ListaNotas notas={decisoesRegistradas} /></section>}
-            {decAbertas.length > 0 && <section className="sec"><h2 className="sec__h">Para decidir {decAbertas.length > 0 && <em>{decAbertas.length}</em>}</h2><ListaResponsabilidades itens={decAbertas} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
+            {decAbertas.length > 0 && <section className="sec"><h2 className="sec__h">Para decidir {decAbertas.length > 0 && <em>{decAbertas.length}</em>}</h2><Lista itens={decAbertas} contextos={ctx} comContexto={false} projetos={nomesProjetos} /></section>}
             {decFeitas.length > 0 && (
               <section className="sec">
                 <h2 className="sec__h">Decididas {decFeitas.length > 0 && <em>{decFeitas.length}</em>}</h2>

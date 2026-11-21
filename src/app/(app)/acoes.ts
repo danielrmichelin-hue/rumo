@@ -1150,6 +1150,43 @@ export async function salvarOrcamento(categoria: string, limite: number): Promis
   return { ok: true };
 }
 
+// ---------- subtarefas ----------
+
+/** Uma ou várias (uma por linha, para colar uma lista) */
+export async function adicionarSubtarefas(tarefaId: string, bruto: string): Promise<{ ok: boolean; erro?: string }> {
+  if (!ehId(tarefaId)) return { ok: false };
+  const titulos = bruto.split(/\n/).map((t) => t.replace(/^\s*([-*•]|\[ ?\]|\d+[.)])\s*/, "").trim()).filter(Boolean).map((t) => t.slice(0, 200)).slice(0, 50);
+  if (!titulos.length) return { ok: false, erro: "Escreva a subtarefa." };
+  const supabase = await createClient();
+  const { count } = await supabase.from("subtasks").select("id", { count: "exact", head: true }).eq("responsibility_id", tarefaId);
+  const { error } = await supabase.from("subtasks").insert(titulos.map((title, i) => ({ responsibility_id: tarefaId, title, position: (count ?? 0) + i })));
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true };
+}
+
+export async function marcarSubtarefa(id: string, feita: boolean) {
+  if (!ehId(id)) return;
+  const supabase = await createClient();
+  await supabase.from("subtasks").update({ done_at: feita ? new Date().toISOString() : null }).eq("id", id);
+  atualizar();
+}
+
+export async function renomearSubtarefa(id: string, titulo: string) {
+  const title = titulo.trim().slice(0, 200);
+  if (!ehId(id) || !title) return;
+  const supabase = await createClient();
+  await supabase.from("subtasks").update({ title }).eq("id", id);
+  atualizar();
+}
+
+export async function apagarSubtarefa(id: string) {
+  if (!ehId(id)) return;
+  const supabase = await createClient();
+  await supabase.from("subtasks").delete().eq("id", id);
+  atualizar();
+}
+
 // ---------- finanças: ajustes, parcelamentos, investimentos ----------
 
 export type DadosAjustes = { pay_day: number | null; weekend_shift: boolean; pct_parcelas: number; pct_investir: number; pct_livre: number; cash_balance: number | null };

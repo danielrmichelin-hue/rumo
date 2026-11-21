@@ -12,7 +12,7 @@ const ESTADOS: Array<{ v: Estado; r: string }> = [
   { v: "concluida", r: "Concluída" },
 ];
 
-export function FormResponsabilidade({ item, contextos, pessoas, voltar, projetos = [] }: { item: Responsabilidade; contextos: Contexto[]; pessoas: string[]; voltar: string; projetos?: { id: string; name: string }[] }) {
+export function FormResponsabilidade({ item, contextos, pessoas, voltar, projetos = [], children }: { item: Responsabilidade; contextos: Contexto[]; pessoas: string[]; voltar: string; projetos?: { id: string; name: string }[]; children?: React.ReactNode }) {
   const [resultado, enviar, pendente] = useActionState<EstadoForm, FormData>(salvarResponsabilidade, {});
   const [estado, setEstado] = useState<Estado>(item.state);
   const [tipo, setTipo] = useState(item.kind);
@@ -134,10 +134,12 @@ export function FormResponsabilidade({ item, contextos, pessoas, voltar, projeto
         </div>
       </form>
 
+      {children}
+
       <form
         action={apagarResponsabilidade}
         className="detail__danger"
-        onSubmit={(e) => { if (!confirm("Apagar esta responsabilidade? Não dá para desfazer.")) e.preventDefault(); }}
+        onSubmit={(e) => { if (!confirm("Apagar esta tarefa? Não dá para desfazer.")) e.preventDefault(); }}
       >
         <input type="hidden" name="id" value={item.id} />
         <input type="hidden" name="voltar" value={voltar} />

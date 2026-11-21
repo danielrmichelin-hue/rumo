@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AdicionarEtapa, EditarProjeto, EstadoProjeto } from "@/components/FormsProjeto";
-import { ListaResponsabilidades } from "@/components/ListaResponsabilidades";
+import { Lista } from "@/components/Lista";
 import { ProximoPasso } from "@/components/ProximoPasso";
 import { resumirProjeto, type Projeto } from "@/lib/projetos";
 import { CAMPOS_LISTA, ordenar, type Responsabilidade } from "@/lib/tipos";
@@ -74,7 +74,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
           <section className="sec">
             <h2 className="sec__h">Etapas <em>{resumo.total ? `${resumo.feitas} de ${resumo.total} feitas` : "nenhuma ainda"}</em></h2>
-            {abertas.length > 0 && <ListaResponsabilidades itens={abertas} contextos={ctx} comContexto={false} cobravel />}
+            {abertas.length > 0 && <Lista itens={abertas} contextos={ctx} comContexto={false} cobravel />}
             <AdicionarEtapa projetoId={p.id} />
             <p className="field__hint" style={{ marginTop: 6 }}>Dá para escrever o prazo junto: “Mandar o orçamento sexta”, “Ligar para o pedreiro amanhã 10h”.</p>
           </section>
@@ -82,7 +82,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           {feitas.length > 0 && (
             <details className="sec fold">
               <summary className="sec__h"><ChevronRight aria-hidden />Feitas {feitas.length > 0 && <em>{feitas.length}</em>}</summary>
-              <ListaResponsabilidades itens={feitas} contextos={ctx} comContexto={false} />
+              <Lista itens={feitas} contextos={ctx} comContexto={false} />
             </details>
           )}
         </div>
