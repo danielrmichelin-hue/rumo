@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { ArrowDown, ArrowUp, Check, Pencil, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { Check, Trash2, X } from "lucide-react";
 import { apagarLancamento, apagarParcelamento, desfazerParcela, editarLancamento, pagarParcela, salvarParcelamento } from "@/app/(app)/acoes";
 import { numeroBR } from "@/lib/datas";
 import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA, mesCurto, moeda, situacaoParcelamento, somarMeses, type Lancamento, type Parcelamento } from "@/lib/financas";
@@ -10,87 +10,67 @@ import { Painel } from "./Comuns";
 
 const dataBR = (iso: string) => iso.split("-").reverse().join("/");
 
-// ---------- Lançamentos: tabela editável, com filtros e totais ----------
+// ---------- Lançamentos: o extrato do mês, dia a dia ----------
 
-type Ordem = { campo: "happened_on" | "description" | "category" | "amount"; desc: boolean };
+const SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+const MESES_LONGOS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const rotuloDia = (iso: string, hoje: string) => {
+  const d = new Date(iso + "T12:00:00Z");
+  const base = `${SEMANA[d.getUTCDay()]}, ${d.getUTCDate()} de ${MESES_LONGOS[d.getUTCMonth()]}`;
+  return iso === hoje ? `Hoje · ${base}` : base;
+};
 
-export function TabelaLancamentos({ lancamentos }: { lancamentos: Lancamento[] }) {
+/** Os lançamentos de um mês, agrupados por dia (como o extrato do banco). Tocar num lançamento abre a edição. */
+export function ExtratoMes({ lancamentos, hoje }: { lancamentos: Lancamento[]; hoje: string }) {
   const [busca, setBusca] = useState("");
-  const [tipo, setTipo] = useState<"todos" | "entrada" | "saida">("todos");
   const [cat, setCat] = useState("");
-  const [ordem, setOrdem] = useState<Ordem>({ campo: "happened_on", desc: true });
   const [editando, setEditando] = useState<string | null>(null);
   const categorias = useMemo(() => [...new Set(lancamentos.map((l) => l.category))].sort(), [lancamentos]);
-
-  const linhas = useMemo(() => {
+  const filtrados = useMemo(() => {
     const t = busca.trim().toLowerCase();
-    return lancamentos
-      .filter((l) => (tipo === "todos" || l.kind === tipo) && (!cat || l.category === cat) && (!t || l.description.toLowerCase().includes(t) || l.category.toLowerCase().includes(t)))
-      .sort((a, b) => {
-        const va = ordem.campo === "amount" ? (a.kind === "saida" ? -a.amount : a.amount) : a[ordem.campo];
-        const vb = ordem.campo === "amount" ? (b.kind === "saida" ? -b.amount : b.amount) : b[ordem.campo];
-        const c = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb));
-        return ordem.desc ? -c : c;
-      });
-  }, [lancamentos, busca, tipo, cat, ordem]);
-
-  const pagos = linhas.filter((l) => l.paid);
-  const entrou = pagos.filter((l) => l.kind === "entrada").reduce((s, l) => s + l.amount, 0);
-  const saiu = pagos.filter((l) => l.kind === "saida").reduce((s, l) => s + l.amount, 0);
-  const th = (campo: Ordem["campo"], rotulo: string, cls = "") => (
-    <th className={cls}>
-      <button type="button" onClick={() => setOrdem({ campo, desc: ordem.campo === campo ? !ordem.desc : campo === "happened_on" })}>
-        {rotulo}{ordem.campo === campo && (ordem.desc ? <ArrowDown aria-hidden /> : <ArrowUp aria-hidden />)}
-      </button>
-    </th>
-  );
+    return lancamentos.filter((l) => (!cat || l.category === cat) && (!t || l.description.toLowerCase().includes(t) || l.category.toLowerCase().includes(t)));
+  }, [lancamentos, busca, cat]);
+  const dias = useMemo(() => {
+    const mapa = new Map<string, Lancamento[]>();
+    for (const l of [...filtrados].sort((a, b) => b.happened_on.localeCompare(a.happened_on))) mapa.set(l.happened_on, [...(mapa.get(l.happened_on) ?? []), l]);
+    return [...mapa.entries()];
+  }, [filtrados]);
 
   return (
-    <div className="planilha">
-      <div className="planilha__filtros">
-        <input className="input" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar descrição ou categoria" aria-label="Buscar" />
-        <div className="seg seg--sm" role="radiogroup" aria-label="Tipo">
-          {(["todos", "saida", "entrada"] as const).map((t) => (
-            <label key={t}><input type="radio" checked={tipo === t} onChange={() => setTipo(t)} /><span>{t === "todos" ? "Tudo" : t === "saida" ? "Saídas" : "Entradas"}</span></label>
-          ))}
+    <div className="extrato">
+      {lancamentos.length > 0 && (
+        <div className="extrato__filtros">
+          <input className="input" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar neste mês" aria-label="Buscar neste mês" />
+          <select className="input" value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Categoria">
+            <option value="">Todas as categorias</option>
+            {categorias.map((c) => <option key={c}>{c}</option>)}
+          </select>
         </div>
-        <select className="input" value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Categoria">
-          <option value="">Todas as categorias</option>
-          {categorias.map((c) => <option key={c}>{c}</option>)}
-        </select>
-      </div>
-      <div className="planilha__tot">
-        <span>{linhas.length} {linhas.length === 1 ? "lançamento" : "lançamentos"}</span>
-        <span>Entrou <b className="pos">{moeda(entrou)}</b></span>
-        <span>Saiu <b>{moeda(saiu)}</b></span>
-        <span>Saldo <b className={entrou - saiu < 0 ? "neg" : "pos"}>{moeda(entrou - saiu)}</b></span>
-      </div>
-      <div className="planilha__rolo">
-        <table className="tabela">
-          <thead>
-            <tr>{th("happened_on", "Data")}{th("description", "Descrição")}{th("category", "Categoria")}{th("amount", "Valor", "num")}<th>Situação</th><th aria-label="Ações" /></tr>
-          </thead>
-          <tbody>
-            {linhas.map((l) => (editando === l.id ? <LinhaEditando key={l.id} l={l} fechar={() => setEditando(null)} /> : (
-              <tr key={l.id} onDoubleClick={() => setEditando(l.id)} className={l.paid ? undefined : "is-aberto"}>
-                <td className="tabela__data">{dataBR(l.happened_on)}</td>
-                <td>{l.description}{l.installment_id ? <small> · parcela</small> : l.routine_id ? <small> · conta fixa</small> : null}</td>
-                <td>{l.category}</td>
-                <td className={`num ${l.kind === "entrada" ? "pos" : ""}`}>{l.kind === "saida" ? "−" : "+"}{moeda(l.amount)}</td>
-                <td className="tabela__sit">{l.paid ? "Pago" : l.kind === "saida" ? "A pagar" : "A receber"}</td>
-                <td className="tabela__acoes"><button type="button" className="icon-btn" aria-label={`Editar ${l.description}`} onClick={() => setEditando(l.id)}><Pencil size={14} /></button></td>
-              </tr>
-            )))}
-            {!linhas.length && <tr><td colSpan={6} className="tabela__vazio">Nada neste período.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-      <p className="field__hint">Clique duas vezes numa linha para editar. Enter guarda, Esc cancela.</p>
+      )}
+      {!dias.length && <p className="empty">{lancamentos.length ? "Nada com esse filtro." : "Nada lançado neste mês."}</p>}
+      {dias.map(([dia, lista]) => {
+        const saldo = lista.filter((l) => l.paid).reduce((t, l) => t + (l.kind === "entrada" ? l.amount : -l.amount), 0);
+        return (
+          <section key={dia} className="extrato__dia">
+            <h3><span>{rotuloDia(dia, hoje)}</span><b className={saldo >= 0 ? "pos" : undefined}>{saldo >= 0 ? "+" : "−"}{moeda(Math.abs(saldo))}</b></h3>
+            <ul>
+              {lista.map((l) => editando === l.id ? <EditarLinha key={l.id} l={l} fechar={() => setEditando(null)} /> : (
+                <li key={l.id}>
+                  <button type="button" className={`extrato__l${l.paid ? "" : " is-aberto"}`} onClick={() => setEditando(l.id)} aria-label={`Editar ${l.description}`}>
+                    <span className="extrato__d"><b>{l.description}</b><small>{l.category}{l.installment_id ? " · parcela" : l.routine_id ? " · conta fixa" : ""}{!l.paid ? (l.kind === "saida" ? " · a pagar" : " · a receber") : ""}</small></span>
+                    <span className={`extrato__v${l.kind === "entrada" ? " pos" : ""}`}>{l.kind === "saida" ? "−" : "+"}{moeda(l.amount)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }
 
-function LinhaEditando({ l, fechar }: { l: Lancamento; fechar: () => void }) {
+function EditarLinha({ l, fechar }: { l: Lancamento; fechar: () => void }) {
   const [v, setV] = useState({ happened_on: l.happened_on, description: l.description, category: l.category, kind: l.kind, valor: String(l.amount).replace(".", ","), paid: l.paid });
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
@@ -100,29 +80,24 @@ function LinhaEditando({ l, fechar }: { l: Lancamento; fechar: () => void }) {
     if (!r.ok) return avisar({ texto: r.erro ?? "Não foi possível guardar." });
     fechar();
   });
-  const teclas = (e: React.KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); guardar(); } if (e.key === "Escape") fechar(); };
   return (
-    <tr className="is-editando" onKeyDown={teclas}>
-      <td><input className="input" type="date" value={v.happened_on} onChange={(e) => setV({ ...v, happened_on: e.target.value })} aria-label="Data" /></td>
-      <td><input className="input" value={v.description} onChange={(e) => setV({ ...v, description: e.target.value })} aria-label="Descrição" autoFocus maxLength={120} /></td>
-      <td>
+    <li>
+      <form className="extrato__edit" onSubmit={(e) => { e.preventDefault(); guardar(); }} onKeyDown={(e) => e.key === "Escape" && fechar()}>
+        <input className="input extrato__edit-d" value={v.description} onChange={(e) => setV({ ...v, description: e.target.value })} aria-label="Descrição" autoFocus maxLength={120} />
+        <select className="input" value={v.kind} onChange={(e) => setV({ ...v, kind: e.target.value as Lancamento["kind"] })} aria-label="Tipo"><option value="saida">Saída</option><option value="entrada">Entrada</option></select>
+        <input className="input" inputMode="decimal" value={v.valor} onChange={(e) => setV({ ...v, valor: e.target.value })} aria-label="Valor" />
         <select className="input" value={v.category} onChange={(e) => setV({ ...v, category: e.target.value })} aria-label="Categoria">
           {[...new Set([v.category, ...cats])].map((c) => <option key={c}>{c}</option>)}
         </select>
-      </td>
-      <td className="num">
-        <span className="tabela__valor">
-          <select className="input" value={v.kind} onChange={(e) => setV({ ...v, kind: e.target.value as Lancamento["kind"] })} aria-label="Tipo"><option value="saida">−</option><option value="entrada">+</option></select>
-          <input className="input" inputMode="decimal" value={v.valor} onChange={(e) => setV({ ...v, valor: e.target.value })} aria-label="Valor" />
+        <input className="input" type="date" value={v.happened_on} onChange={(e) => setV({ ...v, happened_on: e.target.value })} aria-label="Data" />
+        <label className="check-line"><input type="checkbox" checked={v.paid} onChange={(e) => setV({ ...v, paid: e.target.checked })} />{v.kind === "saida" ? "Pago" : "Recebido"}</label>
+        <span className="extrato__edit-a">
+          <button type="button" className="btn btn--ghost btn--sm" disabled={pendente} onClick={() => { if (confirm(`Apagar "${l.description}"?`)) iniciar(async () => { await apagarLancamento(l.id); fechar(); }); }}><Trash2 aria-hidden />Apagar</button>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={fechar}><X aria-hidden />Cancelar</button>
+          <button type="submit" className="btn btn--sm" disabled={pendente}><Check aria-hidden />Guardar</button>
         </span>
-      </td>
-      <td><label className="check-line"><input type="checkbox" checked={v.paid} onChange={(e) => setV({ ...v, paid: e.target.checked })} />Pago</label></td>
-      <td className="tabela__acoes">
-        <button type="button" className="icon-btn" aria-label="Guardar" disabled={pendente} onClick={guardar}><Check size={15} /></button>
-        <button type="button" className="icon-btn" aria-label="Cancelar" onClick={fechar}><X size={15} /></button>
-        <button type="button" className="icon-btn" aria-label="Apagar" disabled={pendente} onClick={() => { if (confirm(`Apagar "${l.description}"?`)) iniciar(async () => { await apagarLancamento(l.id); fechar(); }); }}><Trash2 size={14} /></button>
-      </td>
-    </tr>
+      </form>
+    </li>
   );
 }
 
@@ -229,4 +204,14 @@ function EditarParcelamento({ p, fechar }: { p: Parcelamento; fechar: () => void
       </form>
     </Painel>
   );
+}
+
+/** No celular, a faixa dos meses rola até o mês escolhido */
+export function RolarAteMes() {
+  useEffect(() => {
+    const el = document.querySelector<HTMLElement>(".meses__lista .is-atual");
+    const faixa = el?.parentElement;
+    if (el && faixa && faixa.scrollWidth > faixa.clientWidth) faixa.scrollLeft = el.offsetLeft - faixa.clientWidth / 2 + el.clientWidth / 2;
+  }, []);
+  return null;
 }

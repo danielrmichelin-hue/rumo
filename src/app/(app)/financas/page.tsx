@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Download, Route } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Plus, Route } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
 import { ChecarRotina } from "@/components/Rotinas";
-import { GradeParcelas, TabelaLancamentos } from "@/components/FinancasPlanilha";
+import { ExtratoMes, GradeParcelas, RolarAteMes } from "@/components/FinancasPlanilha";
 import { Anel } from "@/components/Caminho";
 import type { ContextItem } from "@/components/Shell";
 import { diaMes, hojeISO, rotuloData } from "@/lib/datas";
@@ -25,9 +25,8 @@ const ABAS = [
   { v: "resumo", r: "Resumo" },
 ] as const;
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string; aba?: string; periodo?: string }> }) {
-  const { mes: param, aba: abaParam, periodo: periodoParam } = await searchParams;
-  const periodo = periodoParam === "ano" || periodoParam === "tudo" ? periodoParam : "mes";
+export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string; aba?: string; lm?: string }> }) {
+  const { mes: param, aba: abaParam, lm: lmParam } = await searchParams;
   const aba = ABAS.find((a) => a.v === abaParam)?.v ?? "mes";
   const hoje = hojeISO();
   const supabase = await createClient();
@@ -55,8 +54,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   ]);
   const lancamentos = (lancDb ?? []).map(normalizarLancamento);
   // Lançamentos (ano ou tudo) e Resumo: todos os lançamentos
-  const precisaTodos = aba === "resumo" || (aba === "lancamentos" && periodo !== "mes");
-  const { data: todosDb } = precisaTodos ? await supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).order("happened_on", { ascending: false }) : { data: [] };
+  // Lançamentos: o mês do calendário (lm), com o ano inteiro na faixa dos meses. Resumo: todos.
+  const lm = lmParam && /^\d{4}-(0[1-9]|1[0-2])$/.test(lmParam) ? lmParam : hoje.slice(0, 7);
+  const ano = lm.slice(0, 4);
+  const { data: todosDb } = aba === "resumo"
+    ? await supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).order("happened_on", { ascending: false })
+    : aba === "lancamentos"
+    ? await supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).gte("happened_on", `${ano}-01-01`).lte("happened_on", `${ano}-12-31`).order("happened_on", { ascending: false })
+    : { data: [] };
   const todos = (todosDb ?? []).map(normalizarLancamento);
   const atrasados = (atrasadosDb ?? []).map(normalizarLancamento);
   const contas = contasDoMes((rotinasDb ?? []) as Rotina[], (marcasDb ?? []) as Marcacao[], inicio, fim);
@@ -263,27 +268,77 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         );
       })()}
 
-      {aba === "lancamentos" && (
-        <>
-          <div className="fin-ciclo">
-            <div className="seg seg--sm" role="radiogroup" aria-label="Período">
-              {([["mes", "Mês"], ["ano", "Ano"], ["tudo", "Tudo"]] as const).map(([v, r]) => (
-                <Link key={v} href={`/financas?${new URLSearchParams({ aba: "lancamentos", ...(v !== "mes" ? { periodo: v } : {}), ...(mes !== atual ? { mes } : {}) })}`} aria-current={periodo === v ? "page" : undefined}>{r}</Link>
-              ))}
+      {aba === "lancamentos" && (() => {
+        const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+        const doMes = (m: string) => todos.filter((l) => l.happened_on.startsWith(m));
+        const totais = (lista: typeof todos) => {
+          const pagos = lista.filter((l) => l.paid);
+          const entrou = pagos.filter((l) => l.kind === "entrada").reduce((t, l) => t + l.amount, 0);
+          const saiu = pagos.filter((l) => l.kind === "saida").reduce((t, l) => t + l.amount, 0);
+          return { entrou, saiu, saldo: entrou - saiu, aPagar: lista.filter((l) => !l.paid && l.kind === "saida").reduce((t, l) => t + l.amount, 0), n: lista.length };
+        };
+        const desteMes = doMes(lm);
+        const t = totais(desteMes);
+        const nomeMes = diaMes(`${lm}-01`).split(" de ")[1];
+        const cats = [...new Set(desteMes.filter((l) => l.paid && l.kind === "saida").map((l) => l.category))]
+          .map((c) => ({ c, v: desteMes.filter((l) => l.paid && l.kind === "saida" && l.category === c).reduce((s2, l) => s2 + l.amount, 0) }))
+          .sort((x, y) => y.v - x.v);
+        const maxC = Math.max(1, ...cats.map((x) => x.v));
+        const link = (m: string) => `/financas?aba=lancamentos&lm=${m}`;
+        return (
+          <>
+            <div className="meses">
+              <Link href={link(`${Number(ano) - 1}-12`)} className="icon-btn" aria-label="Ano anterior"><ChevronLeft size={18} /></Link>
+              <b className="meses__ano">{ano}</b>
+              <div className="meses__lista">
+                {MESES.map((nome, i) => {
+                  const m = `${ano}-${String(i + 1).padStart(2, "0")}`;
+                  const tm = totais(doMes(m));
+                  return (
+                    <Link key={m} href={link(m)} className={`mes${m === lm ? " is-atual" : ""}${tm.n ? "" : " is-vazio"}`} aria-current={m === lm ? "page" : undefined}>
+                      <b>{nome}</b>
+                      <small className={tm.n ? (tm.saldo < 0 ? "neg" : "pos") : undefined}>{tm.n ? `${tm.saldo < 0 ? "−" : "+"}${moeda(Math.abs(tm.saldo)).replace("R$", "").trim()}` : "—"}</small>
+                    </Link>
+                  );
+                })}
+              </div>
+              <Link href={link(`${Number(ano) + 1}-01`)} className="icon-btn" aria-label="Próximo ano"><ChevronRight size={18} /></Link>
+              <RolarAteMes key={lm} />
             </div>
-            {periodo === "mes" && (
-              <>
-                <Link href={url({ mes: mesVizinho(mes, -1) })} className="icon-btn" aria-label="Mês anterior"><ChevronLeft size={18} /></Link>
-                <span className="fin-mes">{titulo}</span>
-                <Link href={url({ mes: mesVizinho(mes, 1) })} className="icon-btn" aria-label="Próximo mês"><ChevronRight size={18} /></Link>
-              </>
-            )}
-            {periodo === "ano" && <span className="fin-mes">{mes.slice(0, 4)}</span>}
-          </div>
-          <NovoLancamento contextos={ctx} mes={inicio.slice(0, 7)} />
-          <TabelaLancamentos lancamentos={periodo === "mes" ? lancamentos : periodo === "ano" ? todos.filter((l) => l.happened_on.startsWith(mes.slice(0, 4))) : todos} />
-        </>
-      )}
+
+            <div className="nums">
+              <div><small>Entrou em {nomeMes}</small><b className="pos">{moeda(t.entrou)}</b></div>
+              <div><small>Saiu</small><b>{moeda(t.saiu)}</b></div>
+              <div><small>Saldo do mês</small><b className={t.saldo < 0 ? "neg" : "pos"}>{moeda(t.saldo)}</b></div>
+              <div><small>A pagar</small><b>{moeda(t.aPagar)}</b><span>{t.n} {t.n === 1 ? "lançamento" : "lançamentos"}</span></div>
+            </div>
+
+            <details className="fin-novo" open={!desteMes.length}>
+              <summary className="btn btn--sm"><Plus aria-hidden />Lançamento</summary>
+              <NovoLancamento key={lm} contextos={ctx} mes={lm} />
+            </details>
+
+            <div className="fin-cols">
+              <ExtratoMes key={lm} lancamentos={desteMes} hoje={hoje} />
+              <aside className="fin-lado">
+                <section className="bloco">
+                  <h2 className="sec__h">Para onde foi em {nomeMes}</h2>
+                  {cats.length === 0 ? <p className="bloco__vazio">Nenhum gasto.</p> : (
+                    <ul className="fin-cats">
+                      {cats.map((x) => (
+                        <li key={x.c}>
+                          <span className="fin-cat__t"><b>{x.c}</b><span>{moeda(x.v)}</span></span>
+                          <span className="fin-cat__bar"><i style={{ width: `${(x.v / maxC) * 100}%` }} /></span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </aside>
+            </div>
+          </>
+        );
+      })()}
 
       {aba === "resumo" && (() => {
         const ciclos = Array.from({ length: 12 }, (_, k) => { const m = mesVizinho(atual, k - 11); return { m, ...ciclo(m, aj) }; });
