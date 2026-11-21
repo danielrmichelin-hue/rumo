@@ -9,7 +9,7 @@ import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, t
 import { CORES_CONTEXTO, type Estado } from "@/lib/tipos";
 import { CORES_MATERIA, INTERVALOS, proximaRevisao, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 import { textoFrequencia } from "@/lib/rotinas";
-import { limitesDoMes, TIPOS_INVESTIMENTO } from "@/lib/financas";
+import { limitesDoMes, tipoNoBanco, TIPOS_INVESTIMENTO } from "@/lib/financas";
 import { TIPOS_SAUDE, type TipoMedida, MEDIDAS } from "@/lib/saude";
 
 function atualizar() {
@@ -1152,7 +1152,7 @@ export async function lancar(d: DadosLancamento): Promise<{ ok: boolean; erro?: 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("fin_entries")
-    .insert({ ...t, amount: Math.round(d.amount * 100) / 100, description, category: transferencia ? "Investimentos" : d.category.trim().slice(0, 40) || "Outros", happened_on: d.happened_on, paid: transferencia ? true : d.paid, context_id: d.context_id || null })
+    .insert({ kind: tipoNoBanco(t.kind), investment_id: t.investment_id, amount: Math.round(d.amount * 100) / 100, description, category: transferencia ? "Investimentos" : d.category.trim().slice(0, 40) || "Outros", happened_on: d.happened_on, paid: transferencia ? true : d.paid, context_id: d.context_id || null })
     .select("id")
     .single();
   if (error || !data) return { ok: false, erro: "Não foi possível lançar." };
@@ -1334,7 +1334,7 @@ export async function editarLancamento(id: string, d: { kind: DadosLancamento["k
   const transferencia = t.kind === "aporte" || t.kind === "resgate";
   const supabase = await createClient();
   const { error } = await supabase.from("fin_entries").update({
-    ...t, amount: Math.round(d.amount * 100) / 100, description,
+    kind: tipoNoBanco(t.kind), investment_id: t.investment_id, amount: Math.round(d.amount * 100) / 100, description,
     category: transferencia ? "Investimentos" : d.category.trim().slice(0, 40) || "Outros", happened_on: d.happened_on, paid: transferencia ? true : !!d.paid,
   }).eq("id", id);
   if (error) return { ok: false, erro: "Não foi possível guardar." };

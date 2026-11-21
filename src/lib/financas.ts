@@ -36,8 +36,15 @@ export const naConta = (l: Pick<Lancamento, "kind" | "amount">) => (l.kind === "
 /** "R$ 1.234,56" */
 export const moeda = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-/** Números do banco chegam como texto (numeric) */
-export const normalizarLancamento = (l: Record<string, unknown>): Lancamento => ({ ...(l as Lancamento), amount: Number(l.amount) });
+/** Números do banco chegam como texto (numeric). No banco, investir é uma saída ligada a um investimento e
+ *  resgatar é uma entrada ligada a um investimento; no app, viram "aporte" e "resgate". */
+export const normalizarLancamento = (l: Record<string, unknown>): Lancamento => ({
+  ...(l as Lancamento),
+  amount: Number(l.amount),
+  kind: l.investment_id ? (l.kind === "saida" ? "aporte" : "resgate") : (l.kind as Lancamento["kind"]),
+});
+/** O contrário, para gravar: aporte e resgate viram saída e entrada com o investimento */
+export const tipoNoBanco = (kind: TipoLancamento): "entrada" | "saida" => (kind === "aporte" || kind === "saida" ? "saida" : "entrada");
 
 /** Primeiro e último dia do mês "AAAA-MM" */
 export function limitesDoMes(mes: string) {

@@ -48,11 +48,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
     esteCiclo ? supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).eq("paid", false).lt("happened_on", inicio) : Promise.resolve({ data: [] }),
     supabase.from("fin_installments").select(CAMPOS_PARCELAMENTO).order("first_due"),
     supabase.from("fin_investments").select(CAMPOS_INVESTIMENTO).order("created_at"),
-    supabase.from("fin_inv_moves").select(CAMPOS_MOVIMENTO).order("happened_on", { ascending: false }),
+    // De fin_inv_moves, só os rendimentos (investir e resgatar são lançamentos)
+    supabase.from("fin_inv_moves").select(CAMPOS_MOVIMENTO).eq("kind", "rendimento").order("happened_on", { ascending: false }),
     // Para o saldo da conta: o que entrou e saiu depois do saldo informado
     aj.cash_on ? supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).eq("paid", true).gt("happened_on", aj.cash_on) : Promise.resolve({ data: [] }),
     // Investir e resgatar (lançamentos): o histórico e o saldo de cada investimento
-    supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).in("kind", ["aporte", "resgate"]).order("happened_on", { ascending: false }),
+    supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).not("investment_id", "is", null).order("happened_on", { ascending: false }),
   ]);
   const lancamentos = (lancDb ?? []).map(normalizarLancamento);
   // Lançamentos: o mês do calendário (lm), com o ano inteiro na faixa dos meses. Resumo: todos.

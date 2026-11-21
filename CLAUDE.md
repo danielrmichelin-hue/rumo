@@ -54,8 +54,9 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   `review_step`/`next_review_on` nas aulas) e 0012 (Finanças: `fin_entries`, `fin_budgets`; `amount` e `category` nas rotinas = conta
   fixa) e 0013 (Saúde: `dose` e `ends_on` nas rotinas = remédio com fim; `health_kind` nos events = consulta, exame, vacina,
   procedimento; `health_measures` com peso, pressão etc.) e 0014 (Finanças completas: `fin_settings` com dia do pagamento, envelopes
-  e saldo da conta; `fin_installments` parcelamentos; `installment_id` nos lançamentos; `fin_investments` e `fin_inv_moves`) e 0015 (`subtasks`: checklist dentro da tarefa) e 0016 (lançamentos são a base: `kind` aceita `aporte`/`resgate` com
-  `investment_id`; `fin_inv_moves` guarda só rendimentos) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
+  e saldo da conta; `fin_installments` parcelamentos; `installment_id` nos lançamentos; `fin_investments` e `fin_inv_moves`) e 0015 (`subtasks`: checklist dentro da tarefa) e 0016 (lançamentos são a base: `investment_id` nos lançamentos; investir = saída com
+  investimento, resgatar = entrada com investimento, e o app lê como `aporte`/`resgate` em `normalizarLancamento`; de
+  `fin_inv_moves` o app lê só os rendimentos) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`. A casca (`src/components/Shell.tsx`) tem a lateral fixa: Hoje, Inbox, Calendário,
   Tarefas, Projetos; Áreas da vida (Negócios, Estudos, Finanças, Saúde, Rotinas, Rotas, Notas); Contextos (só os de tipo
