@@ -1,6 +1,6 @@
 // Finanças do mês: o que entrou, o que saiu, o que falta pagar e onde o dinheiro foi.
 // Contas fixas são rotinas mensais com valor ("Condomínio · R$ 800 · todo dia 10"): pagar = marcar a rotina + lançar a saída.
-import { montarISO } from "./datas";
+import { somarMeses } from "./datas";
 import { diaNoMes, type Marcacao, type Rotina } from "./rotinas";
 
 export type TipoLancamento = "entrada" | "saida" | "aporte" | "resgate";
@@ -107,14 +107,6 @@ export const normalizarAjustes = (a: Record<string, unknown> | null): Ajustes =>
 export type Parcelamento = { id: string; title: string; category: string; total: number; installments: number; paid_count: number; first_due: string; creditor: string | null; context_id: string | null; note: string | null };
 export const CAMPOS_PARCELAMENTO = "id, title, category, total, installments, paid_count, first_due, creditor, context_id, note";
 export const normalizarParcelamento = (p: Record<string, unknown>): Parcelamento => ({ ...(p as Parcelamento), total: Number(p.total), installments: Number(p.installments), paid_count: Number(p.paid_count) });
-
-/** Mesmo dia, N meses depois (31 em mês curto vira o último dia) */
-export function somarMeses(iso: string, n: number): string {
-  const [a, m, d] = iso.split("-").map(Number);
-  const alvo = new Date(Date.UTC(a, m - 1 + n, 1));
-  const ultimo = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
-  return montarISO(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, Math.min(d, ultimo));
-}
 
 const MES_CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 /** "dez/27" */

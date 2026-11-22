@@ -17,7 +17,6 @@ export type Nota = {
 export const CAMPOS_NOTA = "id, kind, title, body, why, decided_on, context_id, project_id, course_id, created_at";
 
 /** Onde a nota mora, como valor de formulário: "c:<id>" contexto, "p:<id>" projeto, "e:<id>" curso */
-export type Vinculo = { contexto?: string | null; projeto?: string | null; curso?: string | null };
 export const valorVinculo = (n: Pick<Nota, "context_id" | "project_id" | "course_id">) =>
   n.project_id ? `p:${n.project_id}` : n.course_id ? `e:${n.course_id}` : n.context_id ? `c:${n.context_id}` : "";
 

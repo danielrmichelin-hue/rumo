@@ -32,8 +32,11 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
 
 ## Interface
 
-- Manter a interface atual: fonte Inter (`public/fonts`), lateral Deep `#2B1E4B`, ação em Purple `#6C4ED9`, tokens e
-  tema claro/escuro em `src/app/globals.css` (o tema vem de `data-theme`; Claro, Escuro ou Auto em `src/lib/tema.ts`).
+- Visual (22/11/2026): Inter (`public/fonts`, com `cv11`/`ss01`), Deep `#2B1E4B` e Purple `#6C4ED9`; lateral flutuante
+  com brilho, botões e abas em pílula, rótulos de seção em caixa alta, superfícies com `--ring` (borda fina + sombra),
+  e o "palco" (`--stage`, Deep com brilho) no topo do Hoje (`.palco`: saudação, linha do dia 6h–24h, números, próximo
+  passo em vidro) e de Finanças (`.fin-onde`). Tokens e tema claro/escuro em `src/app/globals.css` (o tema vem de
+  `data-theme`; Claro, Escuro ou Auto em `src/lib/tema.ts`).
 - Logo: os SVGs em `public/brand`; não redesenhar.
 - Pode usar vermelho, contadores, mais de um destaque por tela: o que for mais claro para o Daniel.
 

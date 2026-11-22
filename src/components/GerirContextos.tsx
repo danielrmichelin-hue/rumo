@@ -7,7 +7,6 @@ import {
   apagarContexto,
   arquivarContexto,
   criarContexto,
-  criarContextosSugeridos,
   moverContexto,
   salvarContexto,
   type EstadoForm,
@@ -23,18 +22,6 @@ export function GerirContextos({ contextos, abertas }: { contextos: Contexto[]; 
 
   return (
     <div className="ctx">
-      {contextos.length === 0 && (
-        <div className="empty empty--box">
-          <b>Nenhum contexto ainda.</b>
-          <span>Crie Iter Mídia, Rumo e Casa de uma vez. Dá para renomear, mudar a cor e criar outros depois.</span>
-          <div style={{ marginTop: 10 }}>
-            <button className="btn btn--sm" type="button" disabled={pendente} onClick={() => iniciar(() => criarContextosSugeridos())}>
-              {pendente ? "Criando…" : "Criar Iter Mídia, Rumo e Casa"}
-            </button>
-          </div>
-        </div>
-      )}
-
       {ativos.length > 0 && (
         <ul className="ctx__list">
           {ativos.map((c, i) =>

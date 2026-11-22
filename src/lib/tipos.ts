@@ -45,19 +45,7 @@ export const CORES_CONTEXTO = [
   { cor: "#8A8299", nome: "Cinza" },
 ];
 
-/** Próxima cor da paleta que ainda não está em uso */
-export function proximaCor(usadas: string[]): string {
-  const livre = CORES_CONTEXTO.find((c) => !usadas.map((u) => u.toLowerCase()).includes(c.cor.toLowerCase()));
-  return (livre ?? CORES_CONTEXTO[usadas.length % CORES_CONTEXTO.length]).cor;
-}
-
-export type Perfil = {
-  user_id: string;
-  display_name: string | null;
-  modules: string[];
-  onboarding: Record<string, unknown>;
-  onboarded_at: string | null;
-};
+export type Perfil = { user_id: string; display_name: string | null };
 
 export type Compromisso = {
   id: string;

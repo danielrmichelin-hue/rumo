@@ -47,7 +47,6 @@ export default async function Page() {
       {!lista.length ? (
         <div className="empty empty--box" style={{ maxWidth: 560 }}>
           <b>Primeira Rota</b>
-          <span>Defina onde quer chegar: guardar dinheiro, terminar um livro, concluir um curso, abrir um negócio. O Rumo calcula o ritmo e traz o próximo passo para o Hoje.</span>
           <div style={{ marginTop: 10 }}><Link href="/rotas/nova" className="btn btn--sm">Criar a primeira Rota</Link></div>
         </div>
       ) : (

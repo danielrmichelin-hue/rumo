@@ -6,11 +6,11 @@ import { ChecarRotina } from "@/components/Rotinas";
 import { ExtratoMes, GradeParcelas, RolarAteMes } from "@/components/FinancasPlanilha";
 import { Anel } from "@/components/Caminho";
 import type { ContextItem } from "@/components/Shell";
-import { diaMes, hojeISO, rotuloData } from "@/lib/datas";
+import { diaMes, hojeISO, rotuloData, somarMeses } from "@/lib/datas";
 import {
   CAMPOS_INVESTIMENTO, CAMPOS_LANCAMENTO, CAMPOS_MOVIMENTO, CAMPOS_PARCELAMENTO, contasDoMes, envelopes, limitesDoMes, mesCurto, mesVizinho, moeda,
   movimentosDe, naConta, normalizarAjustes, normalizarInvestimento, normalizarLancamento, normalizarMovimento, normalizarParcelamento, parcelasDoCiclo, projetar, resumoDoMes,
-  resumoParcelamentos, saldoAtual, saldoDaConta, situacaoParcelamento, somarMeses, TIPOS_INVESTIMENTO, type Orcamento,
+  resumoParcelamentos, saldoAtual, saldoDaConta, situacaoParcelamento, TIPOS_INVESTIMENTO, type Orcamento,
 } from "@/lib/financas";
 import { CAMPOS_ROTINA, type Marcacao, type Rotina } from "@/lib/rotinas";
 import { CAMPOS_ROTA, normalizar, resumirRota } from "@/lib/rotas";
@@ -133,11 +133,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
             <Link href={`/financas?mes=${Number(ano) - 1}-12`} className="icon-btn" aria-label="Ano anterior"><ChevronLeft size={18} /></Link>
             <b className="meses__ano">{ano}</b>
             <div className="meses__lista">
-              {MESES.map((nome, i) => {
+              {MESES.map((nome, i, todos) => {
                 const m = `${ano}-${String(i + 1).padStart(2, "0")}`;
+                const maior = Math.max(1, ...todos.map((_, j) => Math.abs(saldoMes(`${ano}-${String(j + 1).padStart(2, "0")}`))));
                 const sm = saldoMes(m);
                 return (
-                  <Link key={m} href={`/financas?mes=${m}`} className={`mes${m === mes ? " is-atual" : ""}${temMes(m) ? "" : " is-vazio"}`} aria-current={m === mes ? "page" : undefined}>
+                  <Link key={m} href={`/financas?mes=${m}`} className={`mes${m === mes ? " is-atual" : ""}${temMes(m) ? "" : " is-vazio"}${sm < 0 ? " is-neg" : ""}`} aria-current={m === mes ? "page" : undefined} style={{ "--h": `${temMes(m) ? Math.max(8, (Math.abs(sm) / maior) * 100) : 0}%` } as React.CSSProperties}>
                     <b>{nome}</b>
                     <small className={temMes(m) ? (sm < 0 ? "neg" : "pos") : undefined}>{temMes(m) ? `${sm < 0 ? "−" : "+"}${moeda(Math.abs(sm)).replace("R$", "").trim()}` : "—"}</small>
                   </Link>

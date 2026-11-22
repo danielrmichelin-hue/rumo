@@ -27,7 +27,7 @@ export default async function Page() {
   const fim = fimDoDia(hoje);
 
   const [{ data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }, { data: cursosDb }, { data: materiasDb }, { data: parcDb }] = await Promise.all([
-    supabase.from("profiles").select("display_name, modules").maybeSingle(),
+    supabase.from("profiles").select("display_name").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").order("position"),
     supabase.from("projects").select("id, name"),
     supabase.from("responsibilities").select(CAMPOS_LISTA).neq("state", "concluida"),
@@ -76,21 +76,45 @@ export default async function Page() {
   const marcas = (marcasDb ?? []) as Marcacao[];
   const rotinas = rotinasDoDia((rotinasDb ?? []) as Rotina[], marcas, hoje);
   const proximoEvento = dia.agenda.find((e) => !e.done_at && horaDe(e.starts_at) >= agora);
+  // Linha do dia (6h às 24h): compromissos como faixas, rotinas com horário como pontos, e o agora
+  const minutos = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+  const naLinha = (hhmm: string) => Math.max(0, Math.min(100, ((minutos(hhmm) - 360) / 1080) * 100));
+  const numeros = [
+    { n: dia.numeros.atrasadas, rotulo: dia.numeros.atrasadas === 1 ? "atrasada" : "atrasadas", href: "#atencao", quente: true },
+    { n: dia.doDia.length, rotulo: "para hoje", href: "#hoje" },
+    { n: dia.agenda.length, rotulo: "na agenda", href: "#agenda" },
+    { n: parcelasHoje.length, rotulo: "para pagar", href: "/financas" },
+  ];
 
   return (
     <div className="page page--wide">
-      <div className="page__head">
-        <div>
-          <p className="crumb">Hoje · {dataPorExtenso(hoje)}</p>
+      <section className="palco" aria-label="O seu dia">
+        <div className="palco__topo">
+          <div>
+            <p className="palco__data">{dataPorExtenso(hoje)}</p>
+            <h1 className="palco__t">{saudacao(agora)}, {primeiroNome}</h1>
+            <p className="palco__resumo">{resumoDoDia(dia, rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length, estudos.length)}</p>
+          </div>
+          <div className="hide-mobile"><BotaoNova /></div>
         </div>
-        <div className="page__actions hide-mobile"><BotaoNova /></div>
-      </div>
 
-      <header className="today__head">
-        <p className="today__hello">{saudacao(agora)}, {primeiroNome}</p>
-        <h1 className="page__t">O que precisa da sua atenção agora</h1>
-        <p className="today__sum">{resumoDoDia(dia, rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length, estudos.length)}</p>
-      </header>
+        <div className="linha-dia" aria-hidden>
+          <div className="linha-dia__trilho">
+            <i className="linha-dia__feito" style={{ width: `${naLinha(agora)}%` }} />
+            {dia.agenda.map((e) => (
+              <i key={e.id} className="linha-dia__ev" style={{ left: `${naLinha(horaDe(e.starts_at))}%`, width: `max(6px, ${naLinha(e.ends_at ? horaDe(e.ends_at) : horaDe(e.starts_at)) - naLinha(horaDe(e.starts_at))}%)` }} title={`${horaDe(e.starts_at)} ${e.title}`} />
+            ))}
+            {rotinas.filter((r) => r.at_time && !feitaEm(r, marcas, hoje)).map((r) => <i key={r.id} className="linha-dia__rot" style={{ left: `${naLinha(r.at_time!.slice(0, 5))}%` }} />)}
+            <i className="linha-dia__agora" style={{ left: `${naLinha(agora)}%` }}><span>{agora}</span></i>
+          </div>
+          <div className="linha-dia__horas"><span>6h</span><span>12h</span><span>18h</span><span>24h</span></div>
+        </div>
+
+        <ul className="palco__nums">
+          {numeros.map((x) => (
+            <li key={x.rotulo}><Link href={x.href} className={x.quente && x.n > 0 ? "is-quente" : undefined}><b>{x.n}</b><span>{x.rotulo}</span></Link></li>
+          ))}
+        </ul>
 
       {dia.proximo ? (
         <ProximoPasso
@@ -109,13 +133,14 @@ export default async function Page() {
           <div className="next__act"><BotaoNova rotulo="Capturar" variante="btn btn--line" /></div>
         </section>
       )}
+      </section>
 
       <div className="painel">
         <div className="painel__col">
-          <Bloco titulo="Atenção" n={dia.atencao.length} alerta={dia.numeros.atrasadas > 0} vazio="Nada atrasado e nenhum retorno para cobrar hoje.">
+          <Bloco id="atencao" titulo="Atenção" n={dia.atencao.length} alerta={dia.numeros.atrasadas > 0} vazio="Nada atrasado e nenhum retorno para cobrar hoje.">
             {dia.atencao.length > 0 && <Lista itens={dia.atencao} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} cobravel />}
           </Bloco>
-          <Bloco titulo="Hoje" n={dia.doDia.length} acao={doDiaComFeitas.length ? <span className="sec__act">Por horário</span> : null} vazio="Nada com prazo para hoje.">
+          <Bloco id="hoje" titulo="Hoje" n={dia.doDia.length} acao={doDiaComFeitas.length ? <span className="sec__act">Por horário</span> : null} vazio="Nada com prazo para hoje.">
             {doDiaComFeitas.length > 0 && <Lista itens={doDiaComFeitas} contextos={ctx} projetos={nomesProjetos} rotas={mapaRotas} semHoje />}
           </Bloco>
           <Bloco titulo="Aguardando alguém" n={dia.aguardando.length} acao={dia.aguardando.length > 4 ? <Link href="/responsabilidades?estado=aguardando" className="sec__act">Ver todos</Link> : null} vazio="Ninguém te deve retorno agora.">
@@ -124,7 +149,7 @@ export default async function Page() {
         </div>
 
         <div className="painel__col">
-          <Bloco titulo="Agenda" n={dia.agenda.length} acao={<Link href="/calendario" className="sec__act">Calendário</Link>} vazio="Nenhum compromisso hoje.">
+          <Bloco id="agenda" titulo="Agenda" n={dia.agenda.length} acao={<Link href="/calendario" className="sec__act">Calendário</Link>} vazio="Nenhum compromisso hoje.">
             {dia.agenda.length > 0 && (
               <div className="agenda">
                 {dia.agenda.map((e) => {
@@ -151,8 +176,7 @@ export default async function Page() {
             )}
           </Bloco>
 
-          {(
-            <Bloco titulo={rotinas.some((r) => r.dose) ? "Rotinas e remédios" : "Rotinas"} n={rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length} acao={<Link href="/rotinas" className="sec__act">Rotinas</Link>} vazio="Nenhuma rotina para hoje.">
+          <Bloco titulo={rotinas.some((r) => r.dose) ? "Rotinas e remédios" : "Rotinas"} n={rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length} acao={<Link href="/rotinas" className="sec__act">Rotinas</Link>} vazio="Nenhuma rotina para hoje.">
               {rotinas.length > 0 && (
                 <ul className="list">
                   {rotinas.map((r) => {
@@ -175,7 +199,6 @@ export default async function Page() {
                 </ul>
               )}
             </Bloco>
-          )}
 
           {parcelasHoje.length > 0 && (
             <Bloco titulo="Para pagar" n={parcelasHoje.length} acao={<Link href="/financas" className="sec__act">Finanças</Link>} vazio="">
@@ -189,8 +212,7 @@ export default async function Page() {
             </Bloco>
           )}
 
-          {(
-            <Bloco titulo="Estudos" n={estudos.length + revisoes.length} acao={<Link href="/estudos" className="sec__act">Estudos</Link>} vazio={cursos.length ? "Sessão de estudo já marcada para hoje, ou ciclo completo." : "Monte o seu ciclo de estudos para ver aqui a matéria da vez."}>
+          <Bloco titulo="Estudos" n={estudos.length + revisoes.length} acao={<Link href="/estudos" className="sec__act">Estudos</Link>} vazio={cursos.length ? "Sessão de estudo já marcada para hoje, ou ciclo completo." : "Monte o seu ciclo de estudos para ver aqui a matéria da vez."}>
               {revisoes.length > 0 && <RevisoesDoDia temas={revisoes} materias={materias} cursoDe={cursoDaMateria} />}
               {estudos.length > 0 && (
                 <ul className="list">
@@ -209,10 +231,8 @@ export default async function Page() {
                 </ul>
               )}
             </Bloco>
-          )}
 
-          {(
-            <Bloco titulo="Rotas" n={rotas.length} acao={<Link href="/rotas" className="sec__act">Rotas</Link>} vazio="Nenhuma Rota em andamento.">
+          <Bloco titulo="Rotas" n={rotas.length} acao={<Link href="/rotas" className="sec__act">Rotas</Link>} vazio="Nenhuma Rota em andamento.">
               {rotas.length > 0 && (
                 <div className="agenda">
                   {rotas.slice(0, 4).map(({ r, resumo }) => (
@@ -224,7 +244,6 @@ export default async function Page() {
                 </div>
               )}
             </Bloco>
-          )}
         </div>
       </div>
 
@@ -237,9 +256,9 @@ export default async function Page() {
 }
 
 /** Um bloco do painel: sempre no mesmo lugar; vazio vira uma linha só */
-function Bloco({ titulo, n, acao, vazio, alerta = false, children }: { titulo: string; n: number; acao?: React.ReactNode; vazio: string; alerta?: boolean; children?: React.ReactNode }) {
+function Bloco({ id, titulo, n, acao, vazio, alerta = false, children }: { id?: string; titulo: string; n: number; acao?: React.ReactNode; vazio: string; alerta?: boolean; children?: React.ReactNode }) {
   return (
-    <section className={`bloco${alerta ? " bloco--alerta" : ""}`}>
+    <section id={id} className={`bloco${alerta ? " bloco--alerta" : ""}`}>
       <h2 className="sec__h">{titulo}{n > 0 && <em>{n}</em>}{acao}</h2>
       {Children.toArray(children).length ? children : <p className="bloco__vazio">{vazio}</p>}
     </section>

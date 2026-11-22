@@ -3,7 +3,7 @@
 // "Rumo não pune desvios. Rumo recalcula o caminho."
 
 import { BookOpen, Building2, GraduationCap, Wallet } from "lucide-react";
-import { diaDaSemana, diaMes, diferencaDias, hojeISO, mesAno, montarISO, nomeDoMes, somarDias } from "./datas";
+import { diaDaSemana, diaMes, diferencaDias, hojeISO, mesAno, montarISO, nomeDoMes, somarDias, somarMeses } from "./datas";
 
 export type TipoRota = "financeiro" | "leitura" | "estudos" | "negocios";
 
@@ -30,11 +30,11 @@ export type Marco = { id: string; route_id: string; title: string; position: num
 export const CAMPOS_MARCO = "id, route_id, title, position, due_date, done_at";
 export const CAMPOS_ROTA = "id, title, kind, context_id, target, current, start_value, start_date, target_date, status, note, course_id";
 
-export const TIPOS: Record<TipoRota, { nome: string; exemplo: string; informa: string; calcula: string }> = {
-  financeiro: { nome: "Financeiro", exemplo: "Guardar R$ 5.000", informa: "Quanto quer juntar, quanto já tem e o prazo", calcula: "O ritmo mensal e a data de chegada" },
-  leitura: { nome: "Leitura", exemplo: "Terminar um livro", informa: "Páginas, quanto já leu e quando quer terminar", calcula: "O ritmo diário" },
-  estudos: { nome: "Estudos", exemplo: "Concluir um curso de 60 aulas", informa: "Aulas, quantas já fez e quando quer terminar", calcula: "Aulas por semana e a previsão" },
-  negocios: { nome: "Negócios", exemplo: "Abrir a segunda unidade", informa: "Os marcos até o destino", calcula: "O marco atual e os próximos passos dele" },
+export const TIPOS: Record<TipoRota, { nome: string; exemplo: string }> = {
+  financeiro: { nome: "Financeiro", exemplo: "Guardar R$ 5.000" },
+  leitura: { nome: "Leitura", exemplo: "Terminar um livro" },
+  estudos: { nome: "Estudos", exemplo: "Concluir um curso de 60 aulas" },
+  negocios: { nome: "Negócios", exemplo: "Abrir a segunda unidade" },
 };
 
 
@@ -45,13 +45,6 @@ export function normalizar(r: Record<string, unknown>): Rota {
 }
 
 export const brl = (v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
-
-export function somarMeses(iso: string, meses: number): string {
-  const [a, m, d] = iso.split("-").map(Number);
-  const alvo = new Date(Date.UTC(a, m - 1 + meses, 1));
-  const ultimo = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
-  return montarISO(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, Math.min(d, ultimo));
-}
 
 /** Quanto tempo, na unidade do ritmo de cada tipo: meses (financeiro), dias (leitura), semanas (estudos e negócios) */
 export function periodos(kind: TipoRota, de: string, ate: string): number {
@@ -247,7 +240,3 @@ function resumirNegocio(r: Rota, marcos: Marco[], hoje: string): ResumoRota {
 }
 
 /** Texto do anel na lateral: "62%" ou "2/6" */
-export function rotuloAnel(r: Rota, resumo: ResumoRota, marcos: Marco[] = []): string {
-  if (r.kind === "negocios") return `${marcos.filter((m) => m.done_at).length}/${marcos.length}`;
-  return `${Math.round(resumo.pct * 100)}%`;
-}

@@ -20,7 +20,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
           <h1 className="page__t">O que você estuda?</h1>
         </div>
       </div>
-      <NovoCurso contextos={contextos ?? []} tipoInicial={inicial} sugeridos={[]} />
+      <NovoCurso contextos={contextos ?? []} tipoInicial={inicial} />
     </div>
   );
 }

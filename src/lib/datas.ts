@@ -142,3 +142,11 @@ export function haDias(timestamp: string, hoje: string = hojeISO()): string {
   const d = Math.max(0, diferencaDias(hojeISO(new Date(timestamp)), hoje));
   return d === 0 ? "hoje" : d === 1 ? "1 dia" : `${d} dias`;
 }
+
+/** Mesmo dia, N meses depois (31 em mês curto vira o último dia) */
+export function somarMeses(iso: string, n: number): string {
+  const [a, m, d] = iso.split("-").map(Number);
+  const alvo = new Date(Date.UTC(a, m - 1 + n, 1));
+  const ultimo = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
+  return montarISO(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, Math.min(d, ultimo));
+}

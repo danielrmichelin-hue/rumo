@@ -108,12 +108,8 @@ export function NovaRota({ contextos, tipoInicial, tituloInicial, curso }: { con
         {(Object.keys(TIPOS) as TipoRota[]).map((t) => {
           const Icon = ICONES_ROTA[t];
           return (
-            <button key={t} type="button" className="opt" onClick={() => escolher(t)} style={{ alignItems: "flex-start", minHeight: 96 }}>
-              <Icon aria-hidden style={{ marginTop: 2 }} />
-              <span style={{ display: "grid", gap: 4 }}>
-                <span>{TIPOS[t].nome} · {TIPOS[t].exemplo}</span>
-                <span className="field__hint" style={{ fontWeight: 400 }}>Você informa: {TIPOS[t].informa.toLowerCase()}. O Rumo calcula: {TIPOS[t].calcula.toLowerCase()}.</span>
-              </span>
+            <button key={t} type="button" className="opt" onClick={() => escolher(t)}>
+              <Icon aria-hidden />{TIPOS[t].nome} · {TIPOS[t].exemplo}
             </button>
           );
         })}

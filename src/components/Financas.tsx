@@ -2,7 +2,7 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import { Check, Plus, Settings2, Trash2 } from "lucide-react";
-import { apagarInvestimento, apagarLancamento, apagarMovimento, apagarParcelamento, atualizarSaldoInvestimento, criarInvestimento, criarParcelamento, criarRotina, desfazerParcela, lancar, marcarLancamentoPago, movimentarInvestimento, pagarParcela, salvarAjustesFinancas, salvarOrcamento } from "@/app/(app)/acoes";
+import { apagarInvestimento, apagarLancamento, apagarMovimento, atualizarSaldoInvestimento, criarInvestimento, criarParcelamento, criarRotina, desfazerParcela, lancar, marcarLancamentoPago, movimentarInvestimento, pagarParcela, salvarAjustesFinancas, salvarOrcamento } from "@/app/(app)/acoes";
 import { hojeISO, numeroBR, rotuloData } from "@/lib/datas";
 import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA, moeda, naConta, ROTULO_TIPO, TIPOS_INVESTIMENTO, type Ajustes, type Investimento, type Lancamento, type Movimento, type TipoLancamento } from "@/lib/financas";
 import { useAvisar } from "./Avisos";
@@ -282,11 +282,6 @@ export function NovoParcelamento({ contextos, credores }: { contextos: ContextIt
       </div>
     </form>
   );
-}
-
-export function ApagarParcelamento({ id, titulo }: { id: string; titulo: string }) {
-  const [pendente, iniciar] = useTransition();
-  return <button type="button" className="icon-btn" aria-label={`Apagar ${titulo}`} disabled={pendente} onClick={() => { if (confirm(`Apagar o parcelamento "${titulo}"? Os pagamentos já lançados continuam.`)) iniciar(() => apagarParcelamento(id)); }}><Trash2 size={15} /></button>;
 }
 
 // ---------- investimentos ----------

@@ -16,6 +16,14 @@ function atualizar() {
   revalidatePath("/", "layout");
 }
 
+/** Apaga uma linha do dono pelo id (o RLS garante que é dele) */
+async function apagarPorId(tabela: string, id: string) {
+  if (!ehId(id)) return;
+  const supabase = await createClient();
+  await supabase.from(tabela).delete().eq("id", id);
+  atualizar();
+}
+
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 const HORA = /^\d{2}:\d{2}(:\d{2})?$/;
 const texto = (v: FormDataEntryValue | null) => (typeof v === "string" ? v.trim() : "");
@@ -167,18 +175,6 @@ export async function criarContexto(_: EstadoForm, form: FormData): Promise<Esta
   return { ok: true, em: Date.now() };
 }
 
-export async function criarContextosSugeridos() {
-  const supabase = await createClient();
-  const { count } = await supabase.from("contexts").select("id", { count: "exact", head: true });
-  if (count) return;
-  await supabase.from("contexts").insert([
-    { name: "Iter Mídia", kind: "empresa", color: CORES_CONTEXTO[0].cor, position: 0 },
-    { name: "Rumo", kind: "empresa", color: CORES_CONTEXTO[3].cor, position: 1 },
-    { name: "Casa", kind: "area", color: CORES_CONTEXTO[2].cor, position: 2 },
-  ]);
-  atualizar();
-}
-
 export async function salvarContexto(_: EstadoForm, form: FormData): Promise<EstadoForm> {
   const id = texto(form.get("id"));
   const name = texto(form.get("name"));
@@ -200,11 +196,9 @@ export async function arquivarContexto(id: string, arquivado: boolean) {
   atualizar();
 }
 
+// As responsabilidades do contexto voltam para a Inbox (on delete set null)
 export async function apagarContexto(id: string) {
-  const supabase = await createClient();
-  // As responsabilidades do contexto voltam para a Inbox (on delete set null)
-  await supabase.from("contexts").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("contexts", id);
 }
 
 export async function moverContexto(id: string, direcao: -1 | 1) {
@@ -414,19 +408,18 @@ export async function adicionarNoProjeto(projetoId: string, bruto: string): Prom
 
 // ---------- busca ----------
 
-export type Achado = { tipo: "responsabilidade" | "projeto" | "rota" | "curso" | "rotina" | "nota" | "contexto" | "compromisso" | "pessoa" | "lancamento"; id: string; titulo: string; detalhe: string; href: string; cor?: string };
+export type Achado = { tipo: "responsabilidade" | "projeto" | "rota" | "curso" | "rotina" | "nota" | "contexto" | "compromisso" | "lancamento"; id: string; titulo: string; detalhe: string; href: string; cor?: string };
 
 export async function buscar(termo: string): Promise<Achado[]> {
   const q = termo.trim().replace(/[%,()]/g, " ").replace(/\s+/g, " ").slice(0, 80);
   if (q.length < 2) return [];
   const like = `%${q}%`;
   const supabase = await createClient();
-  const [r, p, c, e, g, ctxs, rt, cs, ms, rn, nt, fin] = await Promise.all([
+  const [r, p, c, e, ctxs, rt, cs, ms, rn, nt, fin] = await Promise.all([
     supabase.from("responsibilities").select("id, title, note, state, context_id, waiting_note").or(`title.ilike.${like},note.ilike.${like},waiting_note.ilike.${like}`).order("updated_at", { ascending: false }).limit(20),
     supabase.from("projects").select("id, name, note, context_id").or(`name.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("contexts").select("id, name, color").ilike("name", like).limit(8),
     supabase.from("events").select("id, title, starts_at, context_id").or(`title.ilike.${like},location.ilike.${like},note.ilike.${like}`).order("starts_at", { ascending: false }).limit(8),
-    supabase.from("people").select("id, name").ilike("name", like).limit(8),
     supabase.from("contexts").select("id, name, color"),
     supabase.from("routes").select("id, title, kind, context_id").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("study_courses").select("id, title, kind, context_id").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
@@ -462,7 +455,7 @@ export async function buscar(termo: string): Promise<Achado[]> {
   for (const x of rn.data ?? []) achados.push({ tipo: "rotina", id: x.id, titulo: x.title, detalhe: `Rotina · ${textoFrequencia(x)}${x.at_time ? ` · ${x.at_time.slice(0, 5)}` : ""}`, href: `/rotinas#${x.id}` });
   for (const x of (fin.data ?? []).map(normalizarLancamento)) {
     const sinal = naConta(x) < 0 ? "−" : "+";
-    achados.push({ tipo: "lancamento", id: x.id, titulo: x.description, detalhe: `${sinal}${moeda(x.amount)} · ${x.happened_on.split("-").reverse().join("/")} · ${x.category}`, href: `/financas?aba=lancamentos&lm=${x.happened_on.slice(0, 7)}` });
+    achados.push({ tipo: "lancamento", id: x.id, titulo: x.description, detalhe: `${sinal}${moeda(x.amount)} · ${x.happened_on.split("-").reverse().join("/")} · ${x.category}`, href: `/financas?mes=${x.happened_on.slice(0, 7)}` });
   }
   for (const x of nt.data ?? []) {
     const ctx = nomeCtx(x.context_id);
@@ -474,7 +467,6 @@ export async function buscar(termo: string): Promise<Achado[]> {
     const dia = hojeISO(new Date(x.starts_at));
     achados.push({ tipo: "compromisso", id: x.id, titulo: x.title, detalhe: `Compromisso · ${dia.split("-").reverse().slice(0, 2).join("/")}${ctx ? ` · ${ctx.name}` : ""}`, href: `/calendario/${x.id}`, cor: ctx?.color });
   }
-  for (const x of g.data ?? []) achados.push({ tipo: "pessoa", id: x.id, titulo: x.name, detalhe: "Pessoa", href: `/busca?q=${encodeURIComponent(x.name)}` });
   return achados;
 }
 
@@ -642,9 +634,7 @@ export async function concluirMarco(id: string, feito: boolean) {
 }
 
 export async function apagarMarco(id: string) {
-  const supabase = await createClient();
-  await supabase.from("route_milestones").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("route_milestones", id);
 }
 
 // ---------- estudos (Book 6.2): ciclo de estudos ----------
@@ -769,9 +759,7 @@ export async function salvarMateria(id: string, titulo: string, minutos: number 
 }
 
 export async function apagarMateria(id: string) {
-  const supabase = await createClient();
-  await supabase.from("study_subjects").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("study_subjects", id);
 }
 
 /** Sobe ou desce a matéria na ordem do ciclo */
@@ -852,9 +840,7 @@ export async function renomearModulo(id: string, titulo: string) {
 
 /** As aulas do módulo continuam na matéria, sem módulo */
 export async function apagarModulo(id: string) {
-  const supabase = await createClient();
-  await supabase.from("study_modules").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("study_modules", id);
 }
 
 /** Fim de um foco (pomodoro): o tempo estudado vira sessão concluída; pode dar a aula por vista */
@@ -870,9 +856,7 @@ export async function registrarFoco(courseId: string, subjectId: string | null, 
 }
 
 export async function apagarTema(id: string) {
-  const supabase = await createClient();
-  await supabase.from("study_topics").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("study_topics", id);
 }
 
 /** +1 ou −1 aula no curso (quando ele tem aulas contadas) e nas Rotas de estudos ligadas */
@@ -952,16 +936,6 @@ export async function registrarEstudo(_: EstadoForm, form: FormData): Promise<Es
 }
 
 /** "Começar sessão": abre uma sessão de 50 min agora */
-export async function comecarSessao(courseId: string, subjectId: string | null, topicId: string | null = null): Promise<{ ok: boolean; id?: string }> {
-  const supabase = await createClient();
-  const agora = new Date();
-  agora.setSeconds(0, 0);
-  const id = await inserirSessao(supabase, courseId, subjectId, topicId, agora, 50);
-  if (!id) return { ok: false };
-  atualizar();
-  return { ok: true, id };
-}
-
 /** Concluir a sessão conta o tempo no ciclo e na semana; pode dar o tema por terminado.
  *  Concluída antes do fim marcado, o fim passa a ser agora (conta só o tempo estudado); o desfazer devolve o fim. */
 export async function concluirSessao(id: string, feita: boolean, temaFeito = false, fimAntes?: string | null): Promise<{ ok: boolean; fimAntes?: string | null }> {
@@ -1015,9 +989,7 @@ export async function restaurarSessao(id: string, starts_at: string, ends_at: st
 }
 
 export async function apagarSessao(id: string) {
-  const supabase = await createClient();
-  await supabase.from("events").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("events", id);
 }
 
 // ---------- rotinas (Book 6.3) ----------
@@ -1071,9 +1043,7 @@ export async function salvarRotina(id: string, d: DadosRotina & { status: "ativa
 }
 
 export async function apagarRotina(id: string) {
-  const supabase = await createClient();
-  await supabase.from("routines").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("routines", id);
 }
 
 /** Marca ou desmarca a rotina num dia (hoje ou um dia que já passou nesta semana) */
@@ -1128,9 +1098,7 @@ export async function salvarNota(d: DadosNota): Promise<{ ok: boolean; erro?: st
 }
 
 export async function apagarNota(id: string) {
-  const supabase = await createClient();
-  await supabase.from("notes").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("notes", id);
 }
 
 // ---------- finanças (o mês numa tela) ----------
@@ -1166,9 +1134,7 @@ export async function lancar(d: DadosLancamento): Promise<{ ok: boolean; erro?: 
 }
 
 export async function apagarLancamento(id: string) {
-  const supabase = await createClient();
-  await supabase.from("fin_entries").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("fin_entries", id);
 }
 
 /** A pagar → pago (ou volta); a data passa a ser hoje quando é pago */
@@ -1224,10 +1190,7 @@ export async function renomearSubtarefa(id: string, titulo: string) {
 }
 
 export async function apagarSubtarefa(id: string) {
-  if (!ehId(id)) return;
-  const supabase = await createClient();
-  await supabase.from("subtasks").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("subtasks", id);
 }
 
 // ---------- finanças: ajustes, parcelamentos, investimentos ----------
@@ -1346,10 +1309,7 @@ export async function editarLancamento(id: string, d: { kind: DadosLancamento["k
 }
 
 export async function apagarParcelamento(id: string) {
-  if (!ehId(id)) return;
-  const supabase = await createClient();
-  await supabase.from("fin_installments").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("fin_installments", id);
 }
 
 export type DadosInvestimento = { name: string; kind: string; institution: string | null; balance: number; monthly_rate: number | null; monthly_plan: number | null };
@@ -1401,17 +1361,11 @@ export async function movimentarInvestimento(id: string, kind: "aporte" | "resga
 }
 
 export async function apagarMovimento(id: string) {
-  if (!ehId(id)) return;
-  const supabase = await createClient();
-  await supabase.from("fin_inv_moves").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("fin_inv_moves", id);
 }
 
 export async function apagarInvestimento(id: string) {
-  if (!ehId(id)) return;
-  const supabase = await createClient();
-  await supabase.from("fin_investments").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("fin_investments", id);
 }
 
 // ---------- saúde ----------
@@ -1469,10 +1423,7 @@ export async function registrarMedida(d: DadosMedida): Promise<{ ok: boolean; er
 }
 
 export async function apagarMedida(id: string) {
-  if (!ehId(id)) return;
-  const supabase = await createClient();
-  await supabase.from("health_measures").delete().eq("id", id);
-  atualizar();
+  await apagarPorId("health_measures", id);
 }
 
 /* Notificações no celular (web push): o aparelho guarda a inscrição; o envio é da função "avisos" do Supabase */

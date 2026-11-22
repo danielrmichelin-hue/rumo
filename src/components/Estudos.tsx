@@ -4,7 +4,7 @@ import { useActionState, useCallback, useEffect, useRef, useState, useTransition
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Check, Clock, PenLine, Play, Plus, Trash2, X } from "lucide-react";
 import {
-  adicionarMateria, agendarSessao, apagarCurso, apagarMateria, apagarSessao, avancarCiclo, comecarSessao,
+  adicionarMateria, agendarSessao, apagarCurso, apagarMateria, apagarSessao, avancarCiclo,
   comecarSessaoMarcada, concluirSessao, criarCurso, moverMateria, registrarAula, registrarEstudo, restaurarCiclo, restaurarSessao,
   salvarCurso, salvarMateria, type EstadoForm,
 } from "@/app/(app)/acoes";
@@ -33,7 +33,7 @@ const hParaMin = (h: string) => {
   return n > 0 ? Math.round(n * 60) : null;
 };
 
-export function NovoCurso({ contextos, tipoInicial, sugeridos }: { contextos: ContextItem[]; tipoInicial: TipoCurso | null; sugeridos: TipoCurso[] }) {
+export function NovoCurso({ contextos, tipoInicial }: { contextos: ContextItem[]; tipoInicial: TipoCurso | null }) {
   const router = useRouter();
   const inicial = tipoInicial ? PADRAO[tipoInicial] : null;
   const [tipo, setTipo] = useState<TipoCurso | null>(tipoInicial);
@@ -82,7 +82,7 @@ export function NovoCurso({ contextos, tipoInicial, sugeridos }: { contextos: Co
       <div className="chips" role="group" aria-label="O que você estuda">
         {(Object.keys(TIPOS_CURSO) as TipoCurso[]).map((t) => (
           <button key={t} type="button" aria-pressed={tipo === t} className="chip" onClick={() => escolher(t)}>
-            {TIPOS_CURSO[t]}{sugeridos.includes(t) && tipo !== t && <small> · você contou</small>}
+            {TIPOS_CURSO[t]}
           </button>
         ))}
       </div>
@@ -193,24 +193,6 @@ export function AgoraNoEstudo({ curso, sessao, materia, tema, falta, materias, t
         ) : null}
       </div>
     </section>
-  );
-}
-
-export function ComecarSessao({ cursoId, materia, tema = null, rotulo = "Começar sessão", variante = "btn" }: { cursoId: string; materia: Materia | null; tema?: Tema | null; rotulo?: string; variante?: string }) {
-  const [pendente, iniciar] = useTransition();
-  const avisar = useAvisar();
-  return (
-    <button
-      type="button"
-      className={variante}
-      disabled={pendente}
-      onClick={() => iniciar(async () => {
-        const r = await comecarSessao(cursoId, materia?.id ?? null, tema?.id ?? null);
-        if (r.ok) avisar({ texto: `Sessão começou${materia ? `: ${materia.title}` : ""}. Bom estudo.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => apagarSessao(r.id!)) } });
-      })}
-    >
-      <Play aria-hidden />{rotulo}
-    </button>
   );
 }
 

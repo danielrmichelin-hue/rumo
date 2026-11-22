@@ -66,7 +66,6 @@ export default async function Page() {
       {!cursos.length ? (
         <div className="empty empty--box" style={{ maxWidth: 560 }}>
           <b><GraduationCap size={16} aria-hidden style={{ verticalAlign: -3, marginRight: 6 }} />Primeiro ciclo de estudos</b>
-          <span>Concurso, pós, graduação, idioma ou curso livre. Diga as matérias e as horas de cada uma: o Rumo mostra a matéria da vez, os temas e a semana.</span>
           <div style={{ marginTop: 10 }}><Link href="/estudos/novo" className="btn btn--sm">Montar o ciclo</Link></div>
         </div>
       ) : (
