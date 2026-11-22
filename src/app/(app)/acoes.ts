@@ -1474,3 +1474,24 @@ export async function apagarMedida(id: string) {
   await supabase.from("health_measures").delete().eq("id", id);
   atualizar();
 }
+
+/* Notificações no celular (web push): o aparelho guarda a inscrição; o envio é da função "avisos" do Supabase */
+export async function salvarInscricao(s: { endpoint: string; p256dh: string; auth: string }) {
+  if (!/^https:\/\//.test(s.endpoint) || !s.p256dh || !s.auth) return { ok: false };
+  const supabase = await createClient();
+  const { error } = await supabase.from("push_subscriptions").upsert({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { onConflict: "endpoint" });
+  return { ok: !error };
+}
+
+export async function apagarInscricao(endpoint: string) {
+  const supabase = await createClient();
+  await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+}
+
+export async function testarAviso(): Promise<{ ok: boolean }> {
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { ok: false };
+  const r = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/avisos`, { method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" }, body: "{}" }).catch(() => null);
+  return { ok: !!r?.ok };
+}

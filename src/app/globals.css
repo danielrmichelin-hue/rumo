@@ -1279,3 +1279,9 @@ a.route__t:hover { color: var(--accent-text); }
 @media (max-width: 860px) {
   .input, select.input, textarea.input, input.input { font-size: 16px; }
 }
+
+/* ---------- notificações (Ajustes) ---------- */
+.avisos__acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.avisos__ok { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; color: var(--ok); font-weight: 500; font-size: 14px; }
+.avisos__ok svg { width: 16px; height: 16px; }
+.avisos__msg { margin: 0; color: var(--text-2); font-size: 14px; line-height: 1.5; }

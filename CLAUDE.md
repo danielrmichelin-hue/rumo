@@ -56,7 +56,8 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   procedimento; `health_measures` com peso, pressão etc.) e 0014 (Finanças completas: `fin_settings` com dia do pagamento, envelopes
   e saldo da conta; `fin_installments` parcelamentos; `installment_id` nos lançamentos; `fin_investments` e `fin_inv_moves`) e 0015 (`subtasks`: checklist dentro da tarefa) e 0016 (lançamentos são a base: `investment_id` nos lançamentos; investir = saída com
   investimento, resgatar = entrada com investimento, e o app lê como `aporte`/`resgate` em `normalizarLancamento`; de
-  `fin_inv_moves` o app lê só os rendimentos) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
+  `fin_inv_moves` o app lê só os rendimentos) e 0017 (avisos: `push_subscriptions`, `push_sent`, `rumo_segredo` lendo o cofre,
+  pg_cron `rumo-avisos` a cada 5 min chamando a função `avisos`) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`. A casca (`src/components/Shell.tsx`) tem a lateral fixa: Hoje, Inbox, Calendário,
   Tarefas, Projetos; Áreas da vida (Negócios, Estudos, Finanças, Saúde, Rotinas, Rotas, Notas); Contextos (só os de tipo
@@ -78,6 +79,11 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
 - Antes de escrever de novo, reaproveite: datas, fuso de São Paulo, nomes de dias e meses, `ehId` e `numeroBR` em
   `src/lib/datas.ts`; `CampoContexto`, `Painel` (painel por cima da tela) e `AdicionarRapido` em `src/components/Comuns.tsx`;
   o logo oficial em `src/components/Logo.tsx`; o anel e o caminho das Rotas em `src/components/Caminho.tsx`.
+- Notificações (web push): `public/sw.js`, cartão em Ajustes (`src/components/Notificacoes.tsx`, chave pública em
+  `src/lib/avisos.ts`), ações `salvarInscricao`/`apagarInscricao`/`testarAviso`. O envio é a função do Supabase
+  `supabase/functions/avisos` (resumo 7h30, compromisso 15 min antes, remédio/rotina no horário, contas e parcelas 9h;
+  `?simular=1&hora=HH:MM` mostra sem enviar). Chaves VAPID e token no cofre (vault) do Supabase, nunca no repositório.
+  No iPhone só funciona com o Rumo adicionado à Tela de Início.
 - Publicação: a Vercel publica a `main` em produção (rumo-iter-midia.vercel.app). O Daniel autorizou levar à
   `main` cada etapa terminada e conferida.
 - Variáveis: `.env.local` com `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`).

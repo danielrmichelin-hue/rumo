@@ -3,6 +3,7 @@ import { ChevronRight, Download, LogOut, Shapes } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { FormNome } from "@/components/FormNome";
 import { SeletorTema } from "@/components/Tema";
+import { Notificacoes } from "@/components/Notificacoes";
 
 export const metadata = { title: "Ajustes" };
 
@@ -32,6 +33,11 @@ export default async function Page() {
           <h2 className="card__t">Tema</h2>
           <SeletorTema />
           <p className="field__hint" style={{ marginTop: 10 }}>Automático segue o claro ou escuro do aparelho.</p>
+        </section>
+
+        <section className="card">
+          <h2 className="card__t">Notificações</h2>
+          <Notificacoes />
         </section>
 
         <ul className="menu">
