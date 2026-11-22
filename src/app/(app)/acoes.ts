@@ -1232,13 +1232,11 @@ export async function apagarSubtarefa(id: string) {
 
 // ---------- finanças: ajustes, parcelamentos, investimentos ----------
 
-export type DadosAjustes = { pay_day: number | null; weekend_shift: boolean; pct_parcelas: number; pct_investir: number; pct_livre: number; cash_balance: number | null };
+export type DadosAjustes = { pct_parcelas: number; pct_investir: number; pct_livre: number; cash_balance: number | null };
 
 export async function salvarAjustesFinancas(d: DadosAjustes): Promise<{ ok: boolean; erro?: string }> {
   const pct = [d.pct_parcelas, d.pct_investir, d.pct_livre].map((x) => Math.round(Number(x) || 0));
   if (pct.some((x) => x < 0 || x > 100) || pct[0] + pct[1] + pct[2] !== 100) return { ok: false, erro: "As três partes precisam somar 100%." };
-  const dia = d.pay_day ? Math.round(d.pay_day) : null;
-  if (dia !== null && (dia < 1 || dia > 31)) return { ok: false, erro: "Escolha um dia entre 1 e 31." };
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, erro: "Entre de novo." };
@@ -1246,7 +1244,7 @@ export async function salvarAjustesFinancas(d: DadosAjustes): Promise<{ ok: bool
   // Saldo informado vale a partir de hoje (o Rumo soma o que vier depois)
   const saldoMudou = d.cash_balance !== null && Number(antes?.cash_balance ?? NaN) !== d.cash_balance;
   const { error } = await supabase.from("fin_settings").upsert({
-    user_id: user.id, pay_day: dia, weekend_shift: !!d.weekend_shift, pct_parcelas: pct[0], pct_investir: pct[1], pct_livre: pct[2],
+    user_id: user.id, pay_day: null, pct_parcelas: pct[0], pct_investir: pct[1], pct_livre: pct[2],
     ...(d.cash_balance === null ? { cash_balance: null, cash_on: null } : saldoMudou ? { cash_balance: Math.round(d.cash_balance * 100) / 100, cash_on: hojeISO() } : {}),
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id" });

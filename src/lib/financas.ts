@@ -1,6 +1,6 @@
 // Finanças do mês: o que entrou, o que saiu, o que falta pagar e onde o dinheiro foi.
 // Contas fixas são rotinas mensais com valor ("Condomínio · R$ 800 · todo dia 10"): pagar = marcar a rotina + lançar a saída.
-import { diaDaSemana, montarISO, somarDias } from "./datas";
+import { montarISO } from "./datas";
 import { diaNoMes, type Marcacao, type Rotina } from "./rotinas";
 
 export type TipoLancamento = "entrada" | "saida" | "aporte" | "resgate";
@@ -95,45 +95,12 @@ export function resumoDoMes(lancamentos: Lancamento[], contas: ContaFixa[], orca
   return { entrou, saiu, saldo: entrou - saiu, aPagar, aReceber, categorias };
 }
 
-// ---------- o mês do dinheiro: do dia do pagamento até a véspera do próximo ----------
+// ---------- ajustes: a divisão do que entra e o saldo da conta ----------
 
-export type Ajustes = { pay_day: number | null; weekend_shift: boolean; pct_parcelas: number; pct_investir: number; pct_livre: number; cash_balance: number | null; cash_on: string | null };
-export const AJUSTES_PADRAO: Ajustes = { pay_day: null, weekend_shift: true, pct_parcelas: 50, pct_investir: 20, pct_livre: 30, cash_balance: null, cash_on: null };
+export type Ajustes = { pct_parcelas: number; pct_investir: number; pct_livre: number; cash_balance: number | null; cash_on: string | null };
+export const AJUSTES_PADRAO: Ajustes = { pct_parcelas: 50, pct_investir: 20, pct_livre: 30, cash_balance: null, cash_on: null };
 export const normalizarAjustes = (a: Record<string, unknown> | null): Ajustes =>
   a ? { ...AJUSTES_PADRAO, ...(a as Ajustes), cash_balance: a.cash_balance === null || a.cash_balance === undefined ? null : Number(a.cash_balance) } : AJUSTES_PADRAO;
-
-/** Dia em que o mês "AAAA-MM" começa: o dia do pagamento (dia 31 em mês curto vira o último);
- *  caiu no sábado ou domingo e o ajuste está ligado, vale a sexta antes (é quando o dinheiro entra) */
-function inicioDoCiclo(mes: string, a: Pick<Ajustes, "pay_day" | "weekend_shift">): string {
-  const [ano, m] = mes.split("-").map(Number);
-  if (!a.pay_day) return `${mes}-01`;
-  const ultimo = new Date(Date.UTC(ano, m, 0)).getUTCDate();
-  let dia = montarISO(ano, m, Math.min(a.pay_day, ultimo));
-  if (a.weekend_shift) {
-    const sem = diaDaSemana(dia);
-    if (sem === 6) dia = somarDias(dia, -1);
-    if (sem === 0) dia = somarDias(dia, -2);
-  }
-  return dia;
-}
-
-/** O ciclo que tem o nome do mês "AAAA-MM": começa no pagamento desse mês e vai até a véspera do próximo */
-export function ciclo(mes: string, a: Pick<Ajustes, "pay_day" | "weekend_shift">) {
-  if (!a.pay_day) return limitesDoMes(mes);
-  return { inicio: inicioDoCiclo(mes, a), fim: somarDias(inicioDoCiclo(mesVizinho(mes, 1), a), -1) };
-}
-
-/** Em que ciclo está um dia (o de hoje, por exemplo) */
-export function cicloDoDia(dia: string, a: Pick<Ajustes, "pay_day" | "weekend_shift">): string {
-  const mes = dia.slice(0, 7);
-  return dia >= ciclo(mes, a).inicio ? mes : mesVizinho(mes, -1);
-}
-
-/** "20 out – 19 nov" */
-export function rotuloCiclo(inicio: string, fim: string) {
-  const c = (iso: string) => `${Number(iso.slice(8))} ${["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"][Number(iso.slice(5, 7)) - 1]}`;
-  return `${c(inicio)} – ${c(fim)}`;
-}
 
 // ---------- parcelamentos ----------
 

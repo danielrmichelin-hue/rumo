@@ -154,16 +154,13 @@ export function LimiteCategoria({ categoria, limite }: { categoria: string; limi
 
 export function AjustesFinancas({ ajustes, saldoConta }: { ajustes: Ajustes; saldoConta: number | null }) {
   const [aberto, setAberto] = useState(false);
-  const [usaDia, setUsaDia] = useState(!!ajustes.pay_day);
-  const [dia, setDia] = useState(String(ajustes.pay_day ?? 5));
-  const [fimDeSemana, setFimDeSemana] = useState(ajustes.weekend_shift);
   const [pct, setPct] = useState([ajustes.pct_parcelas, ajustes.pct_investir, ajustes.pct_livre].map(String));
   const [saldo, setSaldo] = useState(saldoConta === null ? "" : saldoConta.toFixed(2).replace(".", ","));
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
   const soma = pct.reduce((t, x) => t + (Number(x) || 0), 0);
-  const rotulos = ["Parcelas e dívidas", "Investir", "Gasto livre"];
+  const rotulos = ["Parcelas", "Investir", "Gasto livre"];
   return (
     <>
       <button type="button" className="btn btn--line btn--sm" onClick={() => setAberto(true)}><Settings2 aria-hidden />Ajustes</button>
@@ -176,7 +173,7 @@ export function AjustesFinancas({ ajustes, saldoConta }: { ajustes: Ajustes; sal
               e.preventDefault();
               setErro(null);
               iniciar(async () => {
-                const r = await salvarAjustesFinancas({ pay_day: usaDia ? Number(dia) : null, weekend_shift: fimDeSemana, pct_parcelas: Number(pct[0]), pct_investir: Number(pct[1]), pct_livre: Number(pct[2]), cash_balance: saldo.trim() ? numeroBR(saldo) : null });
+                const r = await salvarAjustesFinancas({ pct_parcelas: Number(pct[0]), pct_investir: Number(pct[1]), pct_livre: Number(pct[2]), cash_balance: saldo.trim() ? numeroBR(saldo) : null });
                 if (!r.ok) return setErro(r.erro ?? "Não foi possível guardar.");
                 avisar({ texto: "Ajustes guardados." });
                 setAberto(false);
@@ -184,22 +181,7 @@ export function AjustesFinancas({ ajustes, saldoConta }: { ajustes: Ajustes; sal
             }}
           >
             <div className="field">
-              Meu mês começa
-              <div className="seg" role="radiogroup" aria-label="Meu mês começa" style={{ justifySelf: "start" }}>
-                <label><input type="radio" checked={usaDia} onChange={() => setUsaDia(true)} /><span>No dia em que recebo</span></label>
-                <label><input type="radio" checked={!usaDia} onChange={() => setUsaDia(false)} /><span>No dia 1</span></label>
-              </div>
-              {usaDia && (
-                <div className="chips" style={{ alignItems: "center" }}>
-                  <span className="field__hint">Recebo todo dia</span>
-                  <input className="input" style={{ width: 72 }} inputMode="numeric" value={dia} onChange={(e) => setDia(e.target.value.replace(/\D/g, "").slice(0, 2))} aria-label="Dia em que recebo" />
-                  <label className="check-line"><input type="checkbox" checked={fimDeSemana} onChange={(e) => setFimDeSemana(e.target.checked)} />Caiu no fim de semana, conta a sexta antes</label>
-                </div>
-              )}
-              <span className="field__hint">O mês vai do dia em que o dinheiro entra até a véspera do próximo.</span>
-            </div>
-            <div className="field">
-              Como divido o que entra
+              Como divido o que entra no mês
               <div className="fin-pcts">
                 {rotulos.map((r, i) => (
                   <label key={r} className="field">{r}
@@ -212,7 +194,7 @@ export function AjustesFinancas({ ajustes, saldoConta }: { ajustes: Ajustes; sal
             <label className="field">
               Saldo da conta hoje
               <input className="input" style={{ maxWidth: 200 }} inputMode="decimal" value={saldo} onChange={(e) => setSaldo(e.target.value)} placeholder="0,00" />
-              <span className="field__hint">Olhe no app do banco. Daqui para frente o Rumo soma as entradas e tira as saídas que você lançar.</span>
+              <span className="field__hint">Olhe no app do banco. Daqui para frente o Rumo soma o que você lançar.</span>
             </label>
             {erro && <p className="note note--err" role="alert">{erro}</p>}
             <div className="detail__foot"><button className="btn" type="submit" disabled={pendente || soma !== 100}>Guardar</button></div>

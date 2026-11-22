@@ -68,8 +68,9 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   com pomodoro em `src/components/Foco.tsx`) em `src/lib/estudos.ts`, com as
   sessões como compromissos do Core (events com `course_id`); Rotinas (quando é dia dela, a semana em pontos, sem sequência; mensais "todo dia 10" ficam no Hoje até serem feitas)
   em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`; Finanças do mês (resumo, contas fixas = rotinas mensais com valor,
-  categorias, planilha CSV; o mês vai do dia do pagamento à véspera do próximo, sexta antes se cair no fim de semana; parcelamentos,
-  investimentos com projeção, envelopes parcelas/investir/livre, saldo da conta somado a partir do informado) em `src/lib/financas.ts`; abas O mês, Lançamentos (extrato do mês do calendário, por dia, com a faixa dos 12 meses), Parcelas
+  categorias, planilha CSV; o mês é o do calendário, 1 a 30, em tudo; parcelamentos,
+  investimentos com projeção, envelopes parcelas/investir/livre, saldo da conta somado a partir do informado) em `src/lib/financas.ts`; abas Mês (faixa dos 12 meses, entrou/saiu/investiu/ainda pode gastar, o que falta pagar para marcar, o extrato
+  por dia, a divisão e as categorias), Parcelas
   (grade parcela por parcela), Investimentos e Resumo (categoria por mês), com as tabelas em `src/components/FinancasPlanilha.tsx`; Saúde (remédio = rotina com dose, um horário por rotina; consultas = compromissos
   com `health_kind`; medidas e tendência) em `src/lib/saude.ts`, página `/saude`; Negócios em `/negocios`: quadro com uma coluna por empresa e "Para classificar" (o Inbox), arrastar muda a
   empresa (`src/components/QuadroNegocios.tsx`); `?e=<id>` mostra uma empresa (por prazo, retornos, decisões, reuniões). Subtarefas em `src/lib/subtarefas.ts` e `src/components/Subtarefas.tsx`; nas páginas do servidor, use `<Lista>` (`src/components/Lista.tsx`), que
