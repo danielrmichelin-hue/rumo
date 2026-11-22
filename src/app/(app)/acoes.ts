@@ -9,7 +9,7 @@ import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, t
 import { CORES_CONTEXTO, type Estado } from "@/lib/tipos";
 import { CORES_MATERIA, INTERVALOS, proximaRevisao, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 import { textoFrequencia } from "@/lib/rotinas";
-import { limitesDoMes, tipoNoBanco, TIPOS_INVESTIMENTO } from "@/lib/financas";
+import { CAMPOS_LANCAMENTO, limitesDoMes, moeda, naConta, normalizarLancamento, tipoNoBanco, TIPOS_INVESTIMENTO } from "@/lib/financas";
 import { TIPOS_SAUDE, type TipoMedida, MEDIDAS } from "@/lib/saude";
 
 function atualizar() {
@@ -414,14 +414,14 @@ export async function adicionarNoProjeto(projetoId: string, bruto: string): Prom
 
 // ---------- busca ----------
 
-export type Achado = { tipo: "responsabilidade" | "projeto" | "rota" | "curso" | "rotina" | "nota" | "contexto" | "compromisso" | "pessoa"; id: string; titulo: string; detalhe: string; href: string; cor?: string };
+export type Achado = { tipo: "responsabilidade" | "projeto" | "rota" | "curso" | "rotina" | "nota" | "contexto" | "compromisso" | "pessoa" | "lancamento"; id: string; titulo: string; detalhe: string; href: string; cor?: string };
 
 export async function buscar(termo: string): Promise<Achado[]> {
   const q = termo.trim().replace(/[%,()]/g, " ").replace(/\s+/g, " ").slice(0, 80);
   if (q.length < 2) return [];
   const like = `%${q}%`;
   const supabase = await createClient();
-  const [r, p, c, e, g, ctxs, rt, cs, ms, rn, nt] = await Promise.all([
+  const [r, p, c, e, g, ctxs, rt, cs, ms, rn, nt, fin] = await Promise.all([
     supabase.from("responsibilities").select("id, title, note, state, context_id, waiting_note").or(`title.ilike.${like},note.ilike.${like},waiting_note.ilike.${like}`).order("updated_at", { ascending: false }).limit(20),
     supabase.from("projects").select("id, name, note, context_id").or(`name.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("contexts").select("id, name, color").ilike("name", like).limit(8),
@@ -433,6 +433,7 @@ export async function buscar(termo: string): Promise<Achado[]> {
     supabase.from("study_subjects").select("id, title, course_id").ilike("title", like).limit(8),
     supabase.from("routines").select("id, title, days, times_per_week, month_day, at_time").or(`title.ilike.${like},note.ilike.${like}`).limit(8),
     supabase.from("notes").select("id, kind, title, context_id").or(`title.ilike.${like},body.ilike.${like},why.ilike.${like}`).order("created_at", { ascending: false }).limit(8),
+    supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).or(`description.ilike.${like},category.ilike.${like}`).order("happened_on", { ascending: false }).limit(12),
   ]);
   const nomeCtx = (id: string | null) => (ctxs.data ?? []).find((x) => x.id === id);
   const estados: Record<string, string> = { a_fazer: "A fazer", aguardando: "Aguardando alguém", concluida: "Concluída" };
@@ -459,6 +460,10 @@ export async function buscar(termo: string): Promise<Achado[]> {
     achados.push({ tipo: "curso", id: x.id, titulo: x.title, detalhe: `Matéria${curso ? ` · ${curso.title}` : ""}`, href: `/estudos/${x.course_id}#${x.id}` });
   }
   for (const x of rn.data ?? []) achados.push({ tipo: "rotina", id: x.id, titulo: x.title, detalhe: `Rotina · ${textoFrequencia(x)}${x.at_time ? ` · ${x.at_time.slice(0, 5)}` : ""}`, href: `/rotinas#${x.id}` });
+  for (const x of (fin.data ?? []).map(normalizarLancamento)) {
+    const sinal = naConta(x) < 0 ? "−" : "+";
+    achados.push({ tipo: "lancamento", id: x.id, titulo: x.description, detalhe: `${sinal}${moeda(x.amount)} · ${x.happened_on.split("-").reverse().join("/")} · ${x.category}`, href: `/financas?aba=lancamentos&lm=${x.happened_on.slice(0, 7)}` });
+  }
   for (const x of nt.data ?? []) {
     const ctx = nomeCtx(x.context_id);
     achados.push({ tipo: "nota", id: x.id, titulo: x.title, detalhe: `${x.kind === "decisao" ? "Decisão" : "Nota"}${ctx ? ` · ${ctx.name}` : ""}`, href: `/notas#${x.id}`, cor: ctx?.color });

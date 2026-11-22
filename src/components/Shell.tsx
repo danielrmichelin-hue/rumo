@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, CalendarDays, CalendarRange, Folder, GraduationCap, HeartPulse, Home, Inbox, ListChecks, Menu, NotebookPen, Wallet, Plus, Repeat, Route, Search, Settings, Settings2, Shapes } from "lucide-react";
+import { Building2, CalendarDays, CalendarRange, Folder, GraduationCap, HeartPulse, Home, Inbox, ListChecks, Menu, NotebookPen, Wallet, Plus, Repeat, Route, Search, Settings, Settings2 } from "lucide-react";
 import { AvisosProvider } from "./Avisos";
 import { Captura, useAtalhoCaptura } from "./Captura";
 import { Logo } from "./Logo";
@@ -164,8 +164,8 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, modulos, ch
             <Inbox aria-hidden />Inbox{inbox > 0 && <i className="tabbar__dot" aria-label={`${inbox} a organizar`} />}
           </Link>
           <button type="button" className="tabbar__add" onClick={abrir}><span><Plus aria-hidden /></span>Capturar</button>
-          <Link href="/contextos" aria-current={on("/contextos") ?? on("/contexto")}><Shapes aria-hidden />Contextos</Link>
-          <Link href="/mais" aria-current={on("/mais") ?? on("/responsabilidades") ?? on("/ajustes")}><Menu aria-hidden />Mais</Link>
+          <Link href="/semana" aria-current={on("/semana")}><CalendarRange aria-hidden />Semana</Link>
+          <Link href="/mais" aria-current={on("/mais") ?? on("/responsabilidades") ?? on("/ajustes") ?? on("/contextos") ?? on("/contexto")}><Menu aria-hidden />Mais</Link>
         </nav>
 
         <Captura aberta={captura} abrir={abrir} fechar={() => { setTextoInicial(""); setContextoInicial(null); fechar(); }} contextos={contexts} textoInicial={textoInicial} contextoInicial={contextoInicial ?? contextoDaPagina} />

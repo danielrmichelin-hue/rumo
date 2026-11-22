@@ -53,6 +53,10 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+/* Como app: nada passa da largura da tela, sem puxar a página para os lados nem o "elástico" do iPhone */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: manipulation; }
+html { overflow-x: hidden; overscroll-behavior: none; }
+body { max-width: 100%; overflow-x: clip; overscroll-behavior: none; }
 body { font: 400 15px/1.6 var(--font); color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 a { color: inherit; text-decoration: none; }
 button, input, textarea, select { font: inherit; color: inherit; }
@@ -128,7 +132,8 @@ code { font: 500 13px/1 ui-monospace, "SF Mono", Menlo, monospace; padding: 2px 
 .page__t .dot { width: 12px; height: 12px; border-radius: 4px; }
 .page__sub { margin: 6px 0 0; font-size: 15px; color: var(--text-2); }
 .page__sub b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
-.page__actions { display: flex; gap: 8px; align-items: center; }
+.page__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.next > div { min-width: 0; }
 .link { color: var(--accent-text); font-weight: 500; }
 .link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 18px; font-size: 14px; font-weight: 500; color: var(--text-3); }
@@ -1271,3 +1276,8 @@ a.route__t:hover { color: var(--accent-text); }
 .extrato__v.transf, .nums b.transf, .fin-l__v--aporte, .fin-l__v--resgate { color: var(--accent-text); }
 .extrato__l.is-inv .extrato__d small { color: var(--accent-text); }
 .inv__hist small { color: var(--text-3); }
+
+/* Celular: campos com 16px (abaixo disso o iPhone dá zoom ao tocar) */
+@media (max-width: 860px) {
+  .input, select.input, textarea.input, input.input { font-size: 16px; }
+}

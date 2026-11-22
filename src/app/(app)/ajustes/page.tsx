@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, LogOut, Shapes } from "lucide-react";
+import { ChevronRight, Download, LogOut, Shapes } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { FormNome } from "@/components/FormNome";
 import { SeletorTema } from "@/components/Tema";
@@ -36,6 +36,7 @@ export default async function Page() {
 
         <ul className="menu">
           <li><Link href="/contextos"><Shapes aria-hidden />Contextos<ChevronRight aria-hidden style={{ marginLeft: "auto" }} /></Link></li>
+          <li><a href="/ajustes/copia" download><Download aria-hidden />Baixar cópia dos meus dados<em>Tudo num arquivo, para guardar</em><ChevronRight aria-hidden /></a></li>
           <li>
             <form action="/auth/sair" method="post">
               <button type="submit"><LogOut aria-hidden />Sair</button>

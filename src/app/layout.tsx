@@ -15,6 +15,9 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
+  // Como app: sem zoom de pinça e sem a página deslizar para os lados
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
 };
 

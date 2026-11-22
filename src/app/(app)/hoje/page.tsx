@@ -104,7 +104,7 @@ export default async function Page() {
           <div>
             <span className="next__k"><Logo forma="simbolo" />Próximo passo</span>
             <span className="next__t">Nada urgente agora.</span>
-            <span className="props"><span className="prop">Bom momento para o que não tem prazo, ou para tirar da cabeça o que está pendente.</span></span>
+            <p className="next__p">Bom momento para o que não tem prazo.</p>
           </div>
           <div className="next__act"><BotaoNova rotulo="Capturar" variante="btn btn--line" /></div>
         </section>
