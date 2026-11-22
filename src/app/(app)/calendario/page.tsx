@@ -183,7 +183,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
             <p className="empty" style={{ paddingTop: 2 }}>Nada sem hora para esta semana.</p>
           ) : (
             <>
-              <p className="field__hint" style={{ padding: "0 10px 6px" }}>Reserve um horário para o que precisa de tempo.</p>
               <ul className="list">
                 {semHorario.map((p) => (
                   <li key={p.id} className="row" style={{ gridTemplateColumns: "minmax(0,1fr) auto" }}>
@@ -200,7 +199,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
               </ul>
             </>
           )}
-          <p className="note" style={{ marginTop: 16 }}>Prazos aparecem acima dos horários: o que tem data não se mistura com o que tem hora marcada.</p>
         </aside>
       </div>
     </div>
