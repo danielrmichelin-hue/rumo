@@ -64,7 +64,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const todos = (todosDb ?? []).map(normalizarLancamento);
   const lancamentos = todos.filter((l) => l.happened_on >= inicio && l.happened_on <= fim);
   const atrasados = (atrasadosDb ?? []).map(normalizarLancamento);
-  const contas = contasDoMes((rotinasDb ?? []) as Rotina[], (marcasDb ?? []) as Marcacao[], inicio, fim);
+  const contas = contasDoMes((rotinasDb ?? []) as Rotina[], (marcasDb ?? []) as Marcacao[], inicio, fim, lancamentos);
   const r = resumoDoMes([...lancamentos, ...atrasados], contas, (orcDb ?? []) as Orcamento[]);
   const ctx = (contextos ?? []) as ContextItem[];
   const parcelamentos = (parcDb ?? []).map(normalizarParcelamento);
@@ -149,11 +149,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
             <RolarAteMes key={mes} />
           </div>
 
-          <div className="nums">
+          <div className="nums nums--conta">
             <div><small>Entrou em {nomeMes}</small><b className="pos">{moeda(r.entrou)}</b>{r.aReceber > 0 && <span>e {moeda(r.aReceber)} a receber</span>}</div>
             <div><small>Saiu</small><b>{moeda(r.saiu)}</b>{r.aPagar > 0 && <span>e {moeda(r.aPagar + parcelasAPagar.reduce((t, x) => t + x.s.parcela, 0))} a pagar</span>}</div>
             <div><small>Investiu</small><b className="transf">{investiu < 0 ? "−" : ""}{moeda(Math.abs(investiu))}</b><span>{investiu < 0 ? "Resgatou mais do que pôs" : "Aportes menos resgates"}</span></div>
-            <div><small>Ainda pode gastar</small><b className={env.livre.sobra < 0 ? "neg" : undefined}>{r.entrou ? moeda(Math.max(0, env.livre.sobra)) : "—"}</b><span>{r.entrou ? (env.livre.sobra < 0 ? `Passou ${moeda(-env.livre.sobra)} do livre` : `de ${moeda(env.livre.alvo)} livres no mês`) : "Lance o que entrou"}</span></div>
+            <div className="nums__resultado"><small>Sobrou</small><b className={r.entrou - r.saiu - investiu < 0 ? "neg" : "pos"}>{r.entrou - r.saiu - investiu < 0 ? "−" : ""}{moeda(Math.abs(r.entrou - r.saiu - investiu))}</b><span>{r.entrou ? (env.livre.sobra < 0 ? `Passou ${moeda(-env.livre.sobra)} do livre` : `Ainda pode gastar ${moeda(Math.max(0, env.livre.sobra))}`) : "Lance o que entrou"}</span></div>
           </div>
 
           <GavetaLancamento key={mes} abertaNoInicio={!lancamentos.length}>

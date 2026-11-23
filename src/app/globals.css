@@ -913,7 +913,6 @@ a.route__t:hover { color: var(--accent-text); }
 .nums small { font-size: 11.5px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
 .nums b { font: 650 26px/1.15 var(--font); letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
 .nums b.pos { color: var(--ok); }
-.nums b.neg { color: var(--text); }
 .nums span { font-size: 12px; color: var(--text-2); }
 .fin-form { display: grid; gap: 12px; margin-bottom: 16px; padding: 14px 16px; border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--ring); }
 .fin-form > .seg { justify-self: start; }
@@ -1278,7 +1277,8 @@ a.route__t:hover { color: var(--accent-text); }
 .fin-novo > summary::-webkit-details-marker { display: none; }
 .fin-novo[open] > summary { margin-bottom: 10px; }
 .extrato { display: grid; gap: 14px; min-width: 0; align-content: start; }
-.extrato__filtros { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 8px; }
+.extrato__filtros { display: grid; grid-template-columns: auto minmax(0, 1fr) 200px; gap: 8px; align-items: center; }
+.extrato__dia h3 em { margin-left: 4px; font-style: normal; font-weight: 500; color: var(--text-3); }
 .extrato__dia { border-radius: 20px; background: var(--surface); box-shadow: var(--ring); overflow: hidden; }
 .extrato__dia h3 { display: flex; justify-content: space-between; gap: 12px; margin: 0; padding: 9px 14px; background: var(--sunk); border-bottom: 1px solid var(--line); font-size: 12.5px; font-weight: 600; color: var(--text-2); }
 .extrato__dia h3 span::first-letter { text-transform: uppercase; }
@@ -1304,7 +1304,8 @@ a.route__t:hover { color: var(--accent-text); }
   .extrato__edit { grid-template-columns: 1fr 1fr; }
   .extrato__edit-d { grid-column: 1 / -1; }
   .extrato__edit-a { grid-column: 1 / -1; }
-  .extrato__filtros { grid-template-columns: 1fr; }
+  .extrato__filtros { grid-template-columns: 1fr 1fr; }
+  .extrato__filtros .seg { grid-column: 1 / -1; justify-self: start; }
 }
 
 /* Investir e resgatar: transferência entre a conta e o investimento (roxo, nem gasto nem renda) */
@@ -1452,3 +1453,12 @@ a.route__t:hover { color: var(--accent-text); }
   .cap-linha > span { width: 100%; }
   .cap-data { flex: 1; width: auto; }
 }
+
+/* Finanças: o mês como uma conta (entrou − saiu − investiu = sobrou) */
+.nums--conta > div { position: relative; }
+.nums--conta > div + div::before { position: absolute; left: -12px; top: 50%; z-index: 1; display: grid; place-items: center; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: var(--bg); color: var(--text-3); font: 650 14px/1 var(--font); box-shadow: inset 0 0 0 1px var(--line); }
+.nums--conta > div:nth-child(2)::before, .nums--conta > div:nth-child(3)::before { content: "−"; }
+.nums--conta > div:nth-child(4)::before { content: "="; }
+.nums__resultado { background: linear-gradient(160deg, var(--accent-soft), var(--surface) 70%) !important; }
+.nums b.neg { color: var(--danger); }
+@media (max-width: 760px) { .nums--conta > div:nth-child(3)::before { left: 50%; top: -12px; margin: 0 0 0 -11px; } }

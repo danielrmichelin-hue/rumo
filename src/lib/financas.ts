@@ -63,13 +63,18 @@ export type ContaFixa = { rotina: Rotina; dia: string; valor: number; paga: bool
 
 /** As contas fixas do ciclo (rotinas mensais com valor): o dia de cada uma dentro do ciclo e se já foi paga
  *  (a marcação vale para o mês do calendário daquele dia) */
-export function contasDoMes(rotinas: Rotina[], marcas: Marcacao[], inicio: string, fim: string): ContaFixa[] {
+const simples = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+
+/** Contas fixas do mês. Paga = marcada, ou com um lançamento de saída dela no mês (ligado à conta ou com o nome dela) */
+export function contasDoMes(rotinas: Rotina[], marcas: Marcacao[], inicio: string, fim: string, lancamentos: Lancamento[] = []): ContaFixa[] {
   return rotinas
     .filter((r) => r.month_day && r.amount)
     .map((r) => {
       let dia = diaNoMes(r, inicio);
       if (dia < inicio) dia = diaNoMes(r, fim);
-      const pagaEm = marcas.filter((x) => x.routine_id === r.id && x.done_on.slice(0, 7) === dia.slice(0, 7)).map((x) => x.done_on).sort()[0] ?? null;
+      const nome = simples(r.title);
+      const lancada = lancamentos.find((l) => l.kind === "saida" && l.happened_on.slice(0, 7) === dia.slice(0, 7) && (l.routine_id === r.id || (nome.length >= 3 && simples(l.description).includes(nome))));
+      const pagaEm = marcas.filter((x) => x.routine_id === r.id && x.done_on.slice(0, 7) === dia.slice(0, 7)).map((x) => x.done_on).sort()[0] ?? lancada?.happened_on ?? null;
       return { rotina: r, dia, valor: Number(r.amount), paga: !!pagaEm, pagaEm, texto: pagaEm ? "Paga" : `Dia ${Number(dia.slice(8))}` };
     })
     .sort((a, b) => a.dia.localeCompare(b.dia));

@@ -21,25 +21,37 @@ const rotuloDia = (iso: string, hoje: string) => {
 };
 
 /** Os lançamentos de um mês, agrupados por dia (como o extrato do banco). Tocar num lançamento abre a edição. */
+const diaCurto = (iso: string) => `${Number(iso.slice(8))}/${iso.slice(5, 7)}`;
+
 export function ExtratoMes({ lancamentos, hoje, investimentos = [] }: { lancamentos: Lancamento[]; hoje: string; investimentos?: Investimento[] }) {
   const [busca, setBusca] = useState("");
   const [cat, setCat] = useState("");
   const [editando, setEditando] = useState<string | null>(null);
+  const [vista, setVista] = useState<"tipo" | "dia">("tipo");
   const categorias = useMemo(() => [...new Set(lancamentos.map((l) => l.category))].sort(), [lancamentos]);
   const filtrados = useMemo(() => {
     const t = busca.trim().toLowerCase();
     return lancamentos.filter((l) => (!cat || l.category === cat) && (!t || l.description.toLowerCase().includes(t) || l.category.toLowerCase().includes(t)));
   }, [lancamentos, busca, cat]);
-  const dias = useMemo(() => {
+  // Por dia (do mais recente) ou por tipo: o que entrou, parcelas, contas fixas, o dia a dia e investimentos
+  const grupos = useMemo(() => {
+    const ordem = [...filtrados].sort((a, b) => b.happened_on.localeCompare(a.happened_on));
     const mapa = new Map<string, Lancamento[]>();
-    for (const l of [...filtrados].sort((a, b) => b.happened_on.localeCompare(a.happened_on))) mapa.set(l.happened_on, [...(mapa.get(l.happened_on) ?? []), l]);
-    return [...mapa.entries()];
-  }, [filtrados]);
+    const chave = (l: Lancamento) => vista === "dia" ? l.happened_on
+      : l.kind === "entrada" ? "Entradas" : ehTransferencia(l) ? "Investimentos" : l.installment_id ? "Parcelas" : l.routine_id || l.category === "Assinaturas" ? "Contas fixas e assinaturas" : "Dia a dia";
+    if (vista === "tipo") for (const g of ["Entradas", "Parcelas", "Contas fixas e assinaturas", "Dia a dia", "Investimentos"]) mapa.set(g, []);
+    for (const l of ordem) mapa.set(chave(l), [...(mapa.get(chave(l)) ?? []), l]);
+    return [...mapa.entries()].filter(([, lista]) => lista.length);
+  }, [filtrados, vista]);
 
   return (
     <div className="extrato">
       {lancamentos.length > 0 && (
         <div className="extrato__filtros">
+          <div className="seg seg--sm" role="group" aria-label="Agrupar">
+            <button type="button" aria-pressed={vista === "tipo"} onClick={() => setVista("tipo")}>Por tipo</button>
+            <button type="button" aria-pressed={vista === "dia"} onClick={() => setVista("dia")}>Por dia</button>
+          </div>
           <input className="input" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar neste mês" aria-label="Buscar neste mês" />
           <select className="input" value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Categoria">
             <option value="">Todas as categorias</option>
@@ -47,12 +59,12 @@ export function ExtratoMes({ lancamentos, hoje, investimentos = [] }: { lancamen
           </select>
         </div>
       )}
-      {!dias.length && <p className="empty">{lancamentos.length ? "Nada com esse filtro." : "Nada lançado neste mês."}</p>}
-      {dias.map(([dia, lista]) => {
+      {!grupos.length && <p className="empty">{lancamentos.length ? "Nada com esse filtro." : "Nada lançado neste mês."}</p>}
+      {grupos.map(([grupo, lista]) => {
         const saldo = lista.filter((l) => l.paid).reduce((t, l) => t + naConta(l), 0);
         return (
-          <section key={dia} className="extrato__dia">
-            <h3><span>{rotuloDia(dia, hoje)}</span><b className={saldo >= 0 ? "pos" : undefined}>{saldo >= 0 ? "+" : "−"}{moeda(Math.abs(saldo))}</b></h3>
+          <section key={grupo} className="extrato__dia">
+            <h3><span>{vista === "dia" ? rotuloDia(grupo, hoje) : <>{grupo} <em>{lista.length}</em></>}</span><b className={saldo >= 0 ? "pos" : undefined}>{saldo >= 0 ? "+" : "−"}{moeda(Math.abs(saldo))}</b></h3>
             <ul>
               {lista.map((l) => {
                 const inv = ehTransferencia(l);
@@ -62,7 +74,7 @@ export function ExtratoMes({ lancamentos, hoje, investimentos = [] }: { lancamen
                     <button type="button" className={`extrato__l${l.paid ? "" : " is-aberto"}${inv ? " is-inv" : ""}`} onClick={() => setEditando(l.id)} aria-label={`Editar ${l.description}`}>
                       <span className="extrato__d">
                         <b>{l.description}</b>
-                        <small>{inv ? (l.kind === "aporte" ? `Da conta para ${nomeInv ?? "o investimento"}` : `De ${nomeInv ?? "o investimento"} para a conta`) : l.category}{l.installment_id ? " · parcela" : l.routine_id ? " · conta fixa" : ""}{!l.paid ? (l.kind === "saida" ? " · a pagar" : " · a receber") : ""}</small>
+                        <small>{vista === "tipo" && <>{diaCurto(l.happened_on)} · </>}{inv ? (l.kind === "aporte" ? `Da conta para ${nomeInv ?? "o investimento"}` : `De ${nomeInv ?? "o investimento"} para a conta`) : l.category}{l.installment_id ? " · parcela" : l.routine_id ? " · conta fixa" : ""}{!l.paid ? (l.kind === "saida" ? " · a pagar" : " · a receber") : ""}</small>
                       </span>
                       <span className={`extrato__v${l.kind === "entrada" ? " pos" : inv ? " transf" : ""}`}>{naConta(l) < 0 ? "−" : "+"}{moeda(l.amount)}</span>
                     </button>
