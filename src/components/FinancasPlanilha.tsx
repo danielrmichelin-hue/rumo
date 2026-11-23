@@ -195,7 +195,6 @@ export function GradeParcelas({ parcelamentos, hoje }: { parcelamentos: Parcelam
                     const vence = somarMeses(p.first_due, i);
                     const paga = i < p.paid_count;
                     const proxima = i === p.paid_count;
-                    const ultimaPaga = i === p.paid_count - 1;
                     const devida = proxima && vence <= hoje;
                     return (
                       <td key={i} className="grade__c">
@@ -204,14 +203,10 @@ export function GradeParcelas({ parcelamentos, hoje }: { parcelamentos: Parcelam
                           className={`grade__b${paga ? " is-paga" : ""}${proxima ? " is-proxima" : ""}${devida ? " is-devida" : ""}`}
                           title={`Parcela ${i + 1} · vence ${dataBR(vence)}${paga ? " · paga" : ""}`}
                           aria-label={`${p.title}, parcela ${i + 1}${paga ? ", paga" : ""}`}
-                          disabled={pendente || !(proxima || ultimaPaga)}
+                          disabled={pendente || !proxima}
                           onClick={() => iniciar(async () => {
-                            if (proxima) {
-                              const r = await pagarParcela(p.id);
-                              if (r.ok) avisar({ texto: `${p.title}: parcela ${i + 1} paga.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => desfazerParcela(p.id, r.lancamento)) } });
-                            } else if (confirm(`Desmarcar a parcela ${i + 1} de ${p.title}?`)) {
-                              await desfazerParcela(p.id);
-                            }
+                            const r = await pagarParcela(p.id);
+                            if (r.ok) avisar({ texto: `${p.title}: parcela ${i + 1} paga.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => desfazerParcela(p.id, r.lancamento)) } });
                           })}
                         >
                           {paga ? <Check aria-hidden /> : <small>{mesCurto(vence).split("/")[0]}</small>}
@@ -225,7 +220,7 @@ export function GradeParcelas({ parcelamentos, hoje }: { parcelamentos: Parcelam
           </tbody>
         </table>
       </div>
-      <p className="field__hint">Toque na próxima parcela para marcar como paga (o pagamento entra nos lançamentos de hoje). Toque na última paga para desmarcar. Clique no nome para corrigir.</p>
+      <p className="field__hint">Toque na próxima parcela para marcar como paga: o pagamento entra nos Lançamentos de hoje. Para tirar um pagamento, apague o lançamento dele em Lançamentos. Clique no nome para corrigir.</p>
       {editar && <EditarParcelamento p={editar} fechar={() => setEditar(null)} />}
     </>
   );
