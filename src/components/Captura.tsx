@@ -1,10 +1,10 @@
 "use client";
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, Inbox, ListChecks, Scale, X } from "lucide-react";
-import { capturar } from "@/app/(app)/acoes";
+import { CalendarClock, CalendarDays, ChevronDown, Hourglass, Inbox, ListChecks, Scale, X } from "lucide-react";
+import { capturar, type EscolhasCaptura } from "@/app/(app)/acoes";
 import { lerCaptura } from "@/lib/captura";
-import { hojeISO, rotuloData, rotuloHora } from "@/lib/datas";
+import { diaDaSemana, hojeISO, rotuloData, rotuloHora, somarDias, somarDiasUteis } from "@/lib/datas";
 import { useAvisar } from "./Avisos";
 import type { ContextItem } from "./Shell";
 
@@ -29,8 +29,23 @@ function primeiraMaiuscula(s: string) {
   return s.charAt(0).toLocaleUpperCase("pt-BR") + s.slice(1);
 }
 
-export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "", contextoInicial = null }: { aberta: boolean; abrir: () => void; fechar: () => void; contextos: ContextItem[]; textoInicial?: string; contextoInicial?: string | null }) {
+type Tipo = NonNullable<EscolhasCaptura["tipo"]>;
+const TIPOS: [Tipo, string, typeof ListChecks][] = [["tarefa", "Tarefa", ListChecks], ["decisao", "Decisão", Scale], ["compromisso", "Compromisso", CalendarClock], ["aguardando", "Aguardando", Hourglass]];
+const DURACOES: [number, string][] = [[30, "30 min"], [60, "1h"], [90, "1h30"], [120, "2h"]];
+
+export function Captura({ aberta, abrir, fechar, contextos, projetos = [], textoInicial = "", contextoInicial = null }: { aberta: boolean; abrir: () => void; fechar: () => void; contextos: ContextItem[]; projetos?: { id: string; name: string; context_id: string | null }[]; textoInicial?: string; contextoInicial?: string | null }) {
   const [valor, setValor] = useState("");
+  // Escolhas: undefined = vale o que o texto disse
+  const [tipo, setTipo] = useState<Tipo | undefined>();
+  const [data, setData] = useState<string | null | undefined>();
+  const [hora, setHora] = useState<string | null | undefined>();
+  const [duracao, setDuracao] = useState(60);
+  const [local, setLocal] = useState("");
+  const [quem, setQuem] = useState("");
+  const [cobrar, setCobrar] = useState("");
+  const [projeto, setProjeto] = useState("");
+  const [nota, setNota] = useState("");
+  const [mais, setMais] = useState(false);
   const campo = useRef<HTMLTextAreaElement>(null);
   const avisar = useAvisar();
   const hoje = hojeISO();
@@ -44,6 +59,13 @@ export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "", c
   const sugerido = useMemo(() => (leitura && !leitura.context_id && !escolhido ? sugerirContexto(valor, contextos) : null), [leitura, escolhido, valor, contextos]);
   const idContexto = escolhido === "inbox" ? null : escolhido ?? leitura?.context_id ?? null;
   const contexto = contextos.find((c) => c.id === idContexto);
+  const tipoEf: Tipo = tipo ?? (leitura?.kind === "decidir" ? "decisao" : "tarefa");
+  const dataEf = data !== undefined ? data : leitura?.due_date ?? (tipoEf === "compromisso" ? hoje : null);
+  const horaEf = hora !== undefined ? hora : leitura?.due_time ?? null;
+  const cobrarEf = cobrar || somarDiasUteis(hoje, 3);
+  const proxSegunda = somarDias(hoje, ((8 - diaDaSemana(hoje)) % 7) || 7);
+  const atalhosData: [string, string | null][] = [...(tipoEf === "compromisso" ? [] : [["Sem data", null] as [string, null]]), ["Hoje", hoje], ["Amanhã", somarDias(hoje, 1)], ["Próx. segunda", proxSegunda]];
+  function limparEscolhas() { setTipo(undefined); setData(undefined); setHora(undefined); setDuracao(60); setLocal(""); setQuem(""); setCobrar(""); setProjeto(""); setNota(""); setMais(false); }
 
   // Botões como "Nova decisão" abrem a captura já com um começo de texto
   // O cursor vai para o espaço reservado do texto pronto ("Decidir  #iter" → depois de "Decidir ";
@@ -91,13 +113,22 @@ export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "", c
     const texto = valor.trim();
     if (!texto) return;
     const onde = escolhido;
+    if (tipoEf === "compromisso" && !horaEf) { avisar({ texto: "Compromisso precisa de hora." }); return; }
+    if (tipoEf === "aguardando" && !quem.trim()) { avisar({ texto: "Aguardando quem?" }); return; }
+    const escolhas: EscolhasCaptura = {
+      tipo: tipoEf, ...(data !== undefined || tipoEf === "compromisso" ? { data: dataEf } : {}), ...(hora !== undefined ? { hora } : {}),
+      ...(tipoEf === "compromisso" ? { duracao, local: local || null } : {}),
+      ...(tipoEf === "aguardando" ? { quem, cobrar: cobrarEf } : {}),
+      projeto: projeto || null, nota: nota || null,
+    };
     setValor("");
     setEscolhido(null);
+    limparEscolhas();
     fechar();
     avisar({ texto: "Guardando…", fixo: true });
     let r: Awaited<ReturnType<typeof capturar>>;
     try {
-      r = await capturar(texto, onde);
+      r = await capturar(texto, onde, escolhas);
     } catch {
       r = { ok: false, erro: "Não foi possível guardar. Verifique a conexão e tente de novo." };
     }
@@ -107,7 +138,7 @@ export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "", c
     }
     const lugar = r.contexto ? `em ${r.contexto}` : "na Inbox";
     const quando = r.due_date ? ` · ${rotuloData(r.due_date, hoje)}${r.due_time ? ` ${rotuloHora(r.due_time)}` : ""}` : "";
-    avisar({ texto: `Guardado ${lugar}${quando}.`, link: { rotulo: "Abrir", href: `/responsabilidades/${r.id}` } });
+    avisar({ texto: `${r.compromisso ? "Na agenda" : `Guardado ${lugar}`}${quando}.`, link: { rotulo: "Abrir", href: r.compromisso ? `/calendario/${r.id}` : `/responsabilidades/${r.id}` } });
   }
 
   if (!aberta) return null;
@@ -157,25 +188,38 @@ export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "", c
           />
         </div>
 
-        <div id="capture-leitura" aria-live="polite">
-          {leitura ? (
-            <div className="capture__chips">
-              {leitura.due_date && (
-                <span className="chip">
-                  <CalendarDays aria-hidden />
-                  {primeiraMaiuscula(rotuloData(leitura.due_date, hoje))}{leitura.due_time ? `, ${leitura.due_time}` : ""}
-                </span>
-              )}
-              <span className="chip">
-                {leitura.kind === "decidir" ? <><Scale aria-hidden />Decisão</> : <><ListChecks aria-hidden />Responsabilidade</>}
-              </span>
-            </div>
-          ) : (
-            <p className="capture__hint">
-              Escreva como fala: <em>Ligar para o contador sexta 10h</em>. Data e hora o Rumo entende sozinho.
-            </p>
-          )}
+        <div className="cap-tipo seg" role="group" aria-label="Tipo">
+          {TIPOS.map(([v, r, Icone]) => <button key={v} type="button" aria-pressed={tipoEf === v} onClick={() => setTipo(v)}><Icone aria-hidden />{r}</button>)}
         </div>
+
+        {tipoEf === "aguardando" ? (
+          <div className="cap-linha">
+            <span>De quem</span>
+            <input className="input cap-curto" value={quem} onChange={(e) => setQuem(e.target.value)} placeholder="Nome ou o que espera" aria-label="Aguardando quem" />
+            <span>Cobrar</span>
+            <input className="input cap-data" type="date" value={cobrarEf} min={hoje} onChange={(e) => setCobrar(e.target.value)} aria-label="Cobrar em" />
+          </div>
+        ) : (
+          <div className="cap-linha" role="group" aria-label="Quando">
+            <span>{tipoEf === "compromisso" ? "Quando" : "Prazo"}</span>
+            {atalhosData.map(([r, d]) => <button key={r} type="button" className="chip" aria-pressed={dataEf === d} onClick={() => setData(d)}>{r}</button>)}
+            <input className="input cap-data" type="date" value={dataEf ?? ""} onChange={(e) => setData(e.target.value || null)} aria-label="Escolher o dia" />
+            <input className="input cap-hora" type="time" value={horaEf?.slice(0, 5) ?? ""} onChange={(e) => setHora(e.target.value || null)} aria-label="Hora" />
+          </div>
+        )}
+
+        {tipoEf === "compromisso" && (
+          <div className="cap-linha" role="group" aria-label="Duração">
+            <span>Duração</span>
+            {DURACOES.map(([m, r]) => <button key={m} type="button" className="chip" aria-pressed={duracao === m} onClick={() => setDuracao(m)}>{r}</button>)}
+            <input className="input cap-curto" value={local} onChange={(e) => setLocal(e.target.value)} placeholder="Local ou link" aria-label="Local" />
+          </div>
+        )}
+
+        {dataEf && tipoEf !== "aguardando" && (
+          <p className="cap-resumo"><CalendarDays aria-hidden />{primeiraMaiuscula(rotuloData(dataEf, hoje))}{horaEf ? `, ${rotuloHora(horaEf)}` : ""}{tipoEf === "compromisso" ? ` · ${DURACOES.find(([m]) => m === duracao)?.[1] ?? `${duracao} min`}` : ""}</p>
+        )}
+        {!valor.trim() && <p className="capture__hint">Escreva como fala: <em>Ligar para o contador sexta 10h #iter</em>.</p>}
 
         {contextos.length > 0 && (
           <div className="capture__where" role="group" aria-label="Onde guardar">
@@ -196,9 +240,20 @@ export function Captura({ aberta, abrir, fechar, contextos, textoInicial = "", c
           </div>
         )}
 
+        <button type="button" className="cap-mais" aria-expanded={mais} onClick={() => setMais(!mais)}><ChevronDown aria-hidden />Projeto e nota{projeto ? " · 1 projeto" : ""}{nota ? " · nota" : ""}</button>
+        {mais && (
+          <div className="cap-extra">
+            <select className="input" value={projeto} onChange={(e) => setProjeto(e.target.value)} aria-label="Projeto" disabled={tipoEf === "compromisso"}>
+              <option value="">Sem projeto</option>
+              {projetos.filter((p) => !idContexto || !p.context_id || p.context_id === idContexto).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <textarea className="input input--area" rows={2} value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Nota, links, o que foi combinado" aria-label="Nota" />
+          </div>
+        )}
+
         <div className="capture__foot">
           <span className="capture__keys"><kbd>Enter</kbd> adiciona <kbd>Esc</kbd> fecha</span>
-          <button className="btn" type="submit" disabled={!valor.trim()}>Adicionar</button>
+          <button className="btn" type="submit" disabled={!valor.trim()}>{tipoEf === "compromisso" ? "Pôr na agenda" : "Adicionar"}</button>
         </div>
       </form>
     </div>

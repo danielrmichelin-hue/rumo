@@ -25,6 +25,7 @@ export type ContextItem = { id: string; name: string; color: string; kind?: "emp
 
 type Props = {
   contexts: ContextItem[];
+  projetos: { id: string; name: string; context_id: string | null }[];
   nome: string;
   email: string;
   inbox: number;
@@ -50,7 +51,7 @@ export function iniciais(nome: string) {
   return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : partes[0][1] ?? "")).toUpperCase();
 }
 
-export function Shell({ contexts, nome, email, inbox, hoje, atencao, modulos, children }: Props) {
+export function Shell({ contexts, projetos, nome, email, inbox, hoje, atencao, modulos, children }: Props) {
   const path = usePathname();
   const router = useRouter();
   const on = (href: string) => (path === href || path.startsWith(href + "/") ? "page" : undefined);
@@ -168,7 +169,7 @@ export function Shell({ contexts, nome, email, inbox, hoje, atencao, modulos, ch
           <Link href="/mais" aria-current={on("/mais") ?? on("/responsabilidades") ?? on("/ajustes") ?? on("/contextos") ?? on("/contexto")}><Menu aria-hidden />Mais</Link>
         </nav>
 
-        <Captura aberta={captura} abrir={abrir} fechar={() => { setTextoInicial(""); setContextoInicial(null); fechar(); }} contextos={contexts} textoInicial={textoInicial} contextoInicial={contextoInicial ?? contextoDaPagina} />
+        <Captura aberta={captura} abrir={abrir} fechar={() => { setTextoInicial(""); setContextoInicial(null); fechar(); }} contextos={contexts} projetos={projetos} textoInicial={textoInicial} contextoInicial={contextoInicial ?? contextoDaPagina} />
       </div>
     </AvisosProvider>
   );

@@ -26,6 +26,9 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
 - Sem contexto, sem projeto e sem Rota = Inbox. Com data = aparece no Hoje no dia.
 - A captura entende: hoje, amanhã, dias da semana, datas (12/11), horas (10h, 14:30) e `#contexto`. O texto
   original fica em `raw_capture`.
+  Na tela (`src/components/Captura.tsx`) também se escolhe: tipo (Tarefa, Decisão, Compromisso → vai para `events`,
+  Aguardando → quem e cobrar), prazo (atalhos, dia, hora), duração e local, contexto, projeto e nota; o texto preenche
+  essas escolhas e tocar muda (`capturar(texto, onde, escolhas)` em `acoes.ts`).
 - Ordem do Hoje: próximo passo; Atenção (atrasadas + cobranças); Hoje; Agenda; Rotinas e remédios; Para pagar;
   Estudos; Rotas; Aguardando alguém.
 - Decisões são tarefas com `kind = 'decidir'`; a decisão fica na nota ao concluir.

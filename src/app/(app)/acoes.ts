@@ -48,17 +48,67 @@ async function inserirCaptura(original: string, extra: Record<string, unknown> =
 }
 
 export type ResultadoCaptura =
-  | { ok: true; id: string; title: string; due_date: string | null; due_time: string | null; contexto: string | null }
+  | { ok: true; id: string; title: string; due_date: string | null; due_time: string | null; contexto: string | null; compromisso?: boolean }
   | { ok: false; erro: string };
 
-/** `onde`: o contexto escolhido na etiqueta ("inbox" para a Inbox); sem escolha, vale o #contexto do texto */
-export async function capturar(bruto: string, onde: string | null = null): Promise<ResultadoCaptura> {
+/** O que se escolhe na captura além do texto. Ausente = vale o que o texto disse; null = sem. */
+export type EscolhasCaptura = {
+  tipo?: "tarefa" | "decisao" | "compromisso" | "aguardando";
+  data?: string | null;
+  hora?: string | null;
+  /** compromisso */
+  duracao?: number;
+  local?: string | null;
+  /** aguardando */
+  quem?: string | null;
+  cobrar?: string | null;
+  projeto?: string | null;
+  nota?: string | null;
+};
+
+export async function capturar(bruto: string, onde: string | null = null, e: EscolhasCaptura = {}): Promise<ResultadoCaptura> {
   const original = bruto.trim();
   if (!original) return { ok: false, erro: "Escreva algo para guardar." };
   if (original.length > 1000) return { ok: false, erro: "Texto longo demais para uma captura." };
+  if (e.data && !DATA.test(e.data)) return { ok: false, erro: "Data inválida." };
+  if (e.hora && !HORA.test(e.hora)) return { ok: false, erro: "Hora inválida." };
+  if (e.projeto && !ehId(e.projeto)) return { ok: false, erro: "Projeto inválido." };
 
-  const escolha = onde === "inbox" ? { context_id: null } : ehId(onde) ? { context_id: onde } : {};
-  const { leitura, contextos, id } = await inserirCaptura(original, escolha);
+  const escolha: Record<string, unknown> = onde === "inbox" ? { context_id: null } : ehId(onde) ? { context_id: onde } : {};
+
+  // Compromisso: vai para a agenda (events), com dia, hora, duração e local
+  if (e.tipo === "compromisso") {
+    const supabase = await createClient();
+    const { data: contextos } = await supabase.from("contexts").select("id, name").eq("archived", false).order("position");
+    const l = lerCaptura(original, contextos ?? [], hojeISO());
+    const dia = e.data ?? l.due_date ?? hojeISO();
+    const hora = e.hora ?? l.due_time;
+    if (!hora) return { ok: false, erro: "Compromisso precisa de hora." };
+    const inicio = instante(dia, hora);
+    const min = Math.min(24 * 60, Math.max(5, Math.round(e.duracao ?? 60)));
+    const context_id = "context_id" in escolha ? escolha.context_id : l.context_id;
+    const { data, error } = await supabase.from("events").insert({
+      title: l.title.slice(0, 200), starts_at: inicio, ends_at: new Date(new Date(inicio).getTime() + min * 60000).toISOString(),
+      context_id, location: e.local?.trim().slice(0, 200) || null, note: e.nota?.trim().slice(0, 2000) || null,
+    }).select("id").single();
+    if (error || !data) return { ok: false, erro: "Não foi possível guardar o compromisso." };
+    atualizar();
+    return { ok: true, id: data.id, title: l.title, due_date: dia, due_time: hora.slice(0, 5), contexto: (contextos ?? []).find((c) => c.id === context_id)?.name ?? null, compromisso: true };
+  }
+
+  const extra: Record<string, unknown> = { ...escolha };
+  if (e.tipo === "decisao") extra.kind = "decidir";
+  if (e.tipo === "tarefa") extra.kind = "fazer";
+  if (e.data !== undefined) extra.due_date = e.data;
+  if (e.hora !== undefined) extra.due_time = e.hora ? e.hora.slice(0, 5) : null;
+  if (e.projeto) extra.project_id = e.projeto;
+  if (e.nota?.trim()) extra.note = e.nota.trim().slice(0, 5000);
+  if (e.tipo === "aguardando") {
+    if (!e.quem?.trim()) return { ok: false, erro: "Aguardando quem?" };
+    if (e.cobrar && !DATA.test(e.cobrar)) return { ok: false, erro: "Data de cobrança inválida." };
+    Object.assign(extra, { state: "aguardando", waiting_note: e.quem.trim().slice(0, 200), follow_up_on: e.cobrar || somarDiasUteis(hojeISO(), 3) });
+  }
+  const { leitura, contextos, id } = await inserirCaptura(original, extra);
   const destino = "context_id" in escolha ? escolha.context_id : leitura.context_id;
   if (!id) return { ok: false, erro: "Não foi possível guardar. Tente de novo." };
 
@@ -67,8 +117,8 @@ export async function capturar(bruto: string, onde: string | null = null): Promi
     ok: true,
     id,
     title: leitura.title,
-    due_date: leitura.due_date,
-    due_time: leitura.due_time,
+    due_date: e.data !== undefined ? e.data : leitura.due_date,
+    due_time: e.hora !== undefined ? e.hora : leitura.due_time,
     contexto: contextos.find((c) => c.id === destino)?.name ?? null,
   };
 }

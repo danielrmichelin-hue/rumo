@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/login");
   const hoje = hojeISO();
 
-  const [{ data: perfil }, { data: contextos }, { count: inbox }, { data: abertas }, { count: nRotas }, { count: nEstudos }, { data: rotinasDb }, { data: marcas }] = await Promise.all([
+  const [{ data: perfil }, { data: contextos }, { count: inbox }, { data: abertas }, { count: nRotas }, { count: nEstudos }, { data: rotinasDb }, { data: marcas }, { data: projetos }] = await Promise.all([
     supabase.from("profiles").select("display_name, hidden_areas").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position", { ascending: true }),
     supabase.from("responsibilities").select("id", { count: "exact", head: true }).is("context_id", null).is("project_id", null).is("route_id", null).neq("state", "concluida"),
@@ -21,6 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     supabase.from("study_courses").select("id", { count: "exact", head: true }).eq("status", "ativo"),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").order("position"),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", desdeMarcas(hoje)),
+    supabase.from("projects").select("id, name, context_id").eq("status", "ativo").order("name"),
   ]);
 
   const p = perfil as Perfil | null;
@@ -47,6 +48,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <Shell
       contexts={(contextos ?? []) as ContextItem[]}
+      projetos={projetos ?? []}
       nome={nome}
       email={user.email ?? ""}
       inbox={inbox ?? 0}
