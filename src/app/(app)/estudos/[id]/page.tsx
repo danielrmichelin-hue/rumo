@@ -8,10 +8,12 @@ import {
 } from "@/components/Estudos";
 import { CartaoMateria, RevisoesDoDia } from "@/components/Aulas";
 import { ListaNotas, NovaNota } from "@/components/Notas";
-import { ehId, hojeISO, horaDe, inicioDoDia } from "@/lib/datas";
+import { diaMes, ehId, hojeISO, horaDe, inicioDoDia, somarDias } from "@/lib/datas";
+import { NovaProva, RegistrarQuestoes } from "@/components/Desempenho";
+import { AbaDesempenho, AbaEdital, AbaProvas, AbaQuestoes } from "./abas";
 import { segundaDa } from "@/lib/semana";
 import {
-  AZUL_ESTUDO, CAMPOS_CURSO, CAMPOS_MATERIA, CAMPOS_SESSAO, CAMPOS_TEMA, duracao, emAndamento, horas, linhaDoCiclo, linhaDoEstudo, proximaSessao,
+  aproveitamento, AZUL_ESTUDO, CAMPOS_QUESTAO, CAMPOS_SIMULADO, contagemProva, pctTexto, tomAcerto, type Questao, type Simulado, CAMPOS_CURSO, CAMPOS_MATERIA, CAMPOS_SESSAO, CAMPOS_TEMA, duracao, emAndamento, horas, linhaDoCiclo, proximaSessao,
   quandoSessao, resumoDoCiclo, revisoesDoDia, semanaEmBarras, sessoesParaConfirmar, temasDa, TIPOS_CURSO, type Curso, type Materia, type Sessao, type Tema,
 } from "@/lib/estudos";
 import { CAMPOS_NOTA, type Nota } from "@/lib/notas";
@@ -19,24 +21,36 @@ import { CAMPOS_ROTA, normalizar, resumirRota } from "@/lib/rotas";
 
 export const metadata = { title: "Estudos" };
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+const ABAS = [
+  { v: "ciclo", r: "Ciclo" },
+  { v: "conteudo", r: "Conteúdo" },
+  { v: "exercicios", r: "Exercícios" },
+  { v: "provas", r: "Provas e notas" },
+  { v: "desempenho", r: "Desempenho" },
+] as const;
+
+export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ aba?: string }> }) {
   const { id } = await params;
+  const { aba: abaParam } = await searchParams;
+  const aba = ABAS.find((a) => a.v === abaParam)?.v ?? "ciclo";
   if (!ehId(id)) notFound();
   const hoje = hojeISO();
   const supabase = await createClient();
-  const [{ data: cursoDb }, { data: materiasDb }, { data: rotasDb }, { data: contextos }, { data: notas }] = await Promise.all([
+  const [{ data: cursoDb }, { data: materiasDb }, { data: rotasDb }, { data: contextos }, { data: notas }, { data: questoesDb }, { data: simuladosDb }] = await Promise.all([
     supabase.from("study_courses").select(CAMPOS_CURSO).eq("id", id).maybeSingle(),
     supabase.from("study_subjects").select(CAMPOS_MATERIA).eq("course_id", id).order("position"),
     supabase.from("routes").select(CAMPOS_ROTA).eq("course_id", id).order("created_at"),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
     supabase.from("notes").select(CAMPOS_NOTA).eq("course_id", id).order("created_at", { ascending: false }),
+    supabase.from("study_questions").select(CAMPOS_QUESTAO).eq("course_id", id).order("done_on"),
+    supabase.from("study_mocks").select(CAMPOS_SIMULADO).eq("course_id", id).order("done_on"),
   ]);
   if (!cursoDb) notFound();
   const curso = cursoDb as Curso;
   const materias = (materiasDb ?? []) as Materia[];
 
-  // Sessões desde o começo do ciclo (ou da semana, o que vier antes) e as marcadas para frente
-  const desde = inicioDoDia([curso.cycle_started_on, segundaDa(hoje)].sort()[0]);
+  // Sessões desde o começo do ciclo ou das últimas 18 semanas (o que vier antes) e as marcadas para frente
+  const desde = inicioDoDia([curso.cycle_started_on, somarDias(segundaDa(hoje), -7 * 17)].sort()[0]);
   const [{ data: sessoesDb }, { data: temasDb }] = await Promise.all([
     supabase.from("events").select(CAMPOS_SESSAO).eq("course_id", id).gte("starts_at", desde).order("starts_at"),
     materias.length ? supabase.from("study_topics").select(CAMPOS_TEMA).in("subject_id", materias.map((m) => m.id)).order("position") : Promise.resolve({ data: [] }),
@@ -61,31 +75,64 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const rotaCurso = rotas.find((r) => r.kind === "estudos") ?? null;
   const resumoRota = rotaCurso ? resumirRota(rotaCurso, [], hoje) : null;
   const corMateria = (s: Sessao) => materias.find((m) => m.id === s.subject_id)?.color ?? AZUL_ESTUDO;
-  const linhaEstudo = linhaDoEstudo(curso, hoje);
   const revisoes = revisoesDoDia(temas, hoje);
+  const questoes = (questoesDb ?? []) as Questao[];
+  const simulados = ((simuladosDb ?? []) as Simulado[]).map((x) => ({ ...x, total: Number(x.total), correct: Number(x.correct) }));
+  const acerto = aproveitamento(questoes);
+  const prova = contagemProva(curso, hoje);
+  const vistos = temas.filter((t) => t.done_at).length;
 
   return (
     <div className="page page--wide">
-      <div className="page__head study-top">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p className="crumb"><Link href="/estudos">Estudos</Link><ChevronRight aria-hidden />{curso.title}</p>
+      <p className="crumb"><Link href="/estudos">Estudos</Link><ChevronRight aria-hidden />{curso.title}</p>
+      <section className="palco palco--estudo" aria-label={curso.title}>
+        <div className="palco__topo">
+          <div>
+            <p className="palco__data">
+              {TIPOS_CURSO[curso.kind]} · Ciclo {curso.current_cycle}
+              {contexto && <> · {contexto.name}</>}
+              {curso.status === "pausado" && " · pausado"}
+            </p>
+            <h1 className="palco__t">{curso.title}</h1>
+            <p className="palco__resumo">{linhaDoCiclo(curso, ciclo, hoje)}{curso.total_lessons ? <> · {curso.done_lessons} de {curso.total_lessons} aulas <MaisUmaAula cursoId={curso.id} /></> : null}</p>
+          </div>
+          {prova ? (
+            <div className="prova" title={curso.exam_date ? diaMes(curso.exam_date) : undefined}>
+              <b>{prova.dias}</b><span>{prova.dias === 1 ? "dia" : "dias"} para {prova.nome.toLowerCase() === "prova" ? "a prova" : prova.nome}</span>
+              <small>{diaMes(curso.exam_date!)}</small>
+            </div>
+          ) : (
+            <Link href="#detalhes" className="prova prova--sem"><span>Data da prova</span><small>Defina em Detalhes</small></Link>
+          )}
         </div>
-        <div className="page__actions">
-          <RegistrarEstudo cursoId={curso.id} materias={materias} temas={temas} materiaInicial={daVez?.id} />
+        <ul className="palco__nums">
+          <li><Link href={`/estudos/${curso.id}?aba=desempenho`}><b>{horas(semana.total)}</b><span>{curso.weekly_minutes ? `de ${horas(curso.weekly_minutes)} na semana` : "nesta semana"}</span></Link></li>
+          <li><Link href={`/estudos/${curso.id}?aba=conteudo`}><b>{temas.length ? `${Math.round((vistos / temas.length) * 100)}%` : "—"}</b><span>{temas.length ? `do conteúdo (${vistos}/${temas.length})` : "do conteúdo"}</span></Link></li>
+          <li><Link href={`/estudos/${curso.id}?aba=exercicios`} className={acerto.pct !== null && tomAcerto(acerto.pct) === "fraco" ? "is-quente" : undefined}><b>{pctTexto(acerto.pct)}</b><span>{acerto.total ? `de acerto em ${acerto.total} exercícios` : "de acerto nos exercícios"}</span></Link></li>
+          <li><Link href={`/estudos/${curso.id}`} className={revisoes.length ? "is-quente" : undefined}><b>{revisoes.length}</b><span>{revisoes.length === 1 ? "revisão hoje" : "revisões hoje"}</span></Link></li>
+        </ul>
+        <div className="palco__acoes">
+          <RegistrarEstudo cursoId={curso.id} materias={materias} temas={temas} materiaInicial={daVez?.id} variante="btn" />
+          <RegistrarQuestoes cursoId={curso.id} materias={materias} temas={temas} materiaInicial={daVez?.id} />
+          <NovaProva cursoId={curso.id} variante="btn btn--line" />
           <MarcarSessao cursoId={curso.id} materias={materias} temas={temas} materiaInicial={daVez?.id} variante="btn btn--line" />
         </div>
-      </div>
+      </section>
 
-      <header className="study-head">
-        <small>
-          {TIPOS_CURSO[curso.kind]} · {linhaDoCiclo(curso, ciclo, hoje)}
-          {contexto && <> · <i className="dot" style={{ background: contexto.color }} />{contexto.name}</>}
-          {curso.status === "pausado" && " · pausado"}
-        </small>
-        <h1 className="page__t">{curso.title}</h1>
-        {(linhaEstudo || curso.total_lessons) && <p>{linhaEstudo}{curso.total_lessons ? <> <MaisUmaAula cursoId={curso.id} /></> : null}</p>}
-      </header>
+      <nav className="tabs tabs--estudo" aria-label="Partes do estudo">
+        {ABAS.map((a) => (
+          <Link key={a.v} href={a.v === "ciclo" ? `/estudos/${curso.id}` : `/estudos/${curso.id}?aba=${a.v}`} aria-current={a.v === aba ? "page" : undefined}>
+            {a.r}{a.v === "exercicios" && acerto.total > 0 && <em>{acerto.total}</em>}{a.v === "provas" && simulados.length > 0 && <em>{simulados.length}</em>}{a.v === "conteudo" && temas.length > 0 && <em>{vistos}/{temas.length}</em>}
+          </Link>
+        ))}
+      </nav>
 
+      {aba === "conteudo" && <AbaEdital cursoId={curso.id} materias={materias} temas={temas} questoes={questoes} />}
+      {aba === "exercicios" && <AbaQuestoes cursoId={curso.id} materias={materias} temas={temas} questoes={questoes} />}
+      {aba === "provas" && <AbaProvas cursoId={curso.id} simulados={simulados} />}
+      {aba === "desempenho" && <AbaDesempenho materias={materias} sessoes={sessoes} questoes={questoes} metaSemana={curso.weekly_minutes} />}
+
+      {aba === "ciclo" && (
       <div className="route-cols study-cols">
         <div>
           <div className="study-next">
@@ -166,7 +213,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
           <section className="sec">
             <h2 className="sec__h">Notas <em>{(notas ?? []).length}</em><span className="sec__act"><NovaNota vinculo={`e:${curso.id}`} /></span></h2>
-            {(notas ?? []).length > 0 ? <ListaNotas notas={(notas ?? []) as Nota[]} /> : <p className="empty">Resumos, dúvidas para levar à aula, o que caiu na última prova.</p>}
+            {(notas ?? []).length > 0 ? <ListaNotas notas={(notas ?? []) as Nota[]} /> : <p className="empty">Nenhuma nota.</p>}
           </section>
         </div>
 
@@ -174,7 +221,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           <section className="sec" style={{ margin: 0 }}>
             <h2 className="sec__h">Sessões marcadas {marcadas.length > 0 && <em>{marcadas.length}</em>}</h2>
             {marcadas.length === 0 ? (
-              <p className="empty" style={{ paddingTop: 2 }}>Marque as sessões da semana: elas vão para o calendário em azul e aparecem no Hoje no dia.</p>
+              <p className="empty" style={{ paddingTop: 2 }}>Nenhuma sessão marcada.</p>
             ) : (
               <div className="agenda">
                 {marcadas.slice(0, 6).map((s) => (
@@ -190,7 +237,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           <section className="sec" style={{ margin: 0 }}>
             <h2 className="sec__h">Leituras <span className="sec__act"><Link href={`/rotas/nova?tipo=leitura&curso=${curso.id}`} className="btn btn--ghost btn--sm"><BookOpen aria-hidden />Nova</Link></span></h2>
             {leituras.length === 0 ? (
-              <p className="empty" style={{ paddingTop: 2 }}>Livros e apostilas viram Rotas de leitura: o Rumo calcula as páginas por dia.</p>
+              <p className="empty" style={{ paddingTop: 2 }}>Nenhuma leitura.</p>
             ) : (
               <div className="agenda">
                 {leituras.map((r) => {
@@ -221,12 +268,13 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             </div>
           ) : null}
 
-          <details className="card fold">
+          <details className="card fold" id="detalhes">
             <summary className="card__t" style={{ margin: 0, display: "flex", alignItems: "center", gap: 6 }}><ChevronRight aria-hidden />Detalhes do estudo</summary>
             <div style={{ marginTop: 14 }}><FormCurso curso={curso} contextos={ctx} /></div>
           </details>
         </aside>
       </div>
+      )}
     </div>
   );
 }

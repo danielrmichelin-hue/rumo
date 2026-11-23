@@ -8,7 +8,7 @@ import { Check, ChevronRight, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-
 import {
   adicionarTemas, apagarModulo, apagarTema, criarModulo, desfazerRevisao, marcarTema, renomearModulo, revisarTema,
 } from "@/app/(app)/acoes";
-import { textoRevisao, type Materia, type Modulo, type Tema } from "@/lib/estudos";
+import { pctTexto, textoRevisao, tomAcerto, type Materia, type Modulo, type Tema } from "@/lib/estudos";
 import { rotuloData } from "@/lib/datas";
 import { useAvisar } from "./Avisos";
 import { AdicionarRapido } from "./Comuns";
@@ -60,7 +60,7 @@ export function RevisoesDoDia({ temas, materias, cursoDe }: { temas: Tema[]; mat
   );
 }
 
-function LinhaAula({ tema }: { tema: Tema }) {
+function LinhaAula({ tema, extra }: { tema: Tema; extra?: React.ReactNode }) {
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
   const rev = textoRevisao(tema);
@@ -80,7 +80,7 @@ function LinhaAula({ tema }: { tema: Tema }) {
       >
         {tema.done_at && <Check aria-hidden />}
       </button>
-      <span className="aula__t">{tema.title}</span>
+      <span className="aula__t">{tema.title}{extra}</span>
       <span className={`aula__rev aula__rev--${rev.tom}`}>{rev.texto}</span>
       {rev.tom === "hoje" ? <Revisei tema={tema} /> : <span />}
       <button type="button" className="icon-btn aula__del" aria-label={`Apagar ${tema.title}`} disabled={pendente} onClick={() => iniciar(() => apagarTema(tema.id))}><X size={14} /></button>
@@ -192,5 +192,34 @@ export function CartaoMateria({ cursoId, materia, feito, meta, vistas, total, re
       </span>
       {proxima && <span className="mcard__prox">Próxima: {proxima}</span>}
     </Link>
+  );
+}
+
+/** Edital verticalizado: a matéria com todos os temas, o que já viu, as revisões e o acerto em questões de cada tema */
+export function EditalMateria({ cursoId, materia, temas, acertoTema, acertoMateria }: {
+  cursoId: string; materia: Materia; temas: Tema[]; acertoTema: Record<string, { pct: number | null; total: number }>; acertoMateria: { pct: number | null; total: number };
+}) {
+  const lista = temas.filter((t) => t.subject_id === materia.id).sort((a, b) => a.position - b.position);
+  const vistos = lista.filter((t) => t.done_at).length;
+  const revisados = lista.filter((t) => t.review_step >= 3).length;
+  return (
+    <section className="edital" style={{ "--c": materia.color } as React.CSSProperties}>
+      <header className="edital__h">
+        <Link href={`/estudos/${cursoId}/materia/${materia.id}`} className="edital__t"><i className="dot" style={{ background: materia.color }} />{materia.title}</Link>
+        <span className="edital__nums">
+          <span>{vistos} de {lista.length} vistos</span>
+          {revisados > 0 && <span>{revisados} revisados 3×</span>}
+          {acertoMateria.total > 0 && <span className={`acerto acerto--${tomAcerto(acertoMateria.pct)}`}>{pctTexto(acertoMateria.pct)} em {acertoMateria.total}</span>}
+        </span>
+      </header>
+      <span className="edital__barra"><i style={{ width: `${lista.length ? (vistos / lista.length) * 100 : 0}%` }} /></span>
+      <ul className="aulas__lista">
+        {lista.map((t) => {
+          const a = acertoTema[t.id];
+          return <LinhaAula key={t.id} tema={t} extra={a?.total ? <span className={`acerto acerto--${tomAcerto(a.pct)}`}>{pctTexto(a.pct)}</span> : null} />;
+        })}
+      </ul>
+      <NovasAulas materiaId={materia.id} moduloId={null} vazio={!lista.length} />
+    </section>
   );
 }

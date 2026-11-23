@@ -195,3 +195,68 @@ export function textoRevisao(t: Tema, hoje: string = hojeISO()): { texto: string
 }
 
 export const revisoesDoDia = (temas: Tema[], hoje: string = hojeISO()) => temas.filter((t) => t.done_at && t.next_review_on && t.next_review_on <= hoje);
+
+// ---------- questões, simulados e desempenho ----------
+
+export type Questao = { id: string; course_id: string; subject_id: string | null; topic_id: string | null; done_on: string; total: number; correct: number; note: string | null };
+export type Simulado = { id: string; course_id: string; title: string; done_on: string; total: number; correct: number; minutes: number | null; note: string | null };
+export const CAMPOS_QUESTAO = "id, course_id, subject_id, topic_id, done_on, total, correct, note";
+export const CAMPOS_SIMULADO = "id, course_id, title, done_on, total, correct, minutes, note";
+
+/** Soma de questões: quantas, quantas certas e o aproveitamento (0 a 1) */
+export function aproveitamento(lista: { total: number; correct: number }[]) {
+  const total = lista.reduce((t, q) => t + q.total, 0);
+  const certas = lista.reduce((t, q) => t + q.correct, 0);
+  return { total, certas, pct: total ? certas / total : null };
+}
+
+/** Verde a partir de 75%, amarelo de 60% a 75%, vermelho abaixo */
+export const tomAcerto = (pct: number | null) => (pct === null ? "nada" : pct >= 0.75 ? "bom" : pct >= 0.6 ? "medio" : "fraco");
+export const pctTexto = (pct: number | null) => (pct === null ? "—" : `${Math.round(pct * 100)}%`);
+
+/** Aproveitamento por matéria, do pior para o melhor (onde focar primeiro) */
+export function acertoPorMateria(materias: Materia[], questoes: Questao[]) {
+  return materias
+    .map((m) => ({ materia: m, ...aproveitamento(questoes.filter((q) => q.subject_id === m.id)) }))
+    .sort((a, b) => (a.pct ?? 2) - (b.pct ?? 2));
+}
+
+/** Horas estudadas em cada uma das últimas N semanas (segunda a domingo), da mais antiga para a atual */
+export function horasPorSemana(sessoes: Sessao[], semanas = 8, hoje: string = hojeISO()) {
+  const seg = segundaDa(hoje);
+  return Array.from({ length: semanas }, (_, i) => {
+    const ini = somarDias(seg, -7 * (semanas - 1 - i));
+    const fim = somarDias(ini, 6);
+    const min = sessoes.filter((s) => s.done_at && diaDa(s) >= ini && diaDa(s) <= fim).reduce((t, s) => t + duracao(s), 0);
+    return { ini, min, atual: i === semanas - 1 };
+  });
+}
+
+/** Horas por matéria (sessões concluídas), da que mais estudou para a que menos */
+export function horasPorMateria(materias: Materia[], sessoes: Sessao[]) {
+  return materias
+    .map((m) => ({ materia: m, min: sessoes.filter((s) => s.done_at && s.subject_id === m.id).reduce((t, s) => t + duracao(s), 0) }))
+    .sort((a, b) => b.min - a.min);
+}
+
+/** Mapa de constância: as últimas N semanas, dia a dia, com os minutos estudados (questões contam como estudo) */
+export function constancia(sessoes: Sessao[], questoes: Questao[], semanas = 18, hoje: string = hojeISO()) {
+  const inicio = somarDias(segundaDa(hoje), -7 * (semanas - 1));
+  const min = new Map<string, number>();
+  for (const s of sessoes) if (s.done_at) min.set(diaDa(s), (min.get(diaDa(s)) ?? 0) + duracao(s));
+  for (const q of questoes) if (!min.has(q.done_on)) min.set(q.done_on, 1);
+  const dias = Array.from({ length: semanas * 7 }, (_, i) => {
+    const dia = somarDias(inicio, i);
+    const m = min.get(dia) ?? 0;
+    return { dia, min: m, nivel: dia > hoje ? -1 : m === 0 ? 0 : m < 30 ? 1 : m < 90 ? 2 : m < 180 ? 3 : 4 };
+  });
+  const ultimos30 = Array.from({ length: 30 }, (_, i) => somarDias(hoje, -i)).filter((d) => min.has(d)).length;
+  return { dias, ultimos30 };
+}
+
+/** Contagem para a prova: dias que faltam e semanas (null sem data ou depois da prova) */
+export function contagemProva(c: Curso, hoje: string = hojeISO()) {
+  if (!c.exam_date || c.exam_date < hoje) return null;
+  const dias = diferencaDias(hoje, c.exam_date);
+  return { dias, semanas: Math.floor(dias / 7), nome: c.exam_label || "Prova" };
+}

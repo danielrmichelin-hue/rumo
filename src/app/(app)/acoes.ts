@@ -1446,3 +1446,43 @@ export async function testarAviso(): Promise<{ ok: boolean }> {
   const r = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/avisos`, { method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" }, body: "{}" }).catch(() => null);
   return { ok: !!r?.ok };
 }
+
+/* Estudos: questões resolvidas e simulados */
+export type DadosQuestoes = { course_id: string; subject_id: string | null; topic_id: string | null; done_on: string; total: number; correct: number; note: string | null };
+
+export async function registrarQuestoes(d: DadosQuestoes): Promise<{ ok: boolean; erro?: string; id?: string }> {
+  if (!ehId(d.course_id) || (d.subject_id && !ehId(d.subject_id)) || (d.topic_id && !ehId(d.topic_id))) return { ok: false, erro: "Escolha a matéria." };
+  if (!Number.isInteger(d.total) || d.total < 1 || d.total > 2000) return { ok: false, erro: "Quantos exercícios você fez?" };
+  if (!Number.isInteger(d.correct) || d.correct < 0 || d.correct > d.total) return { ok: false, erro: "Os acertos passam do total." };
+  if (!DATA.test(d.done_on) || d.done_on > hojeISO()) return { ok: false, erro: "Escolha um dia até hoje." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("study_questions").insert({ ...d, note: d.note?.trim().slice(0, 500) || null }).select("id").single();
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true, id: data.id };
+}
+
+export async function apagarQuestoes(id: string) {
+  await apagarPorId("study_questions", id);
+}
+
+export type DadosSimulado = { course_id: string; title: string; done_on: string; total: number; correct: number; minutes: number | null; note: string | null };
+
+export async function registrarSimulado(d: DadosSimulado): Promise<{ ok: boolean; erro?: string; id?: string }> {
+  if (!ehId(d.course_id)) return { ok: false };
+  const title = d.title.trim().slice(0, 120);
+  if (!title) return { ok: false, erro: "Dê um nome à prova." };
+  if (!(d.total >= 1 && d.total <= 2000)) return { ok: false, erro: "Qual é a nota máxima?" };
+  if (!(d.correct >= 0 && d.correct <= d.total)) return { ok: false, erro: "A nota passa da máxima." };
+  if (!DATA.test(d.done_on) || d.done_on > hojeISO()) return { ok: false, erro: "Escolha um dia até hoje." };
+  const minutes = d.minutes && d.minutes > 0 && d.minutes <= 1440 ? Math.round(d.minutes) : null;
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("study_mocks").insert({ course_id: d.course_id, title, done_on: d.done_on, total: Math.round(d.total * 100) / 100, correct: Math.round(d.correct * 100) / 100, minutes, note: d.note?.trim().slice(0, 1000) || null }).select("id").single();
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true, id: data.id };
+}
+
+export async function apagarSimulado(id: string) {
+  await apagarPorId("study_mocks", id);
+}

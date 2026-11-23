@@ -2,6 +2,7 @@
 
 // Peças repetidas nas telas: campo de contexto, painel por cima da tela e linha de adicionar rápido.
 import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { Plus, X } from "lucide-react";
 import { useAvisar } from "./Avisos";
 import type { ContextItem } from "./Shell";
@@ -43,10 +44,12 @@ export function Painel({ titulo, fechar, acao, children }: { titulo: string; fec
       {children}
     </>
   );
-  return (
+  // Vai direto no <body>: aberto de dentro de um palco ou cartão, não fica preso embaixo do que vem depois
+  return createPortal(
     <div className="capture" role="dialog" aria-modal="true" aria-label={titulo} onMouseDown={(e) => e.target === e.currentTarget && fechar()}>
       {acao ? <form className="capture__box" action={acao}>{conteudo}</form> : <div className="capture__box">{conteudo}</div>}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

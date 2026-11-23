@@ -61,7 +61,8 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   e saldo da conta; `fin_installments` parcelamentos; `installment_id` nos lançamentos; `fin_investments` e `fin_inv_moves`) e 0015 (`subtasks`: checklist dentro da tarefa) e 0016 (lançamentos são a base: `investment_id` nos lançamentos; investir = saída com
   investimento, resgatar = entrada com investimento, e o app lê como `aporte`/`resgate` em `normalizarLancamento`; de
   `fin_inv_moves` o app lê só os rendimentos) e 0017 (avisos: `push_subscriptions`, `push_sent`, `rumo_segredo` lendo o cofre,
-  pg_cron `rumo-avisos` a cada 5 min chamando a função `avisos`) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
+  pg_cron `rumo-avisos` a cada 5 min chamando a função `avisos`) e 0018 (`study_questions`: exercícios com acertos por matéria/tema;
+  `study_mocks`: provas e notas) e 0019 (notas decimais em `study_mocks`) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
 - Rotas do app em `src/app/(app)/…`. A casca (`src/components/Shell.tsx`) tem a lateral fixa: Hoje, Inbox, Calendário,
   Tarefas, Projetos; Áreas da vida (Negócios, Estudos, Finanças, Saúde, Rotinas, Rotas, Notas); Contextos (só os de tipo
@@ -70,7 +71,10 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   semana do calendário em `src/lib/semana.ts`; resumo de projeto (progresso, entrega, próximo passo) em
   `src/lib/projetos.ts`; cálculo das Rotas (ritmo, previsão, recálculo, próximo passo, igual ao simulador do Book)
   em `src/lib/rotas.ts`; Estudos como ciclo de estudos (matérias com horas por ciclo, matéria → módulo → aula, revisões 1/7/30 dias, modo foco
-  com pomodoro em `src/components/Foco.tsx`) em `src/lib/estudos.ts`, com as
+  com pomodoro em `src/components/Foco.tsx`) em `src/lib/estudos.ts`; o curso tem palco (dias para a prova/entrega, semana,
+  % do conteúdo, % de acerto, revisões) e abas Ciclo, Conteúdo (temas de cada matéria), Exercícios, Provas e notas e Desempenho
+  (constância, horas por semana e por matéria) em `estudos/[id]/abas.tsx` e `src/components/Desempenho.tsx`. Não é app de concurso:
+  textos genéricos (pós, faculdade, idioma, curso). Com as
   sessões como compromissos do Core (events com `course_id`); Rotinas (quando é dia dela, a semana em pontos, sem sequência; mensais "todo dia 10" ficam no Hoje até serem feitas)
   em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`; Finanças do mês (resumo, contas fixas = rotinas mensais com valor,
   categorias, planilha CSV; o mês é o do calendário, 1 a 30, em tudo; parcelamentos,

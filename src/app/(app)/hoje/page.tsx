@@ -8,7 +8,7 @@ import { CAMPOS_LISTA, type Compromisso, type Responsabilidade } from "@/lib/tip
 import Link from "next/link";
 import { Anel } from "@/components/Caminho";
 import { CAMPOS_MARCO, CAMPOS_ROTA, type Marco, normalizar, resumirRota } from "@/lib/rotas";
-import { AZUL_ESTUDO, CAMPOS_CURSO, CAMPOS_MATERIA, CAMPOS_SESSAO, CAMPOS_TEMA, horas, resumoDoCiclo, temasDa, type Curso, type Materia, type Sessao, type Tema } from "@/lib/estudos";
+import { AZUL_ESTUDO, linhaDoEstudo, CAMPOS_CURSO, CAMPOS_MATERIA, CAMPOS_SESSAO, CAMPOS_TEMA, horas, resumoDoCiclo, temasDa, type Curso, type Materia, type Sessao, type Tema } from "@/lib/estudos";
 import { CAMPOS_ROTINA, desdeMarcas, feitaEm, hora, type Marcacao, mesDaRotina, type Rotina, rotinasDoDia, semanaDaRotina } from "@/lib/rotinas";
 import { ChecarRotina } from "@/components/Rotinas";
 import { Logo } from "@/components/Logo";
@@ -26,7 +26,8 @@ export default async function Page() {
   const inicio = inicioDoDia(hoje);
   const fim = fimDoDia(hoje);
 
-  const [{ data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }, { data: cursosDb }, { data: materiasDb }, { data: parcDb }] = await Promise.all([
+  const [{ data: { user } }, { data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }, { data: cursosDb }, { data: materiasDb }, { data: parcDb }] = await Promise.all([
+    supabase.auth.getUser(),
     supabase.from("profiles").select("display_name").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").order("position"),
     supabase.from("projects").select("id, name"),
@@ -69,7 +70,6 @@ export default async function Page() {
   const ctx = contextos ?? [];
   const nomesProjetos = Object.fromEntries((projetos ?? []).map((p) => [p.id, p.name]));
   const dia = montarHoje((abertas ?? []) as Responsabilidade[], (feitas ?? []) as Responsabilidade[], (eventos ?? []) as Compromisso[], hoje, agora);
-  const { data: { user } } = await supabase.auth.getUser();
   const nome = perfil?.display_name || (user?.email ?? "").split("@")[0];
   const primeiroNome = nome.split(/\s+/)[0];
   const doDiaComFeitas = [...dia.doDia, ...dia.concluidasHoje];
@@ -224,6 +224,7 @@ export default async function Page() {
                         <span className="props">
                           <span className="prop">{c.title}</span>
                           {linha.meta && <span className="prop">faltam {horas(linha.meta - linha.feito)} no ciclo</span>}
+                          {c.exam_date && <span className="prop prop--today">{linhaDoEstudo(c, hoje).split(" · ")[0]}</span>}
                         </span>
                       </div>
                     </li>

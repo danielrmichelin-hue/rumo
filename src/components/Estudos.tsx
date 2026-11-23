@@ -91,7 +91,7 @@ export function NovoCurso({ contextos, tipoInicial }: { contextos: ContextItem[]
         <>
           <label className="field">
             Nome
-            <input className="input" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex.: Concurso TRT, Pós em Marketing" required maxLength={120} autoFocus />
+            <input className="input" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex.: Pós em Marketing, Inglês, Faculdade" required maxLength={120} autoFocus />
           </label>
 
           <div className="field">
