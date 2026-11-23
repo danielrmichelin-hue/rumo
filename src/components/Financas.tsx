@@ -1,10 +1,11 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { Check, Plus, Settings2, Trash2 } from "lucide-react";
-import { apagarInvestimento, apagarLancamento, apagarMovimento, atualizarSaldoInvestimento, criarInvestimento, criarParcelamento, criarRotina, desfazerParcela, lancar, marcarLancamentoPago, movimentarInvestimento, pagarParcela, salvarAjustesFinancas, salvarOrcamento } from "@/app/(app)/acoes";
+import { Archive, ArchiveRestore, Check, Plus, Scale, Settings2, Trash2 } from "lucide-react";
+import { apagarInvestimento, apagarLancamento, apagarMovimento, conferirConta, conferirInvestimento, criarCategoria, criarConta, criarInvestimento, planoInvestimento, salvarCategoria, salvarConta, criarParcelamento, criarRotina, desfazerParcela, lancar, marcarLancamentoPago, movimentarInvestimento, pagarParcela, salvarAjustesFinancas, salvarOrcamento } from "@/app/(app)/acoes";
 import { hojeISO, numeroBR, rotuloData } from "@/lib/datas";
-import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA, moeda, naConta, ROTULO_TIPO, TIPOS_INVESTIMENTO, type Ajustes, type Investimento, type Lancamento, type Movimento, type TipoLancamento } from "@/lib/financas";
+import { moeda, naConta, NATUREZAS, nomesCategorias, ROTULO_TIPO, TIPOS_INVESTIMENTO, type Ajustes, type Categoria, type Conta, type Investimento, type Lancamento, type Movimento, type Natureza, type TipoLancamento } from "@/lib/financas";
+import { CampoCategoria, CampoConta, useFinancas } from "./FinancasContexto";
 import { useAvisar } from "./Avisos";
 import { CampoContexto, Painel } from "./Comuns";
 import type { ContextItem } from "./Shell";
@@ -16,7 +17,10 @@ export function NovoLancamento({ contextos, inicio, fim, investimentos = [] }: {
   const [tipo, setTipo] = useState<TipoLancamento>("saida");
   const [valor, setValor] = useState("");
   const [descricao, setDescricao] = useState("");
-  const [categoria, setCategoria] = useState(CATEGORIAS_SAIDA[1]);
+  const { categorias: cats } = useFinancas();
+  const padraoCat = (k: "entrada" | "saida") => { const n = nomesCategorias(cats, k); return k === "saida" ? n.find((c) => c === "Mercado") ?? n[0] : n[0]; };
+  const [categoria, setCategoria] = useState(padraoCat("saida"));
+  const [conta, setConta] = useState("");
   const [investimento, setInvestimento] = useState(investimentos[0]?.id ?? "");
   const [dia, setDia] = useState(padraoDia);
   const [aPagar, setAPagar] = useState(false);
@@ -24,9 +28,8 @@ export function NovoLancamento({ contextos, inicio, fim, investimentos = [] }: {
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
   const transferencia = tipo === "aporte" || tipo === "resgate";
-  const categorias = tipo === "saida" ? CATEGORIAS_SAIDA : CATEGORIAS_ENTRADA;
   const nomeInv = investimentos.find((i) => i.id === investimento)?.name ?? "";
-  const escolher = (t: TipoLancamento) => { setTipo(t); if (t === "saida") setCategoria(CATEGORIAS_SAIDA[1]); if (t === "entrada") setCategoria(CATEGORIAS_ENTRADA[0]); };
+  const escolher = (t: TipoLancamento) => { setTipo(t); if (t === "saida" || t === "entrada") setCategoria(padraoCat(t)); };
 
   return (
     <form
@@ -35,7 +38,7 @@ export function NovoLancamento({ contextos, inicio, fim, investimentos = [] }: {
         e.preventDefault();
         const desc = descricao.trim() || (transferencia ? `${ROTULO_TIPO[tipo]} · ${nomeInv}` : "");
         iniciar(async () => {
-          const r = await lancar({ kind: tipo, amount: numeroBR(valor), description: desc, category: categoria, happened_on: dia, paid: !aPagar, context_id: contexto || null, investment_id: transferencia ? investimento : null });
+          const r = await lancar({ kind: tipo, amount: numeroBR(valor), description: desc, category: categoria, happened_on: dia, paid: !aPagar, context_id: contexto || null, investment_id: transferencia ? investimento : null, account_id: conta || null });
           if (!r.ok) return avisar({ texto: r.erro ?? "Não foi possível lançar." });
           avisar({ texto: `${ROTULO_TIPO[tipo]}: ${moeda(numeroBR(valor))}${transferencia ? ` em ${nomeInv}` : ""}${aPagar && !transferencia ? ", a pagar" : ""}.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => apagarLancamento(r.id!)) } });
           setValor(""); setDescricao(""); setAPagar(false);
@@ -56,10 +59,7 @@ export function NovoLancamento({ contextos, inicio, fim, investimentos = [] }: {
             <select className="input" value={investimento} onChange={(e) => setInvestimento(e.target.value)}>{investimentos.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}</select>
           </label>
         ) : (
-          <label className="field">
-            Categoria
-            <select className="input" value={categoria} onChange={(e) => setCategoria(e.target.value)}>{categorias.map((c) => <option key={c}>{c}</option>)}</select>
-          </label>
+          <CampoCategoria kind={tipo === "entrada" ? "entrada" : "saida"} value={categoria} onChange={setCategoria} />
         )}
         <label className="field">{aPagar ? "Vence em" : "Dia"}<input className="input" type="date" value={dia} onChange={(e) => setDia(e.target.value)} required /></label>
       </div>
@@ -67,6 +67,7 @@ export function NovoLancamento({ contextos, inicio, fim, investimentos = [] }: {
         {transferencia
           ? <span className="field__hint">{tipo === "aporte" ? "Sai da conta e entra no investimento." : "Sai do investimento e volta para a conta."}</span>
           : <label className="check-line"><input type="checkbox" checked={aPagar} onChange={(e) => setAPagar(e.target.checked)} />{tipo === "saida" ? "Ainda vou pagar" : "Ainda vou receber"}</label>}
+        <CampoConta value={conta} onChange={setConta} />
         {!transferencia && <details className="fin-form__mais"><summary>Contexto</summary><CampoContexto contextos={contextos} value={contexto} onChange={setContexto} /></details>}
         <button className="btn btn--sm" type="submit" disabled={pendente || !valor || (!transferencia && !descricao.trim()) || (transferencia && !investimento)}><Plus aria-hidden />Lançar</button>
       </div>
@@ -125,7 +126,7 @@ export function NovaContaFixa({ contextos }: { contextos: ContextItem[] }) {
         <label className="field fin-form__desc">Conta<input className="input" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Condomínio, internet, DAS" required maxLength={120} autoFocus /></label>
         <label className="field">Valor<input className="input" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" required /></label>
         <label className="field">Todo dia<input className="input" inputMode="numeric" value={dia} onChange={(e) => setDia(e.target.value.replace(/\D/g, "").slice(0, 2))} required /></label>
-        <label className="field">Categoria<select className="input" value={categoria} onChange={(e) => setCategoria(e.target.value)}>{CATEGORIAS_SAIDA.map((c) => <option key={c}>{c}</option>)}</select></label>
+        <CampoCategoria kind="saida" value={categoria} onChange={setCategoria} />
       </div>
       <div className="fin-form__pe">
         <details className="fin-form__mais"><summary>Contexto</summary><CampoContexto contextos={contextos} value={contexto} onChange={setContexto} /></details>
@@ -152,10 +153,9 @@ export function LimiteCategoria({ categoria, limite }: { categoria: string; limi
 
 // ---------- ajustes: dia do pagamento, envelopes e saldo da conta ----------
 
-export function AjustesFinancas({ ajustes, saldoConta }: { ajustes: Ajustes; saldoConta: number | null }) {
+export function AjustesFinancas({ ajustes }: { ajustes: Ajustes }) {
   const [aberto, setAberto] = useState(false);
   const [pct, setPct] = useState([ajustes.pct_parcelas, ajustes.pct_investir, ajustes.pct_livre].map(String));
-  const [saldo, setSaldo] = useState(saldoConta === null ? "" : saldoConta.toFixed(2).replace(".", ","));
   const [diaRecebe, setDiaRecebe] = useState(ajustes.pay_day > 1 ? String(ajustes.pay_day) : "");
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
@@ -174,7 +174,7 @@ export function AjustesFinancas({ ajustes, saldoConta }: { ajustes: Ajustes; sal
               e.preventDefault();
               setErro(null);
               iniciar(async () => {
-                const r = await salvarAjustesFinancas({ pay_day: Number(diaRecebe) || null, pct_parcelas: Number(pct[0]), pct_investir: Number(pct[1]), pct_livre: Number(pct[2]), cash_balance: saldo.trim() ? numeroBR(saldo) : null });
+                const r = await salvarAjustesFinancas({ pay_day: Number(diaRecebe) || null, pct_parcelas: Number(pct[0]), pct_investir: Number(pct[1]), pct_livre: Number(pct[2]) });
                 if (!r.ok) return setErro(r.erro ?? "Não foi possível guardar.");
                 avisar({ texto: "Ajustes guardados." });
                 setAberto(false);
@@ -197,14 +197,11 @@ export function AjustesFinancas({ ajustes, saldoConta }: { ajustes: Ajustes; sal
               </div>
               <span className="field__hint">{soma === 100 ? "Parcelas e investir saem primeiro; o resto é o que você pode gastar livre." : `Soma ${soma}%. Precisa dar 100%.`}</span>
             </div>
-            <label className="field">
-              Saldo da conta hoje
-              <input className="input" style={{ maxWidth: 200 }} inputMode="decimal" value={saldo} onChange={(e) => setSaldo(e.target.value)} placeholder="0,00" />
-              <span className="field__hint">Olhe no app do banco. Daqui para frente o Rumo soma o que você lançar.</span>
-            </label>
             {erro && <p className="note note--err" role="alert">{erro}</p>}
             <div className="detail__foot"><button className="btn" type="submit" disabled={pendente || soma !== 100}>Guardar</button></div>
           </form>
+          <GerirContas />
+          <GerirCategorias />
         </Painel>
       )}
     </>
@@ -277,7 +274,7 @@ export function NovoParcelamento({ contextos, credores }: { contextos: ContextIt
       <div className="fin-form__linha fin-form__linha--parc2">
         <label className="field">Já paguei<input className="input" inputMode="numeric" value={v.pagas} onChange={(e) => setV({ ...v, pagas: e.target.value.replace(/\D/g, "").slice(0, 3) })} /></label>
         <label className="field">Onde ou com quem<input className="input" list="credores" value={v.creditor} onChange={(e) => setV({ ...v, creditor: e.target.value })} placeholder="Ex.: Cartão Nubank" maxLength={60} /><datalist id="credores">{credores.map((c) => <option key={c} value={c} />)}</datalist></label>
-        <label className="field">Categoria<select className="input" value={v.category} onChange={(e) => setV({ ...v, category: e.target.value })}>{CATEGORIAS_SAIDA.map((c) => <option key={c}>{c}</option>)}</select></label>
+        <CampoCategoria kind="saida" value={v.category} onChange={(c) => setV({ ...v, category: c })} />
       </div>
       {erro && <p className="note note--err" role="alert">{erro}</p>}
       <div className="fin-form__pe">
@@ -315,7 +312,7 @@ export function NovoInvestimento() {
         <label className="field">Onde<input className="input" value={v.institution} onChange={(e) => setV({ ...v, institution: e.target.value })} placeholder="Ex.: Nubank" maxLength={60} /></label>
       </div>
       <div className="fin-form__linha fin-form__linha--inv2">
-        <label className="field">Saldo hoje<input className="input" inputMode="decimal" value={v.balance} onChange={(e) => setV({ ...v, balance: e.target.value })} placeholder="0,00" /></label>
+        <label className="field">Já tenho aplicado<input className="input" inputMode="decimal" value={v.balance} onChange={(e) => setV({ ...v, balance: e.target.value })} placeholder="0,00" /></label>
         <label className="field">Rende ao mês (%)<input className="input" inputMode="decimal" value={v.taxa} onChange={(e) => setV({ ...v, taxa: e.target.value })} placeholder="Ex.: 0,9" /></label>
         <label className="field">Pretendo pôr por mês<input className="input" inputMode="decimal" value={v.plano} onChange={(e) => setV({ ...v, plano: e.target.value })} placeholder="0,00" /></label>
       </div>
@@ -356,21 +353,123 @@ export function Movimentar({ inv }: { inv: Investimento }) {
   );
 }
 
-/** Conferir com o banco: o saldo de hoje, a taxa e o aporte planejado */
+/** Conferir com o app do banco: a diferença vira um ajuste no histórico; a taxa e o plano servem para a projeção */
 export function AjustarInvestimento({ inv, saldo }: { inv: Investimento; saldo: number }) {
   const [aberto, setAberto] = useState(false);
-  const [v, setV] = useState({ saldo: saldo.toFixed(2).replace(".", ","), taxa: taxaTexto(inv.monthly_rate), plano: inv.monthly_plan ? String(inv.monthly_plan).replace(".", ",") : "" });
+  const [v, setV] = useState({ real: "", taxa: taxaTexto(inv.monthly_rate), plano: inv.monthly_plan ? String(inv.monthly_plan).replace(".", ",") : "" });
   const [pendente, iniciar] = useTransition();
-  if (!aberto) return <button type="button" className="fin-cat__lim" onClick={() => setAberto(true)}>Conferir saldo</button>;
+  const avisar = useAvisar();
+  if (!aberto) return <button type="button" className="fin-cat__lim" onClick={() => setAberto(true)}>Conferir e plano</button>;
+  const dif = v.real.trim() ? Math.round((numeroBR(v.real) - saldo) * 100) / 100 : 0;
   return (
-    <form className="inv-aj" onSubmit={(e) => { e.preventDefault(); iniciar(async () => { await atualizarSaldoInvestimento(inv.id, numeroBR(v.saldo), v.taxa ? numeroBR(v.taxa) / 100 : null, v.plano ? numeroBR(v.plano) : null); setAberto(false); }); }}>
-      <label className="field">Saldo hoje<input className="input" inputMode="decimal" value={v.saldo} onChange={(e) => setV({ ...v, saldo: e.target.value })} autoFocus /></label>
+    <form className="inv-aj" onSubmit={(e) => {
+      e.preventDefault();
+      iniciar(async () => {
+        await planoInvestimento(inv.id, v.taxa ? numeroBR(v.taxa) / 100 : null, v.plano ? numeroBR(v.plano) : null);
+        if (v.real.trim()) { const r = await conferirInvestimento(inv.id, saldo, numeroBR(v.real)); if (r.ok && r.diferenca) avisar({ texto: `Ajuste de ${r.diferenca > 0 ? "+" : "−"}${moeda(Math.abs(r.diferenca))} lançado em ${inv.name}.` }); }
+        setAberto(false);
+      });
+    }}>
+      <label className="field">No app do banco<input className="input" inputMode="decimal" value={v.real} onChange={(e) => setV({ ...v, real: e.target.value })} placeholder={saldo.toFixed(2).replace(".", ",")} autoFocus /><span className="field__hint">{dif ? `Diferença ${dif > 0 ? "+" : "−"}${moeda(Math.abs(dif))}: vira um ajuste` : "Igual ao do Rumo"}</span></label>
       <label className="field">Rende ao mês (%)<input className="input" inputMode="decimal" value={v.taxa} onChange={(e) => setV({ ...v, taxa: e.target.value })} /></label>
       <label className="field">Pôr por mês<input className="input" inputMode="decimal" value={v.plano} onChange={(e) => setV({ ...v, plano: e.target.value })} /></label>
       <button className="btn btn--sm" type="submit" disabled={pendente}>OK</button>
       <button className="btn btn--ghost btn--sm" type="button" onClick={() => setAberto(false)}>Cancelar</button>
       <button className="icon-btn" type="button" aria-label={`Apagar ${inv.name}`} onClick={() => { if (confirm(`Apagar "${inv.name}" e o histórico dele?`)) iniciar(() => apagarInvestimento(inv.id)); }}><Trash2 size={15} /></button>
     </form>
+  );
+}
+
+/** Conferir a conta com o banco: o Rumo mostra a diferença e lança um "Ajuste de saldo" para bater */
+export function ConferirConta({ conta, calculado }: { conta: Conta | null; calculado: number }) {
+  const [aberto, setAberto] = useState(false);
+  const [real, setReal] = useState("");
+  const [pendente, iniciar] = useTransition();
+  const avisar = useAvisar();
+  const dif = real.trim() ? Math.round((numeroBR(real) - calculado) * 100) / 100 : null;
+  return (
+    <>
+      <button type="button" className="btn btn--line btn--sm" onClick={() => setAberto(true)}><Scale aria-hidden />Conferir com o banco</button>
+      {aberto && (
+        <Painel titulo={`Conferir ${conta?.name ?? "a conta"}`} fechar={() => setAberto(false)}>
+          <form className="detail" style={{ gap: 14 }} onSubmit={(e) => {
+            e.preventDefault();
+            iniciar(async () => {
+              const r = await conferirConta(conta?.id ?? null, calculado, numeroBR(real));
+              if (!r.ok) return avisar({ texto: "Não foi possível conferir." });
+              avisar({ texto: r.diferenca ? `Ajuste de ${r.diferenca > 0 ? "+" : "−"}${moeda(Math.abs(r.diferenca))} lançado. Agora bate.` : "Bate com o banco." });
+              setAberto(false); setReal("");
+            });
+          }}>
+            <p className="conferir__calc">Pelos seus lançamentos: <b>{moeda(calculado)}</b></p>
+            <label className="field">Quanto o banco mostra agora<input className="input" inputMode="decimal" value={real} onChange={(e) => setReal(e.target.value)} placeholder="0,00" autoFocus /></label>
+            {dif !== null && <p className={`conferir__dif${Math.abs(dif) < 0.005 ? " is-ok" : ""}`}>{Math.abs(dif) < 0.005 ? "Bate." : `Diferença de ${dif > 0 ? "+" : "−"}${moeda(Math.abs(dif))}. Antes de ajustar, veja se falta lançar algo; se não, o Rumo lança um ajuste de saldo hoje.`}</p>}
+            <div className="detail__foot"><button className="btn" type="submit" disabled={pendente || dif === null}>{dif && Math.abs(dif) >= 0.005 ? "Lançar o ajuste" : "Conferir"}</button></div>
+          </form>
+        </Painel>
+      )}
+    </>
+  );
+}
+
+/** Contas: cada uma com o seu saldo (sai dos lançamentos dela). Arquivada sai das contas do mês. */
+function GerirContas() {
+  const { contas } = useFinancas();
+  const [nome, setNome] = useState("");
+  const [pendente, iniciar] = useTransition();
+  return (
+    <section className="cad">
+      <h3 className="cad__t">Contas</h3>
+      <ul className="cad__lista">
+        {contas.map((c) => (
+          <li key={c.id} className={c.archived ? "is-arq" : undefined}>
+            <input className="input" defaultValue={c.name} aria-label="Nome da conta" onBlur={(e) => e.target.value.trim() && e.target.value !== c.name && iniciar(() => salvarConta(c.id, { name: e.target.value }))} />
+            <button type="button" className="icon-btn" aria-label={c.archived ? "Reativar" : "Arquivar"} title={c.archived ? "Reativar" : "Arquivar"} disabled={pendente} onClick={() => iniciar(() => salvarConta(c.id, { archived: !c.archived }))}>{c.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}</button>
+          </li>
+        ))}
+      </ul>
+      <form className="cad__nova" onSubmit={(e) => { e.preventDefault(); if (nome.trim()) iniciar(async () => { await criarConta(nome); setNome(""); }); }}>
+        <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nova conta (ex.: Nubank, Carteira)" maxLength={60} />
+        <button type="submit" className="btn btn--line btn--sm" disabled={!nome.trim() || pendente}><Plus aria-hidden />Conta</button>
+      </form>
+    </section>
+  );
+}
+
+/** Categorias: criar, renomear (os lançamentos acompanham), dizer se é essencial, estilo de vida ou objetivo, arquivar */
+function GerirCategorias() {
+  const { categorias } = useFinancas();
+  const [kind, setKind] = useState<"saida" | "entrada">("saida");
+  const [, iniciar] = useTransition();
+  const avisar = useAvisar();
+  const lista = categorias.filter((c) => c.kind === kind).sort((a, b) => Number(a.archived) - Number(b.archived) || a.position - b.position);
+  return (
+    <section className="cad">
+      <h3 className="cad__t">Categorias
+        <span className="seg seg--sm" role="group" aria-label="Tipo de categoria">
+          <button type="button" aria-pressed={kind === "saida"} onClick={() => setKind("saida")}>Saídas</button>
+          <button type="button" aria-pressed={kind === "entrada"} onClick={() => setKind("entrada")}>Entradas</button>
+        </span>
+      </h3>
+      <ul className="cad__lista">
+        {lista.map((c: Categoria) => (
+          <li key={c.id} className={c.archived ? "is-arq" : undefined}>
+            <input className="input" defaultValue={c.name} aria-label="Nome da categoria" onBlur={(e) => e.target.value.trim() && e.target.value !== c.name && iniciar(async () => { const r = await salvarCategoria(c.id, { name: e.target.value }); if (!r.ok) avisar({ texto: r.erro ?? "Não foi possível renomear." }); else avisar({ texto: "Renomeada. Os lançamentos acompanharam." }); })} />
+            {kind === "saida" && (
+              <select className="input" value={c.nature ?? ""} aria-label="Tipo de gasto" onChange={(e) => iniciar(() => salvarCategoria(c.id, { nature: (e.target.value || null) as Natureza | null }).then(() => undefined))}>
+                <option value="">Sem tipo</option>
+                {Object.entries(NATUREZAS).map(([k, r]) => <option key={k} value={k}>{r}</option>)}
+              </select>
+            )}
+            <button type="button" className="icon-btn" aria-label={c.archived ? "Reativar" : "Arquivar"} title={c.archived ? "Reativar" : "Arquivar"} onClick={() => iniciar(() => salvarCategoria(c.id, { archived: !c.archived }).then(() => undefined))}>{c.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}</button>
+          </li>
+        ))}
+      </ul>
+      <form className="cad__nova" onSubmit={(e) => { e.preventDefault(); const f = e.currentTarget; const nome = (f.elements.namedItem("nome") as HTMLInputElement).value; if (nome.trim()) iniciar(async () => { const r = await criarCategoria(nome, kind); if (!r.ok) return avisar({ texto: r.erro ?? "Não foi possível criar." }); f.reset(); }); }}>
+        <input className="input" name="nome" placeholder={kind === "saida" ? "Nova categoria (ex.: Combustível, Pets)" : "Nova categoria (ex.: Freelas)"} maxLength={60} />
+        <button type="submit" className="btn btn--line btn--sm"><Plus aria-hidden />Categoria</button>
+      </form>
+    </section>
   );
 }
 

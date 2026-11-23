@@ -19,10 +19,27 @@ export type Lancamento = {
   installment_id?: string | null;
   /** investir ou resgatar: de qual investimento */
   investment_id?: string | null;
+  /** de qual conta (sem conta = a principal) */
+  account_id?: string | null;
+};
+export type Conta = { id: string; name: string; position: number; archived: boolean };
+export const CAMPOS_CONTA = "id, name, position, archived";
+export type Natureza = "essencial" | "estilo" | "objetivos";
+export const NATUREZAS: Record<Natureza, string> = { essencial: "Essencial", estilo: "Estilo de vida", objetivos: "Objetivos" };
+export type Categoria = { id: string; name: string; kind: "entrada" | "saida"; nature: Natureza | null; position: number; archived: boolean };
+export const CAMPOS_CATEGORIA = "id, name, kind, nature, position, archived";
+/** Categorias que não são renda nem gasto: o saldo com que a conta começou e as correções para bater com o banco */
+export const SALDO_INICIAL = "Saldo inicial";
+export const AJUSTE = "Ajuste de saldo";
+export const ehAjuste = (l: Pick<Lancamento, "category">) => l.category === SALDO_INICIAL || l.category === AJUSTE;
+/** Nomes das categorias de um tipo (as do Daniel; sem nenhuma, as padrão) */
+export const nomesCategorias = (lista: Categoria[], kind: "entrada" | "saida") => {
+  const daqui = lista.filter((c) => c.kind === kind && !c.archived).sort((a, b) => a.position - b.position).map((c) => c.name);
+  return daqui.length ? daqui : kind === "saida" ? CATEGORIAS_SAIDA : CATEGORIAS_ENTRADA;
 };
 export type Orcamento = { id: string; category: string; monthly_limit: number };
 
-export const CAMPOS_LANCAMENTO = "id, kind, amount, description, category, happened_on, paid, routine_id, context_id, installment_id, investment_id";
+export const CAMPOS_LANCAMENTO = "id, kind, amount, description, category, happened_on, paid, routine_id, context_id, installment_id, investment_id, account_id";
 
 export const CATEGORIAS_SAIDA = ["Moradia", "Mercado", "Restaurantes e delivery", "Contas da casa", "Transporte", "Saúde", "Cuidados pessoais", "Educação", "Lazer", "Assinaturas", "Compras", "Presentes e doações", "Impostos", "Outros"];
 export const CATEGORIAS_ENTRADA = ["Salário", "Pró-labore", "Vendas", "Serviços", "Rendimentos", "Outros"];
@@ -102,13 +119,13 @@ export function contasDoMes(rotinas: Rotina[], marcas: Marcacao[], inicio: strin
 /** O mês em números e por categoria */
 export function resumoDoMes(lancamentos: Lancamento[], contas: ContaFixa[], orcamentos: Orcamento[]) {
   const pagos = lancamentos.filter((l) => l.paid);
-  const entrou = pagos.filter((l) => l.kind === "entrada").reduce((t, l) => t + l.amount, 0);
-  const saiu = pagos.filter((l) => l.kind === "saida").reduce((t, l) => t + l.amount, 0);
+  const entrou = pagos.filter((l) => l.kind === "entrada" && !ehAjuste(l)).reduce((t, l) => t + l.amount, 0);
+  const saiu = pagos.filter((l) => l.kind === "saida" && !ehAjuste(l)).reduce((t, l) => t + l.amount, 0);
   // Falta pagar: contas fixas ainda não pagas + lançamentos de saída marcados "a pagar"
   const aPagar = contas.filter((c) => !c.paga).reduce((t, c) => t + c.valor, 0) + lancamentos.filter((l) => !l.paid && l.kind === "saida").reduce((t, l) => t + l.amount, 0);
   const aReceber = lancamentos.filter((l) => !l.paid && l.kind === "entrada").reduce((t, l) => t + l.amount, 0);
   const porCategoria = new Map<string, number>();
-  for (const l of pagos.filter((x) => x.kind === "saida")) porCategoria.set(l.category, (porCategoria.get(l.category) ?? 0) + l.amount);
+  for (const l of pagos.filter((x) => x.kind === "saida" && !ehAjuste(x))) porCategoria.set(l.category, (porCategoria.get(l.category) ?? 0) + l.amount);
   for (const o of orcamentos) if (!porCategoria.has(o.category)) porCategoria.set(o.category, 0);
   const categorias = [...porCategoria.entries()]
     .map(([categoria, gasto]) => {
@@ -194,11 +211,10 @@ export const movimentosDe = (lancamentos: Lancamento[]): Movimento[] =>
     id: l.id, investment_id: l.investment_id!, kind: l.kind as "aporte" | "resgate", amount: l.amount, happened_on: l.happened_on, note: null, origem: "lancamento", descricao: l.description,
   }));
 
-/** Saldo de hoje: o informado, mais o que entrou e menos o que saiu depois daquele dia */
-export function saldoAtual(i: Investimento, movs: Movimento[]) {
-  return movs
-    .filter((m) => m.investment_id === i.id && m.happened_on > i.balance_on)
-    .reduce((t, m) => t + (m.kind === "resgate" ? -m.amount : m.amount), i.balance);
+/** Saldo do investimento: só dos movimentos (aportes e resgates são lançamentos; rendimentos, saldo inicial e
+ *  ajustes ficam no próprio investimento). Não há saldo digitado. */
+export function saldoAtual(i: Pick<Investimento, "id">, movs: Movimento[], ate = "9999-12-31") {
+  return Math.round(movs.filter((m) => m.investment_id === i.id && m.happened_on <= ate).reduce((t, m) => t + (m.kind === "resgate" ? -m.amount : m.amount), 0) * 100) / 100;
 }
 
 /** Juros compostos com aporte mensal: onde o saldo chega em N meses */
@@ -210,11 +226,25 @@ export function projetar(saldo: number, taxa: number, aporte: number, meses: num
 
 // ---------- onde está o dinheiro e quanto posso gastar ----------
 
-/** Conta corrente: o saldo informado, mais o efeito de cada lançamento pago depois daquele dia
- *  (entradas e resgates somam; saídas e aportes tiram) */
-export function saldoDaConta(a: Ajustes, lancamentos: Lancamento[]) {
-  if (a.cash_balance === null || !a.cash_on) return null;
-  return lancamentos.filter((x) => x.paid && x.happened_on > a.cash_on!).reduce((t, x) => t + naConta(x), a.cash_balance);
+/** Saldo da conta: a soma de todos os lançamentos pagos até o dia (entradas e resgates somam; saídas e aportes tiram).
+ *  Não há saldo digitado: o que começou na conta é um lançamento "Saldo inicial"; correções, "Ajuste de saldo". */
+export function saldoAte(lancamentos: Lancamento[], dia: string) {
+  return Math.round(lancamentos.filter((x) => x.paid && x.happened_on <= dia).reduce((t, x) => t + naConta(x), 0) * 100) / 100;
+}
+
+/** O mês como um extrato: saldo inicial (o que sobrou do mês anterior) + entrou − saiu − investiu ± ajustes = saldo final */
+export function extratoDoMes(lancamentos: Lancamento[], inicio: string, fim: string) {
+  const vespera = new Date(Date.parse(`${inicio}T12:00:00Z`) - 86400000).toISOString().slice(0, 10);
+  const doMes = lancamentos.filter((l) => l.paid && l.happened_on >= inicio && l.happened_on <= fim);
+  const soma = (f: (l: Lancamento) => boolean) => Math.round(doMes.filter(f).reduce((t, l) => t + l.amount, 0) * 100) / 100;
+  const inicial = saldoAte(lancamentos, vespera);
+  const entrou = soma((l) => l.kind === "entrada" && !ehAjuste(l));
+  const saiu = soma((l) => l.kind === "saida" && !ehAjuste(l));
+  const aportes = soma((l) => l.kind === "aporte");
+  const resgates = soma((l) => l.kind === "resgate");
+  const ajustes = Math.round(doMes.filter(ehAjuste).reduce((t, l) => t + naConta(l), 0) * 100) / 100;
+  const final = Math.round((inicial + entrou - saiu - aportes + resgates + ajustes) * 100) / 100;
+  return { inicial, entrou, saiu, aportes, resgates, investiu: Math.round((aportes - resgates) * 100) / 100, ajustes, final };
 }
 
 /** Os envelopes do ciclo: do que entrou, a parte das parcelas e a de investir saem primeiro; o resto é gasto livre.

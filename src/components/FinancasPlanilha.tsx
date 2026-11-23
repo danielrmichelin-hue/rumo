@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { Check, Trash2, X } from "lucide-react";
 import { apagarLancamento, apagarParcelamento, desfazerParcela, editarLancamento, pagarParcela, salvarParcelamento } from "@/app/(app)/acoes";
 import { numeroBR, somarMeses } from "@/lib/datas";
-import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA, ehTransferencia, mesCurto, moeda, naConta, ROTULO_TIPO, situacaoParcelamento, type Investimento, type Lancamento, type Parcelamento } from "@/lib/financas";
+import { ehTransferencia, mesCurto, moeda, naConta, ROTULO_TIPO, situacaoParcelamento, type Investimento, type Lancamento, type Parcelamento } from "@/lib/financas";
+import { CampoCategoria, CampoConta } from "./FinancasContexto";
 import { useAvisar } from "./Avisos";
 import { Painel } from "./Comuns";
 
@@ -90,13 +91,12 @@ export function ExtratoMes({ lancamentos, hoje, investimentos = [] }: { lancamen
 }
 
 function EditarLinha({ l, fechar, investimentos }: { l: Lancamento; fechar: () => void; investimentos: Investimento[] }) {
-  const [v, setV] = useState({ happened_on: l.happened_on, description: l.description, category: l.category, kind: l.kind, valor: String(l.amount).replace(".", ","), paid: l.paid, investment_id: l.investment_id ?? investimentos[0]?.id ?? "" });
+  const [v, setV] = useState({ happened_on: l.happened_on, description: l.description, category: l.category, kind: l.kind, valor: String(l.amount).replace(".", ","), paid: l.paid, investment_id: l.investment_id ?? investimentos[0]?.id ?? "", account_id: l.account_id ?? "" });
   const transferencia = v.kind === "aporte" || v.kind === "resgate";
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
-  const cats = v.kind === "saida" ? CATEGORIAS_SAIDA : CATEGORIAS_ENTRADA;
   const guardar = () => iniciar(async () => {
-    const r = await editarLancamento(l.id, { kind: v.kind, amount: numeroBR(v.valor), description: v.description, category: v.category, happened_on: v.happened_on, paid: v.paid, investment_id: transferencia ? v.investment_id : null });
+    const r = await editarLancamento(l.id, { kind: v.kind, amount: numeroBR(v.valor), description: v.description, category: v.category, happened_on: v.happened_on, paid: v.paid, investment_id: transferencia ? v.investment_id : null, account_id: v.account_id || null });
     if (!r.ok) return avisar({ texto: r.erro ?? "Não foi possível guardar." });
     fechar();
   });
@@ -113,12 +113,11 @@ function EditarLinha({ l, fechar, investimentos }: { l: Lancamento; fechar: () =
             {investimentos.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
           </select>
         ) : (
-          <select className="input" value={v.category} onChange={(e) => setV({ ...v, category: e.target.value })} aria-label="Categoria">
-            {[...new Set([v.category, ...cats])].map((c) => <option key={c}>{c}</option>)}
-          </select>
+          <CampoCategoria kind={v.kind === "entrada" ? "entrada" : "saida"} value={v.category} onChange={(c) => setV({ ...v, category: c })} rotulo="" />
         )}
         <input className="input" type="date" value={v.happened_on} onChange={(e) => setV({ ...v, happened_on: e.target.value })} aria-label="Data" />
         {transferencia ? <span /> : <label className="check-line"><input type="checkbox" checked={v.paid} onChange={(e) => setV({ ...v, paid: e.target.checked })} />{v.kind === "saida" ? "Pago" : "Recebido"}</label>}
+        <CampoConta value={v.account_id} onChange={(c) => setV({ ...v, account_id: c })} />
         <span className="extrato__edit-a">
           <button type="button" className="btn btn--ghost btn--sm" disabled={pendente} onClick={() => { if (confirm(`Apagar "${l.description}"?`)) iniciar(async () => { await apagarLancamento(l.id); fechar(); }); }}><Trash2 aria-hidden />Apagar</button>
           <button type="button" className="btn btn--ghost btn--sm" onClick={fechar}><X aria-hidden />Cancelar</button>
@@ -221,7 +220,7 @@ function EditarParcelamento({ p, fechar }: { p: Parcelamento; fechar: () => void
         <div className="fields">
           <label className="field">1ª parcela<input className="input" type="date" value={v.first_due} onChange={(e) => setV({ ...v, first_due: e.target.value })} required /></label>
           <label className="field">Onde ou com quem<input className="input" value={v.creditor} onChange={(e) => setV({ ...v, creditor: e.target.value })} maxLength={60} /></label>
-          <label className="field">Categoria<select className="input" value={v.category} onChange={(e) => setV({ ...v, category: e.target.value })}>{[...new Set([v.category, ...CATEGORIAS_SAIDA])].map((c) => <option key={c}>{c}</option>)}</select></label>
+          <CampoCategoria kind="saida" value={v.category} onChange={(c) => setV({ ...v, category: c })} />
         </div>
         {erro && <p className="note note--err" role="alert">{erro}</p>}
         <div className="detail__foot">

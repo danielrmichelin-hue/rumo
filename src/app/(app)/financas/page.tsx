@@ -1,16 +1,17 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Download, Route } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, GavetaLancamento, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
+import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, ConferirConta, GavetaLancamento, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
 import { ChecarRotina } from "@/components/Rotinas";
 import { ExtratoMes, GradeParcelas, RolarAteMes } from "@/components/FinancasPlanilha";
+import { FinancasProvider } from "@/components/FinancasContexto";
 import { Anel } from "@/components/Caminho";
 import type { ContextItem } from "@/components/Shell";
 import { diaMes, hojeISO, rotuloData, somarMeses } from "@/lib/datas";
 import {
-  CAMPOS_INVESTIMENTO, CAMPOS_LANCAMENTO, CAMPOS_MOVIMENTO, CAMPOS_PARCELAMENTO, contasDoMes, envelopes, limitesDoMes, mesCurto, mesDoDia, mesVizinho, moeda,
+  AJUSTE, CAMPOS_CATEGORIA, CAMPOS_CONTA, CAMPOS_INVESTIMENTO, CAMPOS_LANCAMENTO, CAMPOS_MOVIMENTO, CAMPOS_PARCELAMENTO, contasDoMes, ehAjuste, extratoDoMes, saldoAte, SALDO_INICIAL, type Categoria, type Conta, envelopes, limitesDoMes, mesCurto, mesDoDia, mesVizinho, moeda,
   movimentosDe, naConta, normalizarAjustes, normalizarInvestimento, normalizarLancamento, normalizarMovimento, normalizarParcelamento, parcelasDoCiclo, projetar, resumoDoMes,
-  resumoParcelamentos, saldoAtual, saldoDaConta, situacaoParcelamento, TIPOS_INVESTIMENTO, type Orcamento,
+  NATUREZAS, resumoParcelamentos, saldoAtual, situacaoParcelamento, TIPOS_INVESTIMENTO, type Orcamento,
 } from "@/lib/financas";
 import { CAMPOS_ROTINA, type Marcacao, type Rotina } from "@/lib/rotinas";
 import { CAMPOS_ROTA, normalizar, resumirRota } from "@/lib/rotas";
@@ -26,12 +27,18 @@ const ABAS = [
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
 /** O mês financeiro: do dia em que recebe até a véspera do próximo (ou o do calendário), em tudo */
-export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string; aba?: string; lm?: string }> }) {
-  const { mes: param, aba: abaParam, lm } = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string; aba?: string; lm?: string; conta?: string }> }) {
+  const { mes: param, aba: abaParam, lm, conta: contaParam } = await searchParams;
   const aba = ABAS.find((a) => a.v === abaParam)?.v ?? "mes";
   const hoje = hojeISO();
   const supabase = await createClient();
-  const { data: ajustesDb } = await supabase.from("fin_settings").select("pay_day, pct_parcelas, pct_investir, pct_livre, cash_balance, cash_on").maybeSingle();
+  const [{ data: ajustesDb }, { data: contasDb }, { data: catsDb }] = await Promise.all([
+    supabase.from("fin_settings").select("pay_day, pct_parcelas, pct_investir, pct_livre").maybeSingle(),
+    supabase.from("fin_accounts").select(CAMPOS_CONTA).order("position"),
+    supabase.from("fin_categories").select(CAMPOS_CATEGORIA).order("position"),
+  ]);
+  const contas = (contasDb ?? []) as Conta[];
+  const categorias = (catsDb ?? []) as Categoria[];
   const aj = normalizarAjustes(ajustesDb);
   const dr = aj.pay_day; // dia em que recebe: o mês vai dele até a véspera do próximo
   const atual = mesDoDia(hoje, dr);
@@ -42,41 +49,41 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const esteMes = mes === atual;
   const doMes = (m: string, l: { happened_on: string }) => { const x = limitesDoMes(m, dr); return l.happened_on >= x.inicio && l.happened_on <= x.fim; };
 
-  const [{ data: todosDb }, { data: rotinasDb }, { data: marcasDb }, { data: orcDb }, { data: contextos }, { data: rotasDb }, { data: atrasadosDb }, { data: parcDb }, { data: invDb }, { data: movDb }, { data: depoisDb }, { data: transfDb }] = await Promise.all([
-    // Aba Mês: o ano todo (a faixa dos meses); Resumo: tudo
-    aba === "mes" ? supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).gte("happened_on", limitesDoMes(`${ano}-01`, dr).inicio).lte("happened_on", limitesDoMes(`${ano}-12`, dr).fim).order("happened_on", { ascending: false })
-      : aba === "resumo" ? supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).order("happened_on", { ascending: false })
-      : Promise.resolve({ data: [] }),
+  const [{ data: todosDb }, { data: rotinasDb }, { data: marcasDb }, { data: orcDb }, { data: contextos }, { data: rotasDb }, { data: parcDb }, { data: invDb }, { data: movDb }] = await Promise.all([
+    // Todos os lançamentos: o saldo de cada mês é a soma de tudo o que veio antes
+    supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).order("happened_on", { ascending: false }),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").not("month_day", "is", null).not("amount", "is", null),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", inicio).lte("done_on", fim),
     supabase.from("fin_budgets").select("id, category, monthly_limit"),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
     supabase.from("routes").select(CAMPOS_ROTA).eq("kind", "financeiro").order("created_at"),
-    // O que ficou a pagar de meses anteriores continua aparecendo no mês atual
-    esteMes ? supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).eq("paid", false).lt("happened_on", inicio) : Promise.resolve({ data: [] }),
     supabase.from("fin_installments").select(CAMPOS_PARCELAMENTO).order("first_due"),
     supabase.from("fin_investments").select(CAMPOS_INVESTIMENTO).order("created_at"),
-    // De fin_inv_moves, só os rendimentos (investir e resgatar são lançamentos)
-    supabase.from("fin_inv_moves").select(CAMPOS_MOVIMENTO).eq("kind", "rendimento").order("happened_on", { ascending: false }),
-    // Para o saldo da conta: o que entrou e saiu depois do saldo informado
-    aj.cash_on ? supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).eq("paid", true).gt("happened_on", aj.cash_on) : Promise.resolve({ data: [] }),
-    // Investir e resgatar (lançamentos): o histórico e o saldo de cada investimento
-    supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).not("investment_id", "is", null).order("happened_on", { ascending: false }),
+    supabase.from("fin_inv_moves").select(CAMPOS_MOVIMENTO).order("happened_on", { ascending: false }),
   ]);
-  const todos = (todosDb ?? []).map(normalizarLancamento);
+  // Contas: sem conta = a principal; arquivada fica fora do mês (a não ser que seja escolhida)
+  const principal = contas.find((c) => !c.archived) ?? null;
+  const contaDe = (l: { account_id?: string | null }) => l.account_id ?? principal?.id ?? null;
+  const arquivadas = new Set(contas.filter((c) => c.archived).map((c) => c.id));
+  const contaSel = contas.find((c) => c.id === contaParam) ?? null;
+  const daConta = (l: { account_id?: string | null }) => (contaSel ? contaDe(l) === contaSel.id : !arquivadas.has(contaDe(l) ?? ""));
+  const tudo = (todosDb ?? []).map(normalizarLancamento);
+  const todos = tudo.filter(daConta);
   const lancamentos = todos.filter((l) => l.happened_on >= inicio && l.happened_on <= fim);
-  const atrasados = (atrasadosDb ?? []).map(normalizarLancamento);
-  const contas = contasDoMes((rotinasDb ?? []) as Rotina[], (marcasDb ?? []) as Marcacao[], inicio, fim, lancamentos);
-  const r = resumoDoMes([...lancamentos, ...atrasados], contas, (orcDb ?? []) as Orcamento[]);
+  const atrasados = esteMes ? todos.filter((l) => !l.paid && l.happened_on < inicio) : [];
+  const ext = extratoDoMes(todos, inicio, fim);
+  const fixas = contasDoMes((rotinasDb ?? []) as Rotina[], (marcasDb ?? []) as Marcacao[], inicio, fim, lancamentos);
+  const r = resumoDoMes([...lancamentos, ...atrasados], fixas, (orcDb ?? []) as Orcamento[]);
   const ctx = (contextos ?? []) as ContextItem[];
   const parcelamentos = (parcDb ?? []).map(normalizarParcelamento);
   const investimentos = (invDb ?? []).map(normalizarInvestimento);
   // Movimentos dos investimentos: aportes e resgates vêm dos lançamentos; rendimentos, da aba Investimentos
-  const movs = [...movimentosDe((transfDb ?? []).map(normalizarLancamento)), ...(movDb ?? []).map(normalizarMovimento)].sort((a, b) => b.happened_on.localeCompare(a.happened_on));
+  // Aportes e resgates vêm dos lançamentos; do investimento, só rendimentos, saldo inicial e ajustes
+  const movs = [...movimentosDe(tudo), ...(movDb ?? []).map(normalizarMovimento).filter((m) => m.kind === "rendimento" || m.note === AJUSTE || m.note === SALDO_INICIAL)].sort((a, b) => b.happened_on.localeCompare(a.happened_on));
   const metas = (rotasDb ?? []).map(normalizar);
 
   // Onde está o dinheiro
-  const conta = saldoDaConta(aj, (depoisDb ?? []).map(normalizarLancamento));
+  const conta = saldoAte(tudo.filter((l) => !arquivadas.has(contaDe(l) ?? "")), hoje);
   const investido = investimentos.filter((i) => i.status === "ativo").reduce((t, i) => t + saldoAtual(i, movs), 0);
   const divida = resumoParcelamentos(parcelamentos, hoje);
 
@@ -89,13 +96,18 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const env = envelopes(aj, r.entrou, parcelasNoMes, Math.max(0, investiu), gastoLivre);
 
   const aPagarLanc = [...atrasados, ...lancamentos].filter((l) => !l.paid).sort((a, b) => a.happened_on.localeCompare(b.happened_on));
-  const contasAbertas = contas.filter((c) => !c.paga);
+  const contasAbertas = fixas.filter((c) => !c.paga);
   const nAPagar = parcelasAPagar.length + contasAbertas.length + aPagarLanc.length;
   const maxCat = Math.max(1, ...r.categorias.map((c) => Math.max(c.gasto, c.limite ?? 0)));
+  // Para onde foi: % dos gastos do mês, a média dos 3 meses anteriores e o tipo de gasto (essencial, estilo de vida, objetivos)
+  const anteriores = [1, 2, 3].map((k) => limitesDoMes(mesVizinho(mes, -k), dr));
+  const mediaCat = (cat: string) => anteriores.reduce((t, x) => t + todos.filter((l) => l.paid && l.kind === "saida" && l.category === cat && l.happened_on >= x.inicio && l.happened_on <= x.fim).reduce((a, l) => a + l.amount, 0), 0) / 3;
+  const natureza = (cat: string) => categorias.find((c) => c.kind === "saida" && c.name === cat)?.nature ?? null;
+  const porNatureza = (["essencial", "estilo", "objetivos"] as const).map((n) => ({ n, v: r.categorias.filter((c) => natureza(c.categoria) === n).reduce((t, c) => t + c.gasto, 0) }));
   const nomeMes = diaMes(`${mes}-01`).split(" de ")[1];
   const credores = [...new Set(parcelamentos.map((p) => p.creditor).filter((c): c is string => !!c))];
   const ativos = investimentos.filter((i) => i.status === "ativo");
-  const saldoMes = (m: string) => todos.filter((l) => l.paid && doMes(m, l)).reduce((t, l) => t + naConta(l), 0);
+  const saldoMes = (m: string) => todos.filter((l) => l.paid && doMes(m, l) && !ehAjuste(l)).reduce((t, l) => t + naConta(l), 0);
   const temMes = (m: string) => todos.some((l) => doMes(m, l));
 
   const Barra = ({ usado, alvo }: { usado: number; alvo: number }) => (
@@ -103,22 +115,23 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   );
 
   return (
+    <FinancasProvider categorias={categorias} contas={contas}>
     <div className="page page--wide">
       <div className="page__head">
         <div>
           <h1 className="page__t">Finanças</h1>
         </div>
         <div className="page__actions">
-          <AjustesFinancas ajustes={aj} saldoConta={conta} />
+          <AjustesFinancas ajustes={aj} />
           <a href={`/financas/planilha?mes=${mes}`} className="btn btn--line btn--sm"><Download aria-hidden />Planilha</a>
         </div>
       </div>
 
       <div className="fin-onde" aria-label="Onde está o seu dinheiro">
-        <div><small>Na conta</small><b>{conta === null ? "—" : moeda(conta)}</b>{conta === null && <span>Informe em Ajustes</span>}</div>
+        <div><small>Na conta</small><b className={conta < 0 ? "neg" : undefined}>{moeda(conta)}</b><span>{contas.filter((c) => !c.archived).map((c) => c.name).join(" + ") || "Pelos lançamentos"}</span></div>
         <div><small>Investido</small><b>{moeda(investido)}</b></div>
         <div><small>Devo em parcelas</small><b>{moeda(divida.deve)}</b>{divida.ultima && <span>Livre em {mesCurto(divida.ultima)}</span>}</div>
-        <div><small>Tenho menos o que devo</small><b className={(conta ?? 0) + investido - divida.deve < 0 ? "neg" : undefined}>{moeda((conta ?? 0) + investido - divida.deve)}</b></div>
+        <div><small>Tenho menos o que devo</small><b className={conta + investido - divida.deve < 0 ? "neg" : undefined}>{moeda(conta + investido - divida.deve)}</b></div>
       </div>
 
       <nav className="tabs" aria-label="Partes das finanças">
@@ -151,13 +164,23 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
             <RolarAteMes key={mes} />
           </div>
 
-          {dr > 1 && <p className="fin-periodo">{nomeMes[0].toUpperCase() + nomeMes.slice(1)} · de {Number(inicio.slice(8))}/{inicio.slice(5, 7)} a {Number(fim.slice(8))}/{fim.slice(5, 7)}</p>}
-          <div className="nums nums--conta">
-            <div><small>Entrou em {nomeMes}</small><b className="pos">{moeda(r.entrou)}</b>{r.aReceber > 0 && <span>e {moeda(r.aReceber)} a receber</span>}</div>
-            <div><small>Saiu</small><b>{moeda(r.saiu)}</b>{r.aPagar > 0 && <span>e {moeda(r.aPagar + parcelasAPagar.reduce((t, x) => t + x.s.parcela, 0))} a pagar</span>}</div>
-            <div><small>Investiu</small><b className="transf">{investiu < 0 ? "−" : ""}{moeda(Math.abs(investiu))}</b><span>{investiu < 0 ? "Resgatou mais do que pôs" : "Aportes menos resgates"}</span></div>
-            <div className="nums__resultado"><small>Sobrou</small><b className={r.entrou - r.saiu - investiu < 0 ? "neg" : "pos"}>{r.entrou - r.saiu - investiu < 0 ? "−" : ""}{moeda(Math.abs(r.entrou - r.saiu - investiu))}</b><span>{r.entrou ? (env.livre.sobra < 0 ? `Passou ${moeda(-env.livre.sobra)} do livre` : `Ainda pode gastar ${moeda(Math.max(0, env.livre.sobra))}`) : "Lance o que entrou"}</span></div>
+          <div className="fin-mes-topo">
+            <p className="fin-periodo">{nomeMes[0].toUpperCase() + nomeMes.slice(1)} · de {Number(inicio.slice(8))}/{inicio.slice(5, 7)} a {Number(fim.slice(8))}/{fim.slice(5, 7)}{contaSel ? ` · ${contaSel.name}` : ""}</p>
+            {contas.length > 1 && (
+              <nav className="chips fin-contas" aria-label="Conta">
+                <Link href={`/financas?mes=${mes}`} className="chip" aria-current={!contaSel ? "page" : undefined}>Contas ativas</Link>
+                {contas.map((c) => <Link key={c.id} href={`/financas?mes=${mes}&conta=${c.id}`} className={`chip${c.archived ? " chip--arq" : ""}`} aria-current={contaSel?.id === c.id ? "page" : undefined}>{c.name}</Link>)}
+              </nav>
+            )}
           </div>
+          <section className="fluxo" aria-label="O mês como extrato">
+            <div><small>Saldo inicial</small><b>{moeda(ext.inicial)}</b><span>Sobrou do mês anterior</span></div>
+            <div className="fluxo__mais"><small>Entrou</small><b className="pos">{moeda(ext.entrou)}</b>{r.aReceber > 0 ? <span>e {moeda(r.aReceber)} a receber</span> : <span>Renda do mês</span>}</div>
+            <div className="fluxo__menos"><small>Saiu</small><b>{moeda(ext.saiu)}</b>{r.aPagar + parcelasAPagar.reduce((t, x) => t + x.s.parcela, 0) > 0 ? <span>e {moeda(r.aPagar + parcelasAPagar.reduce((t, x) => t + x.s.parcela, 0))} a pagar</span> : <span>Gastos e parcelas</span>}</div>
+            <div className="fluxo__menos"><small>Investiu</small><b className="transf">{ext.investiu < 0 ? "−" : ""}{moeda(Math.abs(ext.investiu))}</b><span>{ext.investiu < 0 ? "Resgatou mais do que pôs" : `Pôs ${moeda(ext.aportes)} · tirou ${moeda(ext.resgates)}`}</span></div>
+            {Math.abs(ext.ajustes) >= 0.005 && <div className="fluxo__mais"><small>Ajustes</small><b>{ext.ajustes < 0 ? "−" : "+"}{moeda(Math.abs(ext.ajustes))}</b><span>Para bater com o banco</span></div>}
+            <div className="fluxo__igual"><small>{esteMes ? "Saldo agora" : "Saldo final"}</small><b className={ext.final < 0 ? "neg" : undefined}>{moeda(ext.final)}</b><span>{esteMes ? <ConferirConta conta={contaSel ?? principal} calculado={saldoAte(todos, hoje)} /> : "Vira o saldo inicial do próximo"}</span></div>
+          </section>
 
           <GavetaLancamento key={mes} abertaNoInicio={!lancamentos.length}>
             <NovoLancamento key={mes} contextos={ctx} inicio={inicio} fim={fim} investimentos={ativos} />
@@ -168,7 +191,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
               <section className="bloco">
                 <h2 className="sec__h">Para pagar em {nomeMes} {nAPagar > 0 && <em>{nAPagar}</em>}<span className="sec__act">{parcelasAPagar.length > 1 && <PagarTodas ids={parcelasAPagar.map((x) => x.p.id)} total={parcelasAPagar.reduce((t, x) => t + x.s.parcela, 0)} />}<NovaContaFixa contextos={ctx} /></span></h2>
                 {nAPagar === 0 ? (
-                  <p className="bloco__vazio">{contas.length || parcelamentos.length ? "Tudo pago neste mês." : "Nada para pagar."}</p>
+                  <p className="bloco__vazio">{fixas.length || parcelamentos.length ? "Tudo pago neste mês." : "Nada para pagar."}</p>
                 ) : (
                   <ul className="list">
                     {parcelasAPagar.map(({ p, s, numero, vence, atrasada }) => (
@@ -226,17 +249,30 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                 {r.categorias.length === 0 ? (
                   <p className="bloco__vazio">Nenhum gasto.</p>
                 ) : (
+                  <>
+                  {r.saiu > 0 && porNatureza.some((x) => x.v > 0) && (
+                    <div className="natureza" aria-label="Tipo de gasto">
+                      <span className="natureza__barra">{porNatureza.map((x) => x.v > 0 && <i key={x.n} className={`natureza--${x.n}`} style={{ width: `${(x.v / r.saiu) * 100}%` }} />)}</span>
+                      <span className="natureza__leg">{porNatureza.map((x) => <span key={x.n}><i className={`natureza--${x.n}`} />{NATUREZAS[x.n]} {Math.round((x.v / r.saiu) * 100)}%</span>)}</span>
+                    </div>
+                  )}
                   <ul className="fin-cats">
-                    {r.categorias.map((c) => (
-                      <li key={c.categoria} className={c.limite && c.gasto > c.limite ? "is-passou" : undefined}>
-                        <span className="fin-cat__t"><b>{c.categoria}</b><span>{moeda(c.gasto)} <LimiteCategoria categoria={c.categoria} limite={c.limite} /></span></span>
-                        <span className="fin-cat__bar">
-                          <i style={{ width: `${(c.gasto / maxCat) * 100}%` }} />
-                          {c.limite ? <u style={{ left: `${(c.limite / maxCat) * 100}%` }} aria-hidden /> : null}
-                        </span>
-                      </li>
-                    ))}
+                    {r.categorias.map((c) => {
+                      const media = mediaCat(c.categoria);
+                      const delta = media > 0 ? (c.gasto - media) / media : null;
+                      return (
+                        <li key={c.categoria} className={c.limite && c.gasto > c.limite ? "is-passou" : undefined}>
+                          <span className="fin-cat__t"><b>{c.categoria}</b><span>{moeda(c.gasto)} <LimiteCategoria categoria={c.categoria} limite={c.limite} /></span></span>
+                          <span className="fin-cat__bar">
+                            <i style={{ width: `${(c.gasto / maxCat) * 100}%` }} />
+                            {c.limite ? <u style={{ left: `${(c.limite / maxCat) * 100}%` }} aria-hidden /> : null}
+                          </span>
+                          <small className="fin-cat__nota">{r.saiu ? `${Math.round((c.gasto / r.saiu) * 100)}% dos gastos` : ""}{delta !== null && Math.abs(delta) >= 0.05 ? <> · <span className={delta > 0 ? "sobe" : "desce"}>{delta > 0 ? "↑" : "↓"} {Math.round(Math.abs(delta) * 100)}% vs média ({moeda(media)})</span></> : media > 0 ? " · na média" : ""}</small>
+                        </li>
+                      );
+                    })}
                   </ul>
+                  </>
                 )}
               </section>
             </aside>
@@ -277,31 +313,38 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         const pagos = todos.filter((l) => l.paid);
         const usados = ciclos.filter((c) => pagos.some((l) => daqui(l, c)) || movs.some((m) => daqui(m, c)));
         const soma = (lista: { amount: number }[]) => lista.reduce((t, l) => t + l.amount, 0);
-        const cats = [...new Set(pagos.filter((l) => l.kind === "saida").map((l) => l.category))]
+        const cats = [...new Set(pagos.filter((l) => l.kind === "saida" && !ehAjuste(l)).map((l) => l.category))]
           .map((cat) => ({ cat, valores: usados.map((c) => soma(pagos.filter((l) => l.kind === "saida" && l.category === cat && daqui(l, c)))) }))
           .map((x) => ({ ...x, total: x.valores.reduce((a, b) => a + b, 0) }))
           .sort((a, b) => b.total - a.total);
         const linha = (valores: number[]) => ({ valores, total: valores.reduce((a, b) => a + b, 0) });
-        const entrou = linha(usados.map((c) => soma(pagos.filter((l) => l.kind === "entrada" && daqui(l, c)))));
-        const saiu = linha(usados.map((c) => soma(pagos.filter((l) => l.kind === "saida" && daqui(l, c)))));
+        const exts = usados.map((c) => extratoDoMes(todos, c.inicio, c.fim));
+        const entrou = linha(exts.map((x) => x.entrou));
+        const saiu = linha(exts.map((x) => x.saiu));
         const parcelasL = linha(usados.map((c) => soma(pagos.filter((l) => l.kind === "saida" && l.installment_id && daqui(l, c)))));
-        const investiu = linha(usados.map((c) => movs.filter((m) => daqui(m, c)).reduce((t, m) => t + (m.kind === "aporte" ? m.amount : m.kind === "resgate" ? -m.amount : 0), 0)));
+        const investiu = linha(exts.map((x) => x.investiu));
+        const ajustes = linha(exts.map((x) => x.ajustes));
         const cel = (v: number) => (Math.abs(v) < 0.005 ? <span className="tabela__zero">—</span> : moeda(v).replace("R$", "").trim());
         const n = Math.max(1, usados.length);
         const rotulo = (c: { inicio: string }) => mesCurto(c.inicio);
         if (!usados.length) return <p className="empty">Nada lançado nos últimos 12 meses.</p>;
         return (
           <>
-            <p className="field__hint" style={{ margin: "0 0 10px" }}>Valores em R$, por mês. Média dos meses com movimento.</p>
+            <p className="field__hint" style={{ margin: "0 0 10px" }}>Em R$, cada mês de {dr > 1 ? `${dr} a ${dr - 1}` : "1 a 31"}. O saldo final de um mês é o inicial do seguinte.</p>
             <div className="planilha__rolo">
               <table className="tabela tabela--resumo">
                 <thead><tr><th>Categoria</th>{usados.map((c) => <th key={c.m} className="num">{rotulo(c)}</th>)}<th className="num">Total</th><th className="num">Média</th></tr></thead>
                 <tbody>
+                  <tr><td>Saldo inicial</td>{exts.map((x, i) => <td key={i} className="num">{cel(x.inicial)}</td>)}<td className="num" /><td className="num" /></tr>
                   <tr className="tabela__forte"><td>Entrou</td>{entrou.valores.map((v, i) => <td key={i} className="num pos">{cel(v)}</td>)}<td className="num pos">{cel(entrou.total)}</td><td className="num">{cel(entrou.total / n)}</td></tr>
                   <tr className="tabela__forte"><td>Saiu</td>{saiu.valores.map((v, i) => <td key={i} className="num">{cel(v)}</td>)}<td className="num">{cel(saiu.total)}</td><td className="num">{cel(saiu.total / n)}</td></tr>
-                  <tr className="tabela__forte"><td>Sobrou</td>{entrou.valores.map((v, i) => <td key={i} className={`num ${v - saiu.valores[i] < 0 ? "neg" : "pos"}`}>{cel(v - saiu.valores[i])}</td>)}<td className="num">{cel(entrou.total - saiu.total)}</td><td className="num">{cel((entrou.total - saiu.total) / n)}</td></tr>
                   <tr><td>Investiu (aportes − resgates)</td>{investiu.valores.map((v, i) => <td key={i} className="num">{cel(v)}</td>)}<td className="num">{cel(investiu.total)}</td><td className="num">{cel(investiu.total / n)}</td></tr>
+                  {ajustes.valores.some((v) => Math.abs(v) >= 0.005) && <tr><td>Ajustes de saldo</td>{ajustes.valores.map((v, i) => <td key={i} className="num">{cel(v)}</td>)}<td className="num">{cel(ajustes.total)}</td><td className="num" /></tr>}
+                  <tr className="tabela__forte"><td>Saldo final</td>{exts.map((x, i) => <td key={i} className={`num ${x.final < 0 ? "neg" : ""}`}>{cel(x.final)}</td>)}<td className="num" /><td className="num" /></tr>
+                  <tr><td>Sobrou do que entrou</td>{entrou.valores.map((v, i) => <td key={i} className={`num ${v - saiu.valores[i] < 0 ? "neg" : "pos"}`}>{cel(v - saiu.valores[i])}</td>)}<td className="num">{cel(entrou.total - saiu.total)}</td><td className="num">{cel((entrou.total - saiu.total) / n)}</td></tr>
+                  <tr><td>Taxa de poupança</td>{entrou.valores.map((v, i) => <td key={i} className="num">{v ? `${Math.round((investiu.valores[i] / v) * 100)}%` : <span className="tabela__zero">—</span>}</td>)}<td className="num">{entrou.total ? `${Math.round((investiu.total / entrou.total) * 100)}%` : "—"}</td><td className="num" /></tr>
                   <tr><td>Parcelas pagas</td>{parcelasL.valores.map((v, i) => <td key={i} className="num">{cel(v)}</td>)}<td className="num">{cel(parcelasL.total)}</td><td className="num">{cel(parcelasL.total / n)}</td></tr>
+                  <tr><td>Parcelas / renda</td>{parcelasL.valores.map((v, i) => <td key={i} className={`num ${entrou.valores[i] && v / entrou.valores[i] > aj.pct_parcelas / 100 ? "neg" : ""}`}>{entrou.valores[i] ? `${Math.round((v / entrou.valores[i]) * 100)}%` : <span className="tabela__zero">—</span>}</td>)}<td className="num">{entrou.total ? `${Math.round((parcelasL.total / entrou.total) * 100)}%` : "—"}</td><td className="num" /></tr>
                   <tr className="tabela__sep"><td colSpan={usados.length + 3}>Saídas por categoria</td></tr>
                   {cats.map((c) => (
                     <tr key={c.cat}><td>{c.cat}</td>{c.valores.map((v, i) => <td key={i} className="num">{cel(v)}</td>)}<td className="num"><b>{cel(c.total)}</b></td><td className="num">{cel(c.total / n)}</td></tr>
@@ -396,5 +439,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         </>
       )}
     </div>
+    </FinancasProvider>
   );
 }

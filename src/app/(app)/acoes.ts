@@ -9,7 +9,7 @@ import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, t
 import { CORES_CONTEXTO, type Estado } from "@/lib/tipos";
 import { CORES_MATERIA, INTERVALOS, proximaRevisao, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 import { textoFrequencia } from "@/lib/rotinas";
-import { CAMPOS_LANCAMENTO, limitesDoMes, mesDoDia, moeda, naConta, normalizarLancamento, tipoNoBanco, TIPOS_INVESTIMENTO } from "@/lib/financas";
+import { AJUSTE, CAMPOS_LANCAMENTO, limitesDoMes, mesDoDia, moeda, SALDO_INICIAL, naConta, normalizarLancamento, tipoNoBanco, TIPOS_INVESTIMENTO } from "@/lib/financas";
 import { TIPOS_SAUDE, type TipoMedida, MEDIDAS } from "@/lib/saude";
 
 function atualizar() {
@@ -1141,7 +1141,8 @@ export async function apagarNota(id: string) {
 
 // ---------- finanças (o mês numa tela) ----------
 
-export type DadosLancamento = { kind: "entrada" | "saida" | "aporte" | "resgate"; amount: number; description: string; category: string; happened_on: string; paid: boolean; context_id: string | null; investment_id?: string | null };
+export type DadosLancamento = {
+  account_id?: string | null; kind: "entrada" | "saida" | "aporte" | "resgate"; amount: number; description: string; category: string; happened_on: string; paid: boolean; context_id: string | null; investment_id?: string | null };
 
 /** Tipo e investimento válidos: investir e resgatar exigem o investimento */
 function tipoLancamento(kind: string, investimento?: string | null): { erro: string } | { kind: "entrada" | "saida" | "aporte" | "resgate"; investment_id: string | null } {
@@ -1163,7 +1164,7 @@ export async function lancar(d: DadosLancamento): Promise<{ ok: boolean; erro?: 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("fin_entries")
-    .insert({ kind: tipoNoBanco(t.kind), investment_id: t.investment_id, amount: Math.round(d.amount * 100) / 100, description, category: transferencia ? "Investimentos" : d.category.trim().slice(0, 40) || "Outros", happened_on: d.happened_on, paid: transferencia ? true : d.paid, context_id: d.context_id || null })
+    .insert({ kind: tipoNoBanco(t.kind), investment_id: t.investment_id, amount: Math.round(d.amount * 100) / 100, description, category: transferencia ? "Investimentos" : d.category.trim().slice(0, 60) || "Outros", happened_on: d.happened_on, paid: transferencia ? true : d.paid, context_id: d.context_id || null, account_id: ehId(d.account_id ?? null) ? d.account_id : null })
     .select("id")
     .single();
   if (error || !data) return { ok: false, erro: "Não foi possível lançar." };
@@ -1172,7 +1173,23 @@ export async function lancar(d: DadosLancamento): Promise<{ ok: boolean; erro?: 
 }
 
 export async function apagarLancamento(id: string) {
-  await apagarPorId("fin_entries", id);
+  if (!ehId(id)) return;
+  const supabase = await createClient();
+  const { data: l } = await supabase.from("fin_entries").select("installment_id").eq("id", id).maybeSingle();
+  await supabase.from("fin_entries").delete().eq("id", id);
+  if (l?.installment_id) await sincronizarParcelas(supabase, [l.installment_id]);
+  atualizar();
+}
+
+/** Parcelas pagas = as pagas antes do Rumo (paid_before) + os lançamentos pagos ligados ao parcelamento */
+async function sincronizarParcelas(supabase: Awaited<ReturnType<typeof createClient>>, ids: string[]) {
+  for (const id of ids.filter(ehId)) {
+    const [{ data: p }, { count }] = await Promise.all([
+      supabase.from("fin_installments").select("installments, paid_before").eq("id", id).maybeSingle(),
+      supabase.from("fin_entries").select("id", { count: "exact", head: true }).eq("installment_id", id).eq("paid", true),
+    ]);
+    if (p) await supabase.from("fin_installments").update({ paid_count: Math.min(p.installments, (p.paid_before ?? 0) + (count ?? 0)) }).eq("id", id);
+  }
 }
 
 /** A pagar → pago (ou volta); a data passa a ser hoje quando é pago */
@@ -1233,7 +1250,7 @@ export async function apagarSubtarefa(id: string) {
 
 // ---------- finanças: ajustes, parcelamentos, investimentos ----------
 
-export type DadosAjustes = { pay_day?: number | null; pct_parcelas: number; pct_investir: number; pct_livre: number; cash_balance: number | null };
+export type DadosAjustes = { pay_day?: number | null; pct_parcelas: number; pct_investir: number; pct_livre: number };
 
 export async function salvarAjustesFinancas(d: DadosAjustes): Promise<{ ok: boolean; erro?: string }> {
   const pct = [d.pct_parcelas, d.pct_investir, d.pct_livre].map((x) => Math.round(Number(x) || 0));
@@ -1241,12 +1258,8 @@ export async function salvarAjustesFinancas(d: DadosAjustes): Promise<{ ok: bool
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, erro: "Entre de novo." };
-  const { data: antes } = await supabase.from("fin_settings").select("cash_balance").maybeSingle();
-  // Saldo informado vale a partir de hoje (o Rumo soma o que vier depois)
-  const saldoMudou = d.cash_balance !== null && Number(antes?.cash_balance ?? NaN) !== d.cash_balance;
   const { error } = await supabase.from("fin_settings").upsert({
     user_id: user.id, pay_day: d.pay_day && d.pay_day >= 2 && d.pay_day <= 28 ? Math.round(d.pay_day) : null, pct_parcelas: pct[0], pct_investir: pct[1], pct_livre: pct[2],
-    ...(d.cash_balance === null ? { cash_balance: null, cash_on: null } : saldoMudou ? { cash_balance: Math.round(d.cash_balance * 100) / 100, cash_on: hojeISO() } : {}),
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id" });
   if (error) return { ok: false, erro: "Não foi possível guardar." };
@@ -1266,7 +1279,7 @@ export async function criarParcelamento(d: DadosParcelamento): Promise<{ ok: boo
   if (!DATA.test(d.first_due)) return { ok: false, erro: "Quando vence a primeira parcela?" };
   const supabase = await createClient();
   const { error } = await supabase.from("fin_installments").insert({
-    title, category: d.category.trim().slice(0, 40) || "Compras", total: Math.round(d.total * 100) / 100, installments: n, paid_count: pagas,
+    title, category: d.category.trim().slice(0, 60) || "Compras", total: Math.round(d.total * 100) / 100, installments: n, paid_count: pagas, paid_before: pagas,
     first_due: d.first_due, creditor: d.creditor?.trim().slice(0, 60) || null, context_id: d.context_id || null,
   });
   if (error) return { ok: false, erro: "Não foi possível guardar." };
@@ -1286,7 +1299,7 @@ export async function pagarParcela(id: string): Promise<{ ok: boolean; lancament
     kind: "saida", amount: parcela, description: `${p.title.trim()} · parcela ${numero} de ${p.installments}`.slice(0, 120), category: p.category,
     happened_on: hojeISO(), paid: true, installment_id: id, context_id: p.context_id,
   }).select("id").single();
-  await supabase.from("fin_installments").update({ paid_count: numero }).eq("id", id);
+  await sincronizarParcelas(supabase, [id]);
   atualizar();
   return { ok: true, lancamento: l?.id };
 }
@@ -1303,7 +1316,8 @@ export async function desfazerParcela(id: string, lancamento?: string) {
     alvo = ultimo?.[0]?.id ?? null;
   }
   if (alvo) await supabase.from("fin_entries").delete().eq("id", alvo).eq("installment_id", id);
-  await supabase.from("fin_installments").update({ paid_count: p.paid_count - 1 }).eq("id", id);
+  else await supabase.from("fin_installments").update({ paid_before: Math.max(0, p.paid_count - 1) }).eq("id", id);
+  await sincronizarParcelas(supabase, [id]);
   atualizar();
 }
 
@@ -1317,17 +1331,20 @@ export async function salvarParcelamento(id: string, d: DadosParcelamento): Prom
   if (!(n >= 1 && n <= 120)) return { ok: false, erro: "De 1 a 120 parcelas." };
   if (!DATA.test(d.first_due)) return { ok: false, erro: "Data da primeira parcela inválida." };
   const supabase = await createClient();
+  const { count } = await supabase.from("fin_entries").select("id", { count: "exact", head: true }).eq("installment_id", id).eq("paid", true);
+  const pagas = Math.max(0, Math.min(n, Math.round(d.paid_count) || 0));
   const { error } = await supabase.from("fin_installments").update({
-    title, category: d.category.trim().slice(0, 40) || "Compras", total: Math.round(d.total * 100) / 100, installments: n,
-    paid_count: Math.max(0, Math.min(n, Math.round(d.paid_count) || 0)), first_due: d.first_due, creditor: d.creditor?.trim().slice(0, 60) || null,
+    title, category: d.category.trim().slice(0, 60) || "Compras", total: Math.round(d.total * 100) / 100, installments: n,
+    paid_before: Math.max(0, pagas - (count ?? 0)), first_due: d.first_due, creditor: d.creditor?.trim().slice(0, 60) || null,
   }).eq("id", id);
   if (error) return { ok: false, erro: "Não foi possível guardar." };
+  await sincronizarParcelas(supabase, [id]);
   atualizar();
   return { ok: true };
 }
 
 /** Editar um lançamento na tabela (como numa planilha) */
-export async function editarLancamento(id: string, d: { kind: DadosLancamento["kind"]; amount: number; description: string; category: string; happened_on: string; paid: boolean; investment_id?: string | null }): Promise<{ ok: boolean; erro?: string }> {
+export async function editarLancamento(id: string, d: { kind: DadosLancamento["kind"]; amount: number; description: string; category: string; happened_on: string; paid: boolean; investment_id?: string | null; account_id?: string | null }): Promise<{ ok: boolean; erro?: string }> {
   if (!ehId(id)) return { ok: false };
   const description = d.description.trim().slice(0, 120);
   if (!description) return { ok: false, erro: "Descrição vazia." };
@@ -1339,9 +1356,12 @@ export async function editarLancamento(id: string, d: { kind: DadosLancamento["k
   const supabase = await createClient();
   const { error } = await supabase.from("fin_entries").update({
     kind: tipoNoBanco(t.kind), investment_id: t.investment_id, amount: Math.round(d.amount * 100) / 100, description,
-    category: transferencia ? "Investimentos" : d.category.trim().slice(0, 40) || "Outros", happened_on: d.happened_on, paid: transferencia ? true : !!d.paid,
+    category: transferencia ? "Investimentos" : d.category.trim().slice(0, 60) || "Outros", happened_on: d.happened_on, paid: transferencia ? true : !!d.paid,
+    ...(d.account_id !== undefined ? { account_id: ehId(d.account_id) ? d.account_id : null } : {}),
   }).eq("id", id);
   if (error) return { ok: false, erro: "Não foi possível guardar." };
+  const { data: l } = await supabase.from("fin_entries").select("installment_id").eq("id", id).single();
+  if (l?.installment_id) await sincronizarParcelas(supabase, [l.installment_id]);
   atualizar();
   return { ok: true };
 }
@@ -1357,26 +1377,108 @@ export async function criarInvestimento(d: DadosInvestimento): Promise<{ ok: boo
   if (!name) return { ok: false, erro: "Dê um nome (ex.: Caixinha Nubank)." };
   if (!(d.balance >= 0)) return { ok: false, erro: "Saldo inválido." };
   const supabase = await createClient();
-  const { error } = await supabase.from("fin_investments").insert({
+  const { data: novo, error } = await supabase.from("fin_investments").insert({
     name, kind: Object.hasOwn(TIPOS_INVESTIMENTO, d.kind) ? d.kind : "outro", institution: d.institution?.trim().slice(0, 60) || null,
-    balance: Math.round(d.balance * 100) / 100, balance_on: hojeISO(),
+    balance: 0, balance_on: hojeISO(),
     monthly_rate: d.monthly_rate && d.monthly_rate > 0 && d.monthly_rate <= 0.2 ? d.monthly_rate : null,
     monthly_plan: d.monthly_plan && d.monthly_plan > 0 ? Math.round(d.monthly_plan * 100) / 100 : null,
-  });
-  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  }).select("id").single();
+  if (error || !novo) return { ok: false, erro: "Não foi possível guardar." };
+  // O que já havia aplicado entra como "Saldo inicial" (um movimento, não um número digitado)
+  if (d.balance > 0) await supabase.from("fin_inv_moves").insert({ investment_id: novo.id, kind: "rendimento", amount: Math.round(d.balance * 100) / 100, happened_on: hojeISO(), note: "Saldo inicial" });
   atualizar();
   return { ok: true };
 }
 
 /** Saldo de hoje (olhou no app do banco): passa a valer daqui para frente */
-export async function atualizarSaldoInvestimento(id: string, saldo: number, taxa?: number | null, plano?: number | null) {
-  if (!ehId(id) || !(saldo >= 0)) return;
+/** Taxa e plano de um investimento (o saldo não se digita: vem dos movimentos) */
+export async function planoInvestimento(id: string, taxa: number | null, plano: number | null) {
+  if (!ehId(id)) return;
   const supabase = await createClient();
   await supabase.from("fin_investments").update({
-    balance: Math.round(saldo * 100) / 100, balance_on: hojeISO(),
-    ...(taxa !== undefined ? { monthly_rate: taxa && taxa > 0 && taxa <= 0.2 ? taxa : null } : {}),
-    ...(plano !== undefined ? { monthly_plan: plano && plano > 0 ? Math.round(plano * 100) / 100 : null } : {}),
+    monthly_rate: taxa && taxa > 0 && taxa <= 0.2 ? taxa : null,
+    monthly_plan: plano && plano > 0 ? Math.round(plano * 100) / 100 : null,
   }).eq("id", id);
+  atualizar();
+}
+
+/** Conferir com o banco: a diferença vira um lançamento "Ajuste de saldo" na conta (o saldo continua vindo só de lançamentos) */
+export async function conferirConta(contaId: string | null, calculado: number, real: number): Promise<{ ok: boolean; diferenca?: number }> {
+  const dif = Math.round((real - calculado) * 100) / 100;
+  if (!Number.isFinite(dif)) return { ok: false };
+  if (Math.abs(dif) < 0.005) return { ok: true, diferenca: 0 };
+  const supabase = await createClient();
+  const { error } = await supabase.from("fin_entries").insert({ kind: dif > 0 ? "entrada" : "saida", amount: Math.abs(dif), description: "Ajuste para bater com o banco", category: AJUSTE, happened_on: hojeISO(), paid: true, account_id: ehId(contaId) ? contaId : null });
+  if (error) return { ok: false };
+  atualizar();
+  return { ok: true, diferenca: dif };
+}
+
+/** Conferir um investimento com o app do banco: a diferença vira um movimento "Ajuste de saldo" (rendeu ou perdeu) */
+export async function conferirInvestimento(id: string, calculado: number, real: number): Promise<{ ok: boolean; diferenca?: number }> {
+  if (!ehId(id)) return { ok: false };
+  const dif = Math.round((real - calculado) * 100) / 100;
+  if (!Number.isFinite(dif)) return { ok: false };
+  if (Math.abs(dif) < 0.005) return { ok: true, diferenca: 0 };
+  const supabase = await createClient();
+  const { error } = await supabase.from("fin_inv_moves").insert({ investment_id: id, kind: dif > 0 ? "rendimento" : "resgate", amount: Math.abs(dif), happened_on: hojeISO(), note: AJUSTE });
+  if (error) return { ok: false };
+  atualizar();
+  return { ok: true, diferenca: dif };
+}
+
+/* Categorias e contas das finanças */
+export async function criarCategoria(nome: string, kind: "entrada" | "saida", nature: string | null = null): Promise<{ ok: boolean; erro?: string; nome?: string }> {
+  const name = nome.trim().replace(/\s+/g, " ").slice(0, 60);
+  if (!name) return { ok: false, erro: "Dê um nome." };
+  if (name === SALDO_INICIAL || name === AJUSTE || name === "Investimentos") return { ok: false, erro: "Esse nome é reservado." };
+  const supabase = await createClient();
+  const { count } = await supabase.from("fin_categories").select("id", { count: "exact", head: true }).eq("kind", kind);
+  const { error } = await supabase.from("fin_categories").upsert({ name, kind, nature: ["essencial", "estilo", "objetivos"].includes(nature ?? "") ? nature : null, position: count ?? 0, archived: false }, { onConflict: "user_id,kind,name" });
+  if (error) return { ok: false, erro: "Não foi possível criar." };
+  atualizar();
+  return { ok: true, nome: name };
+}
+
+/** Renomear muda também os lançamentos (e o limite) daquela categoria */
+export async function salvarCategoria(id: string, d: { name?: string; nature?: string | null; archived?: boolean }): Promise<{ ok: boolean; erro?: string }> {
+  if (!ehId(id)) return { ok: false };
+  const supabase = await createClient();
+  const { data: c } = await supabase.from("fin_categories").select("name, kind").eq("id", id).single();
+  if (!c) return { ok: false };
+  const mudanca: Record<string, unknown> = {};
+  const novo = d.name?.trim().replace(/\s+/g, " ").slice(0, 60);
+  if (novo !== undefined) { if (!novo) return { ok: false, erro: "Dê um nome." }; mudanca.name = novo; }
+  if (d.nature !== undefined) mudanca.nature = ["essencial", "estilo", "objetivos"].includes(d.nature ?? "") ? d.nature : null;
+  if (d.archived !== undefined) mudanca.archived = d.archived;
+  const { error } = await supabase.from("fin_categories").update(mudanca).eq("id", id);
+  if (error) return { ok: false, erro: "Já existe uma categoria com esse nome." };
+  if (novo && novo !== c.name) {
+    await supabase.from("fin_entries").update({ category: novo }).eq("category", c.name).eq("kind", c.kind);
+    if (c.kind === "saida") {
+      await supabase.from("fin_budgets").update({ category: novo }).eq("category", c.name);
+      await supabase.from("fin_installments").update({ category: novo }).eq("category", c.name);
+    }
+  }
+  atualizar();
+  return { ok: true };
+}
+
+export async function criarConta(nome: string): Promise<{ ok: boolean; erro?: string }> {
+  const name = nome.trim().slice(0, 60);
+  if (!name) return { ok: false, erro: "Dê um nome." };
+  const supabase = await createClient();
+  const { count } = await supabase.from("fin_accounts").select("id", { count: "exact", head: true });
+  const { error } = await supabase.from("fin_accounts").insert({ name, position: count ?? 0 });
+  if (error) return { ok: false, erro: "Não foi possível criar." };
+  atualizar();
+  return { ok: true };
+}
+
+export async function salvarConta(id: string, d: { name?: string; archived?: boolean }) {
+  if (!ehId(id)) return;
+  const supabase = await createClient();
+  await supabase.from("fin_accounts").update({ ...(d.name?.trim() ? { name: d.name.trim().slice(0, 60) } : {}), ...(d.archived !== undefined ? { archived: d.archived } : {}) }).eq("id", id);
   atualizar();
 }
 

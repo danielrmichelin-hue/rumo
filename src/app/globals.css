@@ -1463,3 +1463,58 @@ a.route__t:hover { color: var(--accent-text); }
 .nums b.neg { color: var(--danger); }
 @media (max-width: 760px) { .nums--conta > div:nth-child(3)::before { left: 50%; top: -12px; margin: 0 0 0 -11px; } }
 .fin-periodo { margin: -4px 0 10px; font-size: 13px; font-weight: 600; color: var(--accent-text); }
+
+/* Finanças: categoria nova na hora, cadastros (contas e categorias), conferir com o banco */
+.cat-nova { display: flex; gap: 4px; align-items: center; }
+.cat-nova .input { flex: 1; }
+.extrato__edit .field { gap: 0; }
+.cad { display: grid; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.cad__t { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; font-size: 15px; font-weight: 650; }
+.cad__lista { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cad__lista li { display: grid; grid-template-columns: minmax(0, 1fr) auto 32px; gap: 6px; align-items: center; }
+.cad__lista li:not(:has(select)) { grid-template-columns: minmax(0, 1fr) 32px; }
+.cad__lista .input { height: 36px; font-size: 14px; }
+.cad__lista select.input { width: 140px; }
+.cad__lista li.is-arq .input { opacity: .5; }
+.cad__nova { display: flex; gap: 6px; }
+.cad__nova .input { flex: 1; height: 36px; font-size: 14px; }
+.conferir__calc { margin: 0; font-size: 15px; color: var(--text-2); }
+.conferir__calc b { color: var(--text); font-variant-numeric: tabular-nums; }
+.conferir__dif { margin: 0; padding: 10px 12px; border-radius: var(--r-md); background: var(--warn-bg); color: var(--warn); font-size: 14px; }
+.conferir__dif.is-ok { background: var(--ok-bg); color: var(--ok); }
+
+/* Finanças: o mês como extrato (saldo inicial + entrou − saiu − investiu ± ajustes = saldo final) */
+.fin-mes-topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 10px; }
+.fin-mes-topo .fin-periodo { margin: 0; }
+.fin-contas .chip--arq { opacity: .6; }
+.fluxo { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; margin-bottom: 16px; padding: 6px; border-radius: 22px; background: var(--surface); box-shadow: var(--ring); }
+.fluxo > div { position: relative; display: grid; align-content: start; gap: 4px; padding: 12px 14px 12px 22px; }
+.fluxo > div + div { border-left: 1px solid var(--line-2); }
+.fluxo > div::before { position: absolute; left: 7px; top: 34px; font: 650 15px/1 var(--font); color: var(--text-3); }
+.fluxo__mais::before { content: "+"; }
+.fluxo__menos::before { content: "−"; }
+.fluxo__igual::before { content: "="; }
+.fluxo small { font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.fluxo b { font: 650 22px/1.15 var(--font); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.fluxo b.neg { color: var(--danger); }
+.fluxo span { font-size: 12px; color: var(--text-2); }
+.fluxo__igual { border-radius: 16px; background: linear-gradient(160deg, var(--accent-soft), transparent 80%); }
+.fluxo__igual span .btn { margin-top: 4px; }
+@media (max-width: 960px) {
+  .fluxo { grid-auto-flow: row; grid-template-columns: 1fr 1fr; }
+  .fluxo > div + div { border-left: 0; }
+  .fluxo > div { border-top: 1px solid var(--line-2); }
+  .fluxo > div:first-child, .fluxo > div:nth-child(2) { border-top: 0; }
+  .fluxo__igual { grid-column: 1 / -1; }
+  .fluxo b { font-size: 19px; }
+}
+.fin-cat__nota .sobe { color: var(--danger); font-weight: 600; }
+.fin-cat__nota .desce { color: var(--ok); font-weight: 600; }
+.natureza { display: grid; gap: 8px; margin: 0 8px 14px; }
+.natureza__barra { display: flex; height: 10px; overflow: hidden; border-radius: 999px; background: var(--sunk); }
+.natureza__leg { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-2); }
+.natureza__leg span { display: inline-flex; align-items: center; gap: 5px; }
+.natureza__leg i { width: 9px; height: 9px; border-radius: 3px; }
+.natureza--essencial { background: #4C8BD8; }
+.natureza--estilo { background: #D46AA6; }
+.natureza--objetivos { background: #3E9D72; }

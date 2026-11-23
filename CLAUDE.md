@@ -19,6 +19,15 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
 - Finanças: **os lançamentos são a base de tudo**. Saída, entrada, investir (`aporte`) e resgatar (`resgate`) são
   lançamentos; o saldo da conta, o saldo de cada investimento, os envelopes e o resumo saem deles (`naConta`,
   `movimentosDe` em `src/lib/financas.ts`). Investir e resgatar são transferências: não contam como gasto nem renda.
+  **Nenhum saldo se digita**: o da conta é a soma dos lançamentos (`saldoAte`; o que havia antes é um lançamento
+  "Saldo inicial"); o do investimento, dos movimentos (aportes/resgates dos lançamentos + rendimentos, "Saldo inicial"
+  e "Ajuste de saldo" em `fin_inv_moves`; os aporte/resgate antigos de lá, sem nota, são ignorados). "Conferir com o
+  banco" lança a diferença como "Ajuste de saldo" (não é renda nem gasto, `ehAjuste`). O mês é um extrato
+  (`extratoDoMes`): saldo inicial (fim do mês anterior) + entrou − saiu − investiu ± ajustes = saldo final.
+  Contas em `fin_accounts` (`account_id` nos lançamentos; sem conta = a principal; arquivada fica fora do mês — a
+  Conta Empresa de fev/2026 está arquivada). Categorias do Daniel em `fin_categories` (criar, renomear com os
+  lançamentos acompanhando, tipo essencial/estilo/objetivos, arquivar), via `FinancasProvider`/`CampoCategoria`.
+  Parcelas pagas = `paid_before` + lançamentos pagos ligados (`sincronizarParcelas`).
 
 - Tarefa (no banco: `responsibilities`) tem 3 estados: `a_fazer`, `aguardando`, `concluida`. "Atrasada" é exibição
   quando o prazo passou, e é **direta**: vermelho, "Atrasada há N dias", no topo do Hoje.
@@ -67,7 +76,7 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   pg_cron `rumo-avisos` a cada 5 min chamando a função `avisos`) e 0018 (`study_questions`: exercícios com acertos por matéria/tema;
   `study_mocks`: provas e notas) e 0019 (notas decimais em `study_mocks`) e 0020 (`profiles.hidden_areas`: áreas escondidas da lateral;
   `profiles.capture_token` e as funções `rumo_contextos_por_chave`/`rumo_capturar_por_chave` para o atalho da Siri em
-  `src/app/api/capturar/route.ts`, rota pública com a chave) e 0021 (`profiles.ical_url`: agenda do Google pelo endereço
+  `src/app/api/capturar/route.ts`, rota pública com a chave) e 0022 (`fin_accounts`, `account_id`, `fin_categories`, `paid_before`) e 0021 (`profiles.ical_url`: agenda do Google pelo endereço
   secreto iCal, lida em `src/lib/ical.ts` com cache de 5 min e mostrada no Hoje, Calendário e Semana; ids `g-…` abrem o Google
   Agenda; dia inteiro fica de fora) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
