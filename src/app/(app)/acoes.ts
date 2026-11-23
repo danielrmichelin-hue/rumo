@@ -305,19 +305,6 @@ export async function moverParaDia(id: string, dia: string | null): Promise<{ ok
 }
 
 /** Nova tarefa direto num dia da semana (o texto é lido como a captura; se trouxer data, vale a do texto) */
-export async function criarNoDia(bruto: string, dia: string): Promise<{ ok: boolean; erro?: string }> {
-  const original = bruto.trim();
-  if (!original || !DATA.test(dia)) return { ok: false, erro: "Escreva a tarefa." };
-  const { leitura, id } = await inserirCaptura(original);
-  if (!id) return { ok: false, erro: "Não foi possível guardar." };
-  if (!leitura.due_date) {
-    const supabase = await createClient();
-    await supabase.from("responsibilities").update({ due_date: dia }).eq("id", id);
-  }
-  atualizar();
-  return { ok: true };
-}
-
 export async function restaurarData(id: string, campo: "due_date" | "follow_up_on", valor: string | null) {
   const supabase = await createClient();
   await supabase.from("responsibilities").update({ [campo]: valor }).eq("id", id);

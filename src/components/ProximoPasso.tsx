@@ -13,9 +13,9 @@ import { Logo } from "./Logo";
 import { Anel } from "./Caminho";
 
 /** Abre a captura de qualquer lugar (a casca escuta este evento). `texto` já vem escrito na caixa; `contexto` já vem escolhido. */
-export function BotaoNova({ texto, contexto, rotulo = "Nova", variante = "btn", icone }: { texto?: string; contexto?: string; rotulo?: string; variante?: string; icone?: React.ReactNode }) {
+export function BotaoNova({ texto, contexto, data, rotulo = "Nova", variante = "btn", icone }: { texto?: string; contexto?: string; data?: string; rotulo?: string; variante?: string; icone?: React.ReactNode }) {
   return (
-    <button type="button" className={variante} onClick={() => window.dispatchEvent(new CustomEvent("rumo:capturar", { detail: { texto, contexto } }))}>
+    <button type="button" className={variante} onClick={() => window.dispatchEvent(new CustomEvent("rumo:capturar", { detail: { texto, contexto, data } }))}>
       {icone}{rotulo}{variante === "btn" && <kbd>C</kbd>}
     </button>
   );

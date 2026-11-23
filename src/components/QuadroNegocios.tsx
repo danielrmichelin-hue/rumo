@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Hourglass, Plus, Scale } from "lucide-react";
-import { capturar, concluir, organizar } from "@/app/(app)/acoes";
+import { Hourglass, Plus, Scale } from "lucide-react";
+import { concluir, organizar } from "@/app/(app)/acoes";
 import { rotuloData, rotuloHora } from "@/lib/datas";
 import { useAvisar } from "./Avisos";
 import type { ContextItem } from "./Shell";
@@ -99,22 +99,11 @@ export function QuadroNegocios({ empresas, demandas: inicial, hoje }: { empresas
   );
 }
 
-/** Nova demanda direto na coluna (lida como a captura: data, hora) */
+/** Nova demanda: abre a captura já com a empresa (ou a Inbox) escolhida */
 export function NovaDemanda({ onde, aberta = false }: { onde: string; aberta?: boolean }) {
-  const [aberto, setAberto] = useState(aberta);
-  const [valor, setValor] = useState("");
-  const [pendente, iniciar] = useTransition();
-  const avisar = useAvisar();
-  if (!aberto) return <button type="button" className="pdia__add" onClick={() => setAberto(true)}><Plus aria-hidden />Demanda</button>;
   return (
-    <form className={aberta ? "quick-add" : "pdia__form"} onSubmit={(e) => {
-      e.preventDefault();
-      const t = valor.trim(); if (!t) return;
-      setValor("");
-      iniciar(async () => { const r = await capturar(t, onde); if (!r.ok) { setValor(t); avisar({ texto: r.erro ?? "Não foi possível guardar." }); } });
-    }}>
-      <input className="input" autoFocus={!aberta} value={valor} onChange={(e) => setValor(e.target.value)} onBlur={() => { if (!aberta && !valor.trim()) setAberto(false); }} onKeyDown={(e) => !aberta && e.key === "Escape" && setAberto(false)} placeholder="Nova demanda, ex.: Enviar proposta sexta 10h" aria-label="Nova demanda" disabled={pendente} />
-      {aberta && <button className="btn btn--line" type="submit" disabled={!valor.trim() || pendente}><Check aria-hidden />Guardar</button>}
-    </form>
+    <button type="button" className={aberta ? "btn btn--line btn--sm" : "pdia__add"} onClick={() => window.dispatchEvent(new CustomEvent("rumo:capturar", { detail: { contexto: onde } }))}>
+      <Plus aria-hidden />{aberta ? "Nova demanda" : "Demanda"}
+    </button>
   );
 }

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { ehExterno, LINK_AGENDA } from "@/lib/ical";
 import Link from "next/link";
 import { Check, Plus } from "lucide-react";
-import { concluir, criarNoDia, moverParaDia } from "@/app/(app)/acoes";
+import { concluir, moverParaDia } from "@/app/(app)/acoes";
 import { rotuloData, rotuloHora, SEMANA_CURTA } from "@/lib/datas";
 import { useAvisar } from "./Avisos";
 import type { ContextItem } from "./Shell";
@@ -134,19 +134,5 @@ export function PlanoSemana({ dias, tarefas: inicial, eventos, contextos, hoje }
 }
 
 function NovaNoDia({ dia }: { dia: string }) {
-  const [aberto, setAberto] = useState(false);
-  const [valor, setValor] = useState("");
-  const [pendente, iniciar] = useTransition();
-  const avisar = useAvisar();
-  if (!aberto) return <button type="button" className="pdia__add" onClick={() => setAberto(true)}><Plus aria-hidden />Tarefa</button>;
-  return (
-    <form className="pdia__form" onSubmit={(e) => {
-      e.preventDefault();
-      const t = valor.trim(); if (!t) return;
-      setValor("");
-      iniciar(async () => { const r = await criarNoDia(t, dia); if (!r.ok) { setValor(t); avisar({ texto: r.erro ?? "Não foi possível guardar." }); } });
-    }}>
-      <input className="input" autoFocus value={valor} onChange={(e) => setValor(e.target.value)} onBlur={() => { if (!valor.trim()) setAberto(false); }} onKeyDown={(e) => e.key === "Escape" && setAberto(false)} placeholder="Nova tarefa #contexto" aria-label="Nova tarefa neste dia" disabled={pendente} />
-    </form>
-  );
+  return <button type="button" className="pdia__add" onClick={() => window.dispatchEvent(new CustomEvent("rumo:capturar", { detail: { data: dia } }))}><Plus aria-hidden />Tarefa</button>;
 }

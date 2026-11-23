@@ -33,7 +33,7 @@ type Tipo = NonNullable<EscolhasCaptura["tipo"]>;
 const TIPOS: [Tipo, string, typeof ListChecks][] = [["tarefa", "Tarefa", ListChecks], ["decisao", "Decisão", Scale], ["compromisso", "Compromisso", CalendarClock], ["aguardando", "Aguardando", Hourglass]];
 const DURACOES: [number, string][] = [[30, "30 min"], [60, "1h"], [90, "1h30"], [120, "2h"]];
 
-export function Captura({ aberta, abrir, fechar, contextos, projetos = [], textoInicial = "", contextoInicial = null }: { aberta: boolean; abrir: () => void; fechar: () => void; contextos: ContextItem[]; projetos?: { id: string; name: string; context_id: string | null }[]; textoInicial?: string; contextoInicial?: string | null }) {
+export function Captura({ aberta, abrir, fechar, contextos, projetos = [], textoInicial = "", contextoInicial = null, dataInicial }: { aberta: boolean; abrir: () => void; fechar: () => void; contextos: ContextItem[]; projetos?: { id: string; name: string; context_id: string | null }[]; textoInicial?: string; contextoInicial?: string | null; dataInicial?: string }) {
   const [valor, setValor] = useState("");
   // Escolhas: undefined = vale o que o texto disse
   const [tipo, setTipo] = useState<Tipo | undefined>();
@@ -56,6 +56,10 @@ export function Captura({ aberta, abrir, fechar, contextos, projetos = [], texto
   useEffect(() => {
     if (aberta) setEscolhido((e) => e ?? contextoInicial);
   }, [aberta, contextoInicial]);
+  // Aberta a partir de um dia (Semana): o prazo já vem nele
+  useEffect(() => {
+    if (aberta && dataInicial) setData(dataInicial);
+  }, [aberta, dataInicial]);
   const sugerido = useMemo(() => (leitura && !leitura.context_id && !escolhido ? sugerirContexto(valor, contextos) : null), [leitura, escolhido, valor, contextos]);
   const idContexto = escolhido === "inbox" ? null : escolhido ?? leitura?.context_id ?? null;
   const contexto = contextos.find((c) => c.id === idContexto);

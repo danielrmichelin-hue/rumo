@@ -58,6 +58,7 @@ export function Shell({ contexts, projetos, nome, email, inbox, hoje, atencao, m
   const [captura, setCaptura] = useState(false);
   const [textoInicial, setTextoInicial] = useState("");
   const [contextoInicial, setContextoInicial] = useState<string | null>(null);
+  const [dataInicial, setDataInicial] = useState<string | undefined>();
   // Dentro de um contexto, a captura já abre com ele escolhido
   const contextoDaPagina = path.match(/^\/contexto\/([0-9a-f-]{36})/)?.[1] ?? null;
   const abrir = useCallback(() => setCaptura(true), []);
@@ -67,9 +68,10 @@ export function Shell({ contexts, projetos, nome, email, inbox, hoje, atencao, m
   // Botões "Nova" das páginas abrem a captura
   useEffect(() => {
     function onCapturar(e: Event) {
-      const d = (e as CustomEvent<{ texto?: string; contexto?: string }>).detail;
+      const d = (e as CustomEvent<{ texto?: string; contexto?: string; data?: string }>).detail;
       setTextoInicial(d?.texto ?? "");
       setContextoInicial(d?.contexto ?? null);
+      setDataInicial(d?.data);
       abrir();
     }
     window.addEventListener("rumo:capturar", onCapturar);
@@ -169,7 +171,7 @@ export function Shell({ contexts, projetos, nome, email, inbox, hoje, atencao, m
           <Link href="/mais" aria-current={on("/mais") ?? on("/responsabilidades") ?? on("/ajustes") ?? on("/contextos") ?? on("/contexto")}><Menu aria-hidden />Mais</Link>
         </nav>
 
-        <Captura aberta={captura} abrir={abrir} fechar={() => { setTextoInicial(""); setContextoInicial(null); fechar(); }} contextos={contexts} projetos={projetos} textoInicial={textoInicial} contextoInicial={contextoInicial ?? contextoDaPagina} />
+        <Captura aberta={captura} abrir={abrir} fechar={() => { setTextoInicial(""); setContextoInicial(null); setDataInicial(undefined); fechar(); }} dataInicial={dataInicial} contextos={contexts} projetos={projetos} textoInicial={textoInicial} contextoInicial={contextoInicial ?? contextoDaPagina} />
       </div>
     </AvisosProvider>
   );

@@ -1191,8 +1191,6 @@ a.route__t:hover { color: var(--accent-text); }
 .pdia__add { display: inline-flex; align-items: center; gap: 4px; margin-top: auto; padding: 6px; border: 0; border-radius: 6px; background: none; color: var(--text-3); font: 500 12.5px var(--font); cursor: pointer; }
 .pdia__add:hover { background: var(--hover); color: var(--text); }
 .pdia__add svg { width: 14px; height: 14px; }
-.pdia__form { margin-top: auto; }
-.pdia__form .input { height: 32px; padding: 0 8px; font-size: 13px; }
 @media (hover: none) { .pcard__mover { opacity: .8; } }
 @media (max-width: 1100px) {
   .plano__dias { grid-template-columns: repeat(7, minmax(170px, 1fr)); }
