@@ -335,17 +335,20 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         // Consultor: renda e gasto do dia a dia (sem parcelas) dos 3 meses fechados; parcelas que já saem nos próximos 12
         const fechados = [1, 2, 3].map((k) => lim(mesVizinho(atual, -k)));
         const media = (f: (l: (typeof todos)[number]) => boolean) => fechados.reduce((t, x) => t + todos.filter((l) => l.paid && !ehAjuste(l) && l.happened_on >= x.inicio && l.happened_on <= x.fim && f(l)).reduce((a, l) => a + l.amount, 0), 0) / 3;
-        const vencimentos = parcelamentos.flatMap((p) => { const s = situacaoParcelamento(p, hoje); return Array.from({ length: s.faltam }, (_, i) => ({ dia: somarMeses(p.first_due, p.paid_count + i), v: s.parcela })); });
+        // Cada parcela cai no mês (do salário) em que vence: um parcelamento que começa em dezembro só pesa de dezembro em diante
+        const vencimentos = parcelamentos.flatMap((p) => { const s = situacaoParcelamento(p, hoje); return Array.from({ length: p.installments }, (_, i) => ({ dia: somarMeses(p.first_due, i), v: s.parcela })); });
         const base: BaseConsultor = {
           renda: Math.round(media((l) => l.kind === "entrada")), gasto: Math.round(media((l) => l.kind === "saida" && !l.installment_id)),
           pctParcelas: aj.pct_parcelas, pctInvestir: aj.pct_investir,
           meses: Array.from({ length: 12 }, (_, k) => { const m = mesVizinho(atual, k); const x = lim(m); return { rotulo: mesCurto(`${m}-01`), parcelas: Math.round(vencimentos.filter((v) => v.dia >= x.inicio && v.dia <= x.fim).reduce((t, v) => t + v.v, 0) * 100) / 100 }; }),
         };
+        const [esteMes, proximoMes] = base.meses;
+        const aComecar = comSit.filter(({ s }) => s.estado === "a_comecar").length;
         return (
           <>
             <div className="nums">
               <div><small>Ainda devo</small><b>{moeda(divida.deve)}</b><span>Já paguei {moeda(totalComprado - divida.deve)} de {moeda(totalComprado)}</span></div>
-              <div><small>Sai por mês</small><b>{moeda(divida.porMes)}</b><span>{divida.emCurso} {divida.emCurso === 1 ? "parcelamento" : "parcelamentos"} em curso</span></div>
+              <div><small>Sai em {esteMes.rotulo}</small><b>{moeda(esteMes.parcelas)}</b><span>{proximoMes.parcelas !== esteMes.parcelas ? `Em ${proximoMes.rotulo}: ${moeda(proximoMes.parcelas)}` : `${divida.emCurso} em curso`}{aComecar ? ` · ${aComecar} a começar` : ""}</span></div>
               <div><small>Livre de parcelas em</small><b className="nums__texto">{divida.ultima ? mesCurto(divida.ultima) : "—"}</b><span>{divida.ultima ? diaMes(divida.ultima) : "Nada parcelado"}</span></div>
               <div><small>Já quitados</small><b>{divida.quitados}</b></div>
             </div>

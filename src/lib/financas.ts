@@ -186,12 +186,11 @@ export function parcelasDoCiclo(lista: Parcelamento[], inicio: string, fim: stri
     .sort((a, b) => a.vence.localeCompare(b.vence) || a.p.title.localeCompare(b.p.title));
 }
 
-/** Quanto se deve, quanto sai por mês e quando tudo termina */
+/** Quanto se deve e quando tudo termina (quanto sai em cada mês sai das datas das parcelas, na aba Parcelas) */
 export function resumoParcelamentos(lista: Parcelamento[], hoje: string) {
   const ativos = lista.map((p) => ({ p, s: situacaoParcelamento(p, hoje) })).filter(({ s }) => s.estado !== "quitado");
   return {
     deve: ativos.reduce((t, { s }) => t + s.restante, 0),
-    porMes: ativos.reduce((t, { s }) => t + s.parcela, 0),
     ultima: ativos.map(({ s }) => s.ultima).sort().pop() ?? null,
     emCurso: ativos.length,
     quitados: lista.length - ativos.length,
