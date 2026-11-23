@@ -97,7 +97,8 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`; Finanças do mês (resumo, contas fixas = rotinas mensais com valor,
   categorias, planilha CSV; o mês financeiro vai do dia em que recebe (`fin_settings.pay_day`, em Finanças › Ajustes;
   Daniel: 20) até a véspera do próximo, com o nome do mês em que o salário entra (outubro = 20/10 a 19/11), em tudo
-  (`limitesDoMes(mes, dia)`, `mesDoDia`); sem dia, o mês do calendário; parcelamentos,
+  (`limitesDoMes(mes, dia, salarios)`, `mesDoDia`); se o salário (categoria Salário) cair até 5 dias antes, o mês começa
+  nele (o de 19/10 abre outubro); sem dia, o mês do calendário; parcelamentos,
   investimentos com projeção, envelopes parcelas/investir/livre, saldo da conta somado a partir do informado) em `src/lib/financas.ts`; abas Mês (faixa dos 12 meses, entrou/saiu/investiu/ainda pode gastar, o que falta pagar para marcar, o extrato
   por dia, a divisão e as categorias), Parcelas
   (grade parcela por parcela), Investimentos e Resumo (categoria por mês), com as tabelas em `src/components/FinancasPlanilha.tsx`; Saúde (remédio = rotina com dose, um horário por rotina; consultas = compromissos

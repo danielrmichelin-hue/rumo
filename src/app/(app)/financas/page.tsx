@@ -10,7 +10,7 @@ import { Anel } from "@/components/Caminho";
 import type { ContextItem } from "@/components/Shell";
 import { diaMes, hojeISO, rotuloData, somarMeses } from "@/lib/datas";
 import {
-  AJUSTE, CAMPOS_CATEGORIA, CAMPOS_CONTA, CAMPOS_INVESTIMENTO, CAMPOS_LANCAMENTO, CAMPOS_MOVIMENTO, CAMPOS_PARCELAMENTO, contasDoMes, ehAjuste, extratoDoMes, saldoAte, SALDO_INICIAL, type Categoria, type Conta, envelopes, limitesDoMes, mesCurto, mesDoDia, mesVizinho, moeda,
+  AJUSTE, CAMPOS_CATEGORIA, CAMPOS_CONTA, CAMPOS_INVESTIMENTO, CAMPOS_LANCAMENTO, CAMPOS_MOVIMENTO, CAMPOS_PARCELAMENTO, contasDoMes, datasDeSalario, ehAjuste, extratoDoMes, saldoAte, SALDO_INICIAL, type Categoria, type Conta, envelopes, limitesDoMes, mesCurto, mesDoDia, mesVizinho, moeda,
   movimentosDe, naConta, normalizarAjustes, normalizarInvestimento, normalizarLancamento, normalizarMovimento, normalizarParcelamento, parcelasDoCiclo, projetar, resumoDoMes,
   NATUREZAS, resumoParcelamentos, saldoAtual, situacaoParcelamento, TIPOS_INVESTIMENTO, type Orcamento,
 } from "@/lib/financas";
@@ -33,22 +33,26 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const aba = ABAS.find((a) => a.v === abaParam)?.v ?? "mes";
   const hoje = hojeISO();
   const supabase = await createClient();
-  const [{ data: ajustesDb }, { data: contasDb }, { data: catsDb }] = await Promise.all([
+  const [{ data: ajustesDb }, { data: contasDb }, { data: catsDb }, { data: salariosDb }] = await Promise.all([
     supabase.from("fin_settings").select("pay_day, pct_parcelas, pct_investir, pct_livre").maybeSingle(),
     supabase.from("fin_accounts").select(CAMPOS_CONTA).order("position"),
     supabase.from("fin_categories").select(CAMPOS_CATEGORIA).order("position"),
+    // O salário marca o começo de cada mês (se cair antes do dia, o mês começa nele)
+    supabase.from("fin_entries").select("kind, category, happened_on").eq("kind", "entrada").eq("category", "Salário"),
   ]);
   const contas = (contasDb ?? []) as Conta[];
   const categorias = (catsDb ?? []) as Categoria[];
   const aj = normalizarAjustes(ajustesDb);
   const dr = aj.pay_day; // dia em que recebe: o mês vai dele até a véspera do próximo
-  const atual = mesDoDia(hoje, dr);
+  const salarios = datasDeSalario((salariosDb ?? []) as { kind: "entrada"; category: string; happened_on: string }[]);
+  const lim = (m: string) => limitesDoMes(m, dr, salarios);
+  const atual = mesDoDia(hoje, dr, salarios);
   const pedido = param ?? lm;
   const mes = pedido && /^\d{4}-(0[1-9]|1[0-2])$/.test(pedido) ? pedido : atual;
-  const { inicio, fim } = limitesDoMes(mes, dr);
+  const { inicio, fim } = lim(mes);
   const ano = mes.slice(0, 4);
   const esteMes = mes === atual;
-  const doMes = (m: string, l: { happened_on: string }) => { const x = limitesDoMes(m, dr); return l.happened_on >= x.inicio && l.happened_on <= x.fim; };
+  const doMes = (m: string, l: { happened_on: string }) => { const x = lim(m); return l.happened_on >= x.inicio && l.happened_on <= x.fim; };
 
   const [{ data: todosDb }, { data: rotinasDb }, { data: marcasDb }, { data: orcDb }, { data: contextos }, { data: rotasDb }, { data: parcDb }, { data: invDb }, { data: movDb }] = await Promise.all([
     // Todos os lançamentos: o saldo de cada mês é a soma de tudo o que veio antes
@@ -101,7 +105,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const nAPagar = parcelasAPagar.length + contasAbertas.length + aPagarLanc.length;
   const maxCat = Math.max(1, ...r.categorias.map((c) => Math.max(c.gasto, c.limite ?? 0)));
   // Para onde foi: % dos gastos do mês, a média dos 3 meses anteriores e o tipo de gasto (essencial, estilo de vida, objetivos)
-  const anteriores = [1, 2, 3].map((k) => limitesDoMes(mesVizinho(mes, -k), dr));
+  const anteriores = [1, 2, 3].map((k) => lim(mesVizinho(mes, -k)));
   const mediaCat = (cat: string) => anteriores.reduce((t, x) => t + todos.filter((l) => l.paid && l.kind === "saida" && l.category === cat && l.happened_on >= x.inicio && l.happened_on <= x.fim).reduce((a, l) => a + l.amount, 0), 0) / 3;
   const natureza = (cat: string) => categorias.find((c) => c.kind === "saida" && c.name === cat)?.nature ?? null;
   const porNatureza = (["essencial", "estilo", "objetivos"] as const).map((n) => ({ n, v: r.categorias.filter((c) => natureza(c.categoria) === n).reduce((t, c) => t + c.gasto, 0) }));
@@ -287,13 +291,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         const quitados = comSit.filter(({ s }) => s.estado === "quitado").sort((a, b) => b.s.ultima.localeCompare(a.s.ultima)).map(({ p }) => p);
         const totalComprado = parcelamentos.reduce((t, p) => t + p.total, 0);
         // Consultor: renda e gasto do dia a dia (sem parcelas) dos 3 meses fechados; parcelas que já saem nos próximos 12
-        const fechados = [1, 2, 3].map((k) => limitesDoMes(mesVizinho(atual, -k), dr));
+        const fechados = [1, 2, 3].map((k) => lim(mesVizinho(atual, -k)));
         const media = (f: (l: (typeof todos)[number]) => boolean) => fechados.reduce((t, x) => t + todos.filter((l) => l.paid && !ehAjuste(l) && l.happened_on >= x.inicio && l.happened_on <= x.fim && f(l)).reduce((a, l) => a + l.amount, 0), 0) / 3;
         const vencimentos = parcelamentos.flatMap((p) => { const s = situacaoParcelamento(p, hoje); return Array.from({ length: s.faltam }, (_, i) => ({ dia: somarMeses(p.first_due, p.paid_count + i), v: s.parcela })); });
         const base: BaseConsultor = {
           renda: Math.round(media((l) => l.kind === "entrada")), gasto: Math.round(media((l) => l.kind === "saida" && !l.installment_id)),
           pctParcelas: aj.pct_parcelas, pctInvestir: aj.pct_investir,
-          meses: Array.from({ length: 12 }, (_, k) => { const m = mesVizinho(atual, k); const x = limitesDoMes(m, dr); return { rotulo: mesCurto(`${m}-01`), parcelas: Math.round(vencimentos.filter((v) => v.dia >= x.inicio && v.dia <= x.fim).reduce((t, v) => t + v.v, 0) * 100) / 100 }; }),
+          meses: Array.from({ length: 12 }, (_, k) => { const m = mesVizinho(atual, k); const x = lim(m); return { rotulo: mesCurto(`${m}-01`), parcelas: Math.round(vencimentos.filter((v) => v.dia >= x.inicio && v.dia <= x.fim).reduce((t, v) => t + v.v, 0) * 100) / 100 }; }),
         };
         return (
           <>
@@ -319,7 +323,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
 
       {aba === "resumo" && (() => {
-        const ciclos = Array.from({ length: 12 }, (_, k) => { const m = mesVizinho(atual, k - 11); return { m, ...limitesDoMes(m, dr) }; });
+        const ciclos = Array.from({ length: 12 }, (_, k) => { const m = mesVizinho(atual, k - 11); return { m, ...lim(m) }; });
         const daqui = (l: { happened_on: string }, c: { inicio: string; fim: string }) => l.happened_on >= c.inicio && l.happened_on <= c.fim;
         const pagos = todos.filter((l) => l.paid);
         const usados = ciclos.filter((c) => pagos.some((l) => daqui(l, c)) || movs.some((m) => daqui(m, c)));

@@ -70,23 +70,37 @@ const dataDo = (a: number, m: number, d: number) => {
   return `${ano}-${String(mes).padStart(2, "0")}-${String(Math.min(d, ultimoDia(ano, mes))).padStart(2, "0")}`;
 };
 
-/** O mês financeiro "AAAA-MM": do dia em que recebe até a véspera do mesmo dia no mês seguinte
- *  (recebe dia 20: outubro = 20/10 a 19/11). Recebe dia 1 (ou sem dia): o mês do calendário. */
-export function limitesDoMes(mes: string, diaRecebe = 1) {
+const menosDias = (iso: string, n: number) => new Date(Date.parse(`${iso}T12:00:00Z`) - n * 86400000).toISOString().slice(0, 10);
+
+/** Início do mês financeiro: o dia em que recebe, ou o dia em que o salário caiu de fato, se caiu até 5 dias antes
+ *  (o salário do dia 20 que cai no dia 19 já abre o mês novo) */
+function inicioDoMes(a: number, m: number, diaRecebe: number, salarios: string[]) {
+  const nominal = dataDo(a, m, diaRecebe);
+  const antes = salarios.filter((d) => d < nominal && d >= menosDias(nominal, 5)).sort()[0];
+  return antes ?? nominal;
+}
+
+/** O mês financeiro "AAAA-MM": do dia em que recebe até a véspera do próximo (recebe dia 20: outubro = 20/10 a
+ *  19/11; se o salário cair antes, o mês começa nele). Recebe dia 1 (ou sem dia): o mês do calendário.
+ *  `salarios`: as datas das entradas da categoria Salário. */
+export function limitesDoMes(mes: string, diaRecebe = 1, salarios: string[] = []) {
   const [a, m] = mes.split("-").map(Number);
   if (diaRecebe <= 1) return { inicio: `${mes}-01`, fim: dataDo(a, m, ultimoDia(a, m)) };
-  const inicio = dataDo(a, m, diaRecebe);
-  const prox = dataDo(a, m + 1, diaRecebe);
-  const fim = new Date(Date.parse(`${prox}T12:00:00Z`) - 86400000).toISOString().slice(0, 10);
+  const inicio = inicioDoMes(a, m, diaRecebe, salarios);
+  const fim = menosDias(inicioDoMes(a, m + 1, diaRecebe, salarios), 1);
   return { inicio, fim };
 }
 
 /** Em que mês financeiro cai um dia */
-export function mesDoDia(dia: string, diaRecebe = 1): string {
-  const [a, m, d] = dia.split("-").map(Number);
-  const daqui = `${a}-${String(m).padStart(2, "0")}`;
-  return diaRecebe <= 1 || d >= Math.min(diaRecebe, ultimoDia(a, m)) ? daqui : mesVizinho(daqui, -1);
+export function mesDoDia(dia: string, diaRecebe = 1, salarios: string[] = []): string {
+  const daqui = dia.slice(0, 7);
+  if (diaRecebe <= 1) return daqui;
+  return dia >= limitesDoMes(daqui, diaRecebe, salarios).inicio ? daqui : mesVizinho(daqui, -1);
 }
+
+/** As datas das entradas de salário (marcam o começo de cada mês financeiro) */
+export const datasDeSalario = (lancamentos: Pick<Lancamento, "kind" | "category" | "happened_on">[]) =>
+  lancamentos.filter((l) => l.kind === "entrada" && l.category === "Salário").map((l) => l.happened_on);
 
 export function mesVizinho(mes: string, delta: number) {
   const [a, m] = mes.split("-").map(Number);
