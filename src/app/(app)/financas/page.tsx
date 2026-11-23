@@ -435,7 +435,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                   <section key={i.id} className="bloco inv">
                     <div className="inv__head">
                       <div><h2 className="inv__t">{i.name}</h2><small>{TIPOS_INVESTIMENTO[i.kind]}{i.institution ? ` · ${i.institution}` : ""}{i.monthly_rate ? ` · rende ${String(Math.round(i.monthly_rate * 10000) / 100).replace(".", ",")}% ao mês` : ""}</small></div>
-                      <div className="inv__saldo"><b>{moeda(saldo)}</b><small>Conferido {rotuloData(i.balance_on, hoje)} <AjustarInvestimento inv={i} saldo={saldo} /></small></div>
+                      <div className="inv__saldo"><b>{moeda(saldo)}</b><small>Pelos lançamentos · <AjustarInvestimento inv={i} saldo={saldo} /></small></div>
                     </div>
                     <Movimentar inv={i} />
                     {(i.monthly_plan || i.monthly_rate) && (
@@ -450,7 +450,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                           {meus.slice(0, 60).map((m) => (
                             <li key={m.id}>
                               <time>{rotuloData(m.happened_on, hoje)}</time>
-                              <span>{m.kind === "aporte" ? "Investi" : m.kind === "resgate" ? "Resgatei" : "Rendimento"}{m.note ? ` · ${m.note}` : ""}{m.origem === "lancamento" ? <small> · lançamento</small> : null}</span>
+                              <span>{m.note === AJUSTE || m.note === SALDO_INICIAL ? m.note : <>{m.kind === "aporte" ? "Investi" : m.kind === "resgate" ? "Resgatei" : "Rendimento"}{m.note ? ` · ${m.note}` : ""}</>}{m.origem === "lancamento" ? <small> · lançamento</small> : null}</span>
                               <b className={m.kind === "resgate" ? undefined : "pos"}>{m.kind === "resgate" ? "−" : "+"}{moeda(m.amount)}</b>
                               <ApagarMovimento m={m} />
                             </li>

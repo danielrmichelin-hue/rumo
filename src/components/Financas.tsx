@@ -359,7 +359,7 @@ export function AjustarInvestimento({ inv, saldo }: { inv: Investimento; saldo: 
   const [v, setV] = useState({ real: "", taxa: taxaTexto(inv.monthly_rate), plano: inv.monthly_plan ? String(inv.monthly_plan).replace(".", ",") : "" });
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
-  if (!aberto) return <button type="button" className="fin-cat__lim" onClick={() => setAberto(true)}>Conferir e plano</button>;
+  if (!aberto) return <button type="button" className="fin-cat__lim" onClick={() => setAberto(true)}>Conferir com o banco</button>;
   const dif = v.real.trim() ? Math.round((numeroBR(v.real) - saldo) * 100) / 100 : 0;
   return (
     <form className="inv-aj" onSubmit={(e) => {
