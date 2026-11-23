@@ -28,6 +28,8 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   Conta Empresa de fev/2026 está arquivada). Categorias do Daniel em `fin_categories` (criar, renomear com os
   lançamentos acompanhando, tipo essencial/estilo/objetivos, arquivar), via `FinancasProvider`/`CampoCategoria`.
   Parcelas pagas = `paid_before` + lançamentos pagos ligados (`sincronizarParcelas`).
+  Consultor "Posso comprar parcelado?" na aba Parcelas (`src/components/Consultor.tsx`): renda e gasto do dia a dia médios
+  dos 3 meses fechados, parcelas que já saem nos próximos 12 meses, limite de parcelas e meta de investir; veredito por mês.
 
 - Tarefa (no banco: `responsibilities`) tem 3 estados: `a_fazer`, `aguardando`, `concluida`. "Atrasada" é exibição
   quando o prazo passou, e é **direta**: vermelho, "Atrasada há N dias", no topo do Hoje.

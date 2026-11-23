@@ -1518,3 +1518,39 @@ a.route__t:hover { color: var(--accent-text); }
 .natureza--essencial { background: #4C8BD8; }
 .natureza--estilo { background: #D46AA6; }
 .natureza--objetivos { background: #3E9D72; }
+
+/* Consultor: posso comprar parcelado? */
+.consultor { display: grid; gap: 12px; padding: 18px 16px 14px; }
+.consultor .sec__h { display: flex; align-items: center; gap: 6px; }
+.consultor__campos { display: grid; grid-template-columns: minmax(0, 1fr) 130px 150px; gap: 10px; padding: 0 8px; }
+.consultor__base { margin: 0; padding: 0 8px; font-size: 12.5px; color: var(--text-2); }
+.consultor__veredito { display: grid; gap: 3px; margin: 0 8px; padding: 12px 14px; border-radius: 14px; font-size: 14px; }
+.consultor__veredito b { font-size: 15px; }
+.consultor__veredito--cabe { background: var(--ok-bg); color: var(--ok); }
+.consultor__veredito--aperta { background: var(--warn-bg); color: var(--warn); }
+.consultor__veredito--nao { background: var(--danger-bg); color: var(--danger); }
+.consultor__veredito span { color: var(--text); }
+.consultor__meses { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 6px 8px 0; list-style: none; }
+.consultor__meses li { display: grid; justify-items: center; gap: 3px; }
+.consultor__barra { position: relative; display: flex; flex-direction: column-reverse; width: 100%; max-width: 34px; height: 130px; overflow: visible; border-radius: 8px; background: var(--sunk); }
+.consultor__barra i { display: block; width: 100%; }
+.consultor__barra i:first-child { border-radius: 0 0 8px 8px; }
+.consultor__barra u { position: absolute; left: -3px; right: -3px; border-top: 2px solid var(--text-strong); }
+.consultor__ja { background: color-mix(in srgb, var(--accent) 55%, var(--sunk)); }
+.consultor__nova { background: var(--accent); }
+.consultor__gasto { background: color-mix(in srgb, #D46AA6 45%, var(--sunk)); }
+.consultor__meses small { font-size: 11px; color: var(--text-3); }
+.consultor__meses em { font-style: normal; font-size: 11px; font-weight: 650; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.consultor__meses li.is-aperta em { color: var(--warn); }
+.consultor__meses li.is-nao em { color: var(--danger); }
+.consultor__leg { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0 8px; font-size: 11.5px; color: var(--text-2); }
+.consultor__leg span { display: inline-flex; align-items: center; gap: 5px; }
+.consultor__leg i { width: 10px; height: 10px; border-radius: 3px; }
+.consultor__leg u { width: 12px; border-top: 2px solid var(--text-strong); }
+@media (max-width: 760px) {
+  .consultor__campos { grid-template-columns: 1fr 1fr; }
+  .consultor__campos .field:first-child { grid-column: 1 / -1; }
+  .consultor__meses { gap: 3px; }
+  .consultor__barra { height: 100px; }
+  .consultor__meses em { font-size: 9.5px; }
+}

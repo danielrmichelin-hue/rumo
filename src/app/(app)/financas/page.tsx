@@ -5,6 +5,7 @@ import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, ConferirConta, G
 import { ChecarRotina } from "@/components/Rotinas";
 import { ExtratoMes, GradeParcelas, RolarAteMes } from "@/components/FinancasPlanilha";
 import { FinancasProvider } from "@/components/FinancasContexto";
+import { Consultor, type BaseConsultor } from "@/components/Consultor";
 import { Anel } from "@/components/Caminho";
 import type { ContextItem } from "@/components/Shell";
 import { diaMes, hojeISO, rotuloData, somarMeses } from "@/lib/datas";
@@ -285,6 +286,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         const emCurso = comSit.filter(({ s }) => s.estado !== "quitado").sort((a, b) => a.s.ultima.localeCompare(b.s.ultima)).map(({ p }) => p);
         const quitados = comSit.filter(({ s }) => s.estado === "quitado").sort((a, b) => b.s.ultima.localeCompare(a.s.ultima)).map(({ p }) => p);
         const totalComprado = parcelamentos.reduce((t, p) => t + p.total, 0);
+        // Consultor: renda e gasto do dia a dia (sem parcelas) dos 3 meses fechados; parcelas que já saem nos próximos 12
+        const fechados = [1, 2, 3].map((k) => limitesDoMes(mesVizinho(atual, -k), dr));
+        const media = (f: (l: (typeof todos)[number]) => boolean) => fechados.reduce((t, x) => t + todos.filter((l) => l.paid && !ehAjuste(l) && l.happened_on >= x.inicio && l.happened_on <= x.fim && f(l)).reduce((a, l) => a + l.amount, 0), 0) / 3;
+        const vencimentos = parcelamentos.flatMap((p) => { const s = situacaoParcelamento(p, hoje); return Array.from({ length: s.faltam }, (_, i) => ({ dia: somarMeses(p.first_due, p.paid_count + i), v: s.parcela })); });
+        const base: BaseConsultor = {
+          renda: Math.round(media((l) => l.kind === "entrada")), gasto: Math.round(media((l) => l.kind === "saida" && !l.installment_id)),
+          pctParcelas: aj.pct_parcelas, pctInvestir: aj.pct_investir,
+          meses: Array.from({ length: 12 }, (_, k) => { const m = mesVizinho(atual, k); const x = limitesDoMes(m, dr); return { rotulo: mesCurto(`${m}-01`), parcelas: Math.round(vencimentos.filter((v) => v.dia >= x.inicio && v.dia <= x.fim).reduce((t, v) => t + v.v, 0) * 100) / 100 }; }),
+        };
         return (
           <>
             <div className="nums">
@@ -293,7 +303,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
               <div><small>Livre de parcelas em</small><b className="nums__texto">{divida.ultima ? mesCurto(divida.ultima) : "—"}</b><span>{divida.ultima ? diaMes(divida.ultima) : "Nada parcelado"}</span></div>
               <div><small>Já quitados</small><b>{divida.quitados}</b></div>
             </div>
-            <div style={{ marginBottom: 16 }}><NovoParcelamento contextos={ctx} credores={credores} /></div>
+            <Consultor base={base} />
+            <div style={{ margin: "16px 0" }}><NovoParcelamento contextos={ctx} credores={credores} /></div>
             {parcelamentos.length === 0 ? <p className="empty">Nenhum parcelamento.</p> : (
               <>
                 {emCurso.length > 0 && <section className="sec"><h2 className="sec__h">Em curso <em>{emCurso.length}</em></h2><GradeParcelas parcelamentos={emCurso} hoje={hoje} /></section>}
