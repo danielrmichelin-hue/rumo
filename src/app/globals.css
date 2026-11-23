@@ -1422,3 +1422,10 @@ a.route__t:hover { color: var(--accent-text); }
   .palco--estudo .palco__topo { flex-wrap: wrap; }
   .palco__acoes .btn { flex: 1 1 calc(50% - 8px); }
 }
+
+/* Ajustes: atalho da Siri */
+.atalho { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.atalho__url { flex: 1; min-width: 0; overflow: hidden; padding: 10px 12px; border-radius: var(--r-md); background: var(--fill); font-size: 12px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.atalho__passos { display: grid; gap: 6px; margin: 0 0 14px; padding-left: 20px; font-size: 14px; line-height: 1.5; color: var(--text-2); }
+.atalho__passos b { color: var(--text); font-weight: 600; }
+.atalho__passos code { font-size: 12px; }

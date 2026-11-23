@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { FormNome } from "@/components/FormNome";
 import { SeletorTema } from "@/components/Tema";
 import { Notificacoes } from "@/components/Notificacoes";
+import { AreasDaLateral, AtalhoSiri } from "@/components/AjustesExtras";
+import { headers } from "next/headers";
 
 export const metadata = { title: "Ajustes" };
 
@@ -11,7 +13,7 @@ export default async function Page() {
   const supabase = await createClient();
   const [{ data: { user } }, { data: perfil }] = await Promise.all([
     supabase.auth.getUser(),
-    supabase.from("profiles").select("display_name").maybeSingle(),
+    supabase.from("profiles").select("display_name, hidden_areas, capture_token").maybeSingle(),
   ]);
 
   return (
@@ -33,6 +35,16 @@ export default async function Page() {
           <h2 className="card__t">Tema</h2>
           <SeletorTema />
           <p className="field__hint" style={{ marginTop: 10 }}>Automático segue o claro ou escuro do aparelho.</p>
+        </section>
+
+        <section className="card">
+          <h2 className="card__t">Áreas na lateral</h2>
+          <AreasDaLateral escondidas={perfil?.hidden_areas ?? []} />
+        </section>
+
+        <section className="card">
+          <h2 className="card__t">Atalho da Siri</h2>
+          <AtalhoSiri chave={perfil?.capture_token ?? null} site={`https://${(await headers()).get("host") ?? "rumo-iter-midia.vercel.app"}`} />
         </section>
 
         <section className="card">

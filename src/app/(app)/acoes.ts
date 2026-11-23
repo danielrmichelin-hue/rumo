@@ -1486,3 +1486,20 @@ export async function registrarSimulado(d: DadosSimulado): Promise<{ ok: boolean
 export async function apagarSimulado(id: string) {
   await apagarPorId("study_mocks", id);
 }
+
+/* Ajustes: áreas escondidas da lateral e a chave do atalho da Siri */
+const AREAS = ["negocios", "estudos", "financas", "saude", "rotinas", "rotas", "notas"];
+
+export async function salvarAreasEscondidas(escondidas: string[]) {
+  const supabase = await createClient();
+  await supabase.from("profiles").update({ hidden_areas: escondidas.filter((a) => AREAS.includes(a)) }).not("user_id", "is", null);
+  atualizar();
+}
+
+export async function gerarChaveAtalho(): Promise<{ chave: string | null }> {
+  const chave = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "").slice(0, 40);
+  const supabase = await createClient();
+  const { error } = await supabase.from("profiles").update({ capture_token: chave }).not("user_id", "is", null);
+  atualizar();
+  return { chave: error ? null : chave };
+}

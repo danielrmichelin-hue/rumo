@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const hoje = hojeISO();
 
   const [{ data: perfil }, { data: contextos }, { count: inbox }, { data: abertas }, { count: nRotas }, { count: nEstudos }, { data: rotinasDb }, { data: marcas }] = await Promise.all([
-    supabase.from("profiles").select("display_name").maybeSingle(),
+    supabase.from("profiles").select("display_name, hidden_areas").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position", { ascending: true }),
     supabase.from("responsibilities").select("id", { count: "exact", head: true }).is("context_id", null).is("project_id", null).is("route_id", null).neq("state", "concluida"),
     supabase.from("responsibilities").select("id, state, due_date, due_time, today, follow_up_on, created_at").neq("state", "concluida"),
@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const remediosHoje = rotinas.filter((r) => r.dose && pendente(r)).length;
 
   // Lateral fixa: cada área da vida tem a sua página, com o número que importa hoje
-  const modulos: EntradaModulo[] = [
+  const modulos = ([
     { chave: "negocios", n: 0 },
     { chave: "estudos", n: nEstudos ?? 0 },
     { chave: "financas", n: 0 },
@@ -42,7 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { chave: "rotinas", n: rotinasHoje, quente: rotinasHoje > 0 },
     { chave: "rotas", n: nRotas ?? 0 },
     { chave: "notas", n: 0 },
-  ];
+  ] as EntradaModulo[]).filter((m) => !(perfil?.hidden_areas ?? []).includes(m.chave));
 
   return (
     <Shell
