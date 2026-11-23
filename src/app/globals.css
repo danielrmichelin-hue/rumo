@@ -1486,7 +1486,6 @@ a.route__t:hover { color: var(--accent-text); }
 /* Finanças: o mês como extrato (saldo inicial + entrou − saiu − investiu ± ajustes = saldo final) */
 .fin-mes-topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 10px; }
 .fin-mes-topo .fin-periodo { margin: 0; }
-.fin-contas .chip--arq { opacity: .6; }
 .fluxo { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; margin-bottom: 16px; padding: 6px; border-radius: 22px; background: var(--surface); box-shadow: var(--ring); }
 .fluxo > div { position: relative; display: grid; align-content: start; gap: 4px; padding: 12px 14px 12px 22px; }
 .fluxo > div + div { border-left: 1px solid var(--line-2); }

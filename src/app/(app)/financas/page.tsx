@@ -171,10 +171,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
           <div className="fin-mes-topo">
             <p className="fin-periodo">{nomeMes[0].toUpperCase() + nomeMes.slice(1)} · de {Number(inicio.slice(8))}/{inicio.slice(5, 7)} a {Number(fim.slice(8))}/{fim.slice(5, 7)}{contaSel ? ` · ${contaSel.name}` : ""}</p>
-            {contas.length > 1 && (
+            {contas.filter((c) => !c.archived).length > 1 && (
               <nav className="chips fin-contas" aria-label="Conta">
-                <Link href={`/financas?mes=${mes}`} className="chip" aria-current={!contaSel ? "page" : undefined}>Contas ativas</Link>
-                {contas.map((c) => <Link key={c.id} href={`/financas?mes=${mes}&conta=${c.id}`} className={`chip${c.archived ? " chip--arq" : ""}`} aria-current={contaSel?.id === c.id ? "page" : undefined}>{c.name}</Link>)}
+                <Link href={`/financas?mes=${mes}`} className="chip" aria-current={!contaSel ? "page" : undefined}>Todas</Link>
+                {contas.filter((c) => !c.archived || c.id === contaSel?.id).map((c) => <Link key={c.id} href={`/financas?mes=${mes}&conta=${c.id}`} className="chip" aria-current={contaSel?.id === c.id ? "page" : undefined}>{c.name}</Link>)}
               </nav>
             )}
           </div>
