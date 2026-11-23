@@ -21,14 +21,14 @@ const rotuloDia = (iso: string, hoje: string) => {
   return iso === hoje ? `Hoje · ${base}` : base;
 };
 
-/** Os lançamentos de um mês, agrupados por dia (como o extrato do banco). Tocar num lançamento abre a edição. */
+/** Os lançamentos de um mês: com `saldos`, uma lista só como extrato de banco; sem, agrupados por tipo ou por dia. Tocar abre a edição. */
 const diaCurto = (iso: string) => `${Number(iso.slice(8))}/${iso.slice(5, 7)}`;
 
 export function ExtratoMes({ lancamentos, hoje, investimentos = [], saldos }: { lancamentos: Lancamento[]; hoje: string; investimentos?: Investimento[]; /** saldo da conta no fim de cada dia: vira um extrato de banco, só por dia */ saldos?: Record<string, number> }) {
   const [busca, setBusca] = useState("");
   const [cat, setCat] = useState("");
   const [editando, setEditando] = useState<string | null>(null);
-  const [vista, setVista] = useState<"tipo" | "dia">(saldos ? "dia" : "tipo");
+  const [vista, setVista] = useState<"tipo" | "dia">("tipo");
   const categorias = useMemo(() => [...new Set(lancamentos.map((l) => l.category))].sort(), [lancamentos]);
   const filtrados = useMemo(() => {
     const t = busca.trim().toLowerCase();
@@ -45,16 +45,64 @@ export function ExtratoMes({ lancamentos, hoje, investimentos = [], saldos }: { 
     return [...mapa.entries()].filter(([, lista]) => lista.length);
   }, [filtrados, vista]);
 
+  // Extrato de banco: uma lista só, do dia 1 ao fim do mês, com a data em cada linha e o saldo depois de cada lançamento
+  const lista = useMemo(() => {
+    if (!saldos) return [];
+    const ordem = [...lancamentos].sort((a, b) => a.happened_on.localeCompare(b.happened_on));
+    if (!ordem.length) return [];
+    const d0 = ordem[0].happened_on;
+    let saldo = (saldos[d0] ?? 0) - ordem.filter((l) => l.paid && l.happened_on === d0).reduce((t, l) => t + naConta(l), 0);
+    return ordem.map((l) => { if (l.paid) saldo += naConta(l); return { l, saldo: Math.round(saldo * 100) / 100 }; });
+  }, [lancamentos, saldos]);
+  const visiveis = new Set(filtrados.map((l) => l.id));
+  const comFiltro = filtrados.length !== lancamentos.length;
+
+  const linha = (l: Lancamento, saldo?: number) => {
+    const inv = ehTransferencia(l);
+    const nomeInv = investimentos.find((i) => i.id === l.investment_id)?.name;
+    return editando === l.id ? <EditarLinha key={l.id} l={l} investimentos={investimentos} fechar={() => setEditando(null)} /> : (
+      <li key={l.id}>
+        <button type="button" className={`extrato__l${saldos ? " extrato__l--banco" : ""}${l.paid ? "" : " is-aberto"}${inv ? " is-inv" : ""}${l.happened_on === hoje ? " is-hoje" : ""}`} onClick={() => setEditando(l.id)} aria-label={`Editar ${l.description}`}>
+          {saldos && <time className="extrato__data" dateTime={l.happened_on}>{diaCurto(l.happened_on)}<small>{SEMANA[new Date(l.happened_on + "T12:00:00Z").getUTCDay()]}</small></time>}
+          <span className="extrato__d">
+            <b>{l.description}</b>
+            <small>{vista === "tipo" && !saldos && <>{diaCurto(l.happened_on)} · </>}{inv ? (l.kind === "aporte" ? `Da conta para ${nomeInv ?? "o investimento"}` : `De ${nomeInv ?? "o investimento"} para a conta`) : l.category}{l.installment_id ? " · parcela" : l.routine_id ? " · conta fixa" : ""}{!l.paid ? (l.kind === "saida" ? " · a pagar" : " · a receber") : ""}</small>
+          </span>
+          <span className={`extrato__v${l.kind === "entrada" ? " pos" : inv ? " transf" : ""}`}>{naConta(l) < 0 ? "−" : "+"}{moeda(l.amount)}</span>
+          {saldos && <span className={`extrato__s${saldo !== undefined && saldo < 0 ? " neg" : ""}`}>{saldo !== undefined && l.paid ? moeda(saldo) : ""}</span>}
+        </button>
+      </li>
+    );
+  };
+
+  if (saldos) return (
+    <div className="extrato">
+      {lancamentos.length > 0 && (
+        <div className="extrato__filtros extrato__filtros--banco">
+          <input className="input" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar neste mês" aria-label="Buscar neste mês" />
+          <select className="input" value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Categoria">
+            <option value="">Todas as categorias</option>
+            {categorias.map((c) => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+      )}
+      {!filtrados.length ? <p className="empty">{lancamentos.length ? "Nada com esse filtro." : "Nada lançado neste mês."}</p> : (
+        <section className="extrato__dia">
+          <h3 className="extrato__cab"><span>Data</span><span>Lançamento</span><span>Valor</span><span>{comFiltro ? "" : "Saldo"}</span></h3>
+          <ul>{lista.filter(({ l }) => visiveis.has(l.id)).map(({ l, saldo }) => linha(l, comFiltro ? undefined : saldo))}</ul>
+        </section>
+      )}
+    </div>
+  );
+
   return (
     <div className="extrato">
       {lancamentos.length > 0 && (
         <div className="extrato__filtros">
-          {saldos ? <span /> : (
-            <div className="seg seg--sm" role="group" aria-label="Agrupar">
-              <button type="button" aria-pressed={vista === "tipo"} onClick={() => setVista("tipo")}>Por tipo</button>
-              <button type="button" aria-pressed={vista === "dia"} onClick={() => setVista("dia")}>Por dia</button>
-            </div>
-          )}
+          <div className="seg seg--sm" role="group" aria-label="Agrupar">
+            <button type="button" aria-pressed={vista === "tipo"} onClick={() => setVista("tipo")}>Por tipo</button>
+            <button type="button" aria-pressed={vista === "dia"} onClick={() => setVista("dia")}>Por dia</button>
+          </div>
           <input className="input" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar neste mês" aria-label="Buscar neste mês" />
           <select className="input" value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Categoria">
             <option value="">Todas as categorias</option>
@@ -67,24 +115,8 @@ export function ExtratoMes({ lancamentos, hoje, investimentos = [], saldos }: { 
         const saldo = lista.filter((l) => l.paid).reduce((t, l) => t + naConta(l), 0);
         return (
           <section key={grupo} className="extrato__dia">
-            <h3><span>{vista === "dia" ? rotuloDia(grupo, hoje) : <>{grupo} <em>{lista.length}</em></>}</span><b className={saldo >= 0 ? "pos" : undefined}>{saldo >= 0 ? "+" : "−"}{moeda(Math.abs(saldo))}{saldos && saldos[grupo] !== undefined && <em className="extrato__saldo">saldo {moeda(saldos[grupo])}</em>}</b></h3>
-            <ul>
-              {lista.map((l) => {
-                const inv = ehTransferencia(l);
-                const nomeInv = investimentos.find((i) => i.id === l.investment_id)?.name;
-                return editando === l.id ? <EditarLinha key={l.id} l={l} investimentos={investimentos} fechar={() => setEditando(null)} /> : (
-                  <li key={l.id}>
-                    <button type="button" className={`extrato__l${l.paid ? "" : " is-aberto"}${inv ? " is-inv" : ""}`} onClick={() => setEditando(l.id)} aria-label={`Editar ${l.description}`}>
-                      <span className="extrato__d">
-                        <b>{l.description}</b>
-                        <small>{vista === "tipo" && <>{diaCurto(l.happened_on)} · </>}{inv ? (l.kind === "aporte" ? `Da conta para ${nomeInv ?? "o investimento"}` : `De ${nomeInv ?? "o investimento"} para a conta`) : l.category}{l.installment_id ? " · parcela" : l.routine_id ? " · conta fixa" : ""}{!l.paid ? (l.kind === "saida" ? " · a pagar" : " · a receber") : ""}</small>
-                      </span>
-                      <span className={`extrato__v${l.kind === "entrada" ? " pos" : inv ? " transf" : ""}`}>{naConta(l) < 0 ? "−" : "+"}{moeda(l.amount)}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <h3><span>{vista === "dia" ? rotuloDia(grupo, hoje) : <>{grupo} <em>{lista.length}</em></>}</span><b className={saldo >= 0 ? "pos" : undefined}>{saldo >= 0 ? "+" : "−"}{moeda(Math.abs(saldo))}</b></h3>
+            <ul>{lista.map((l) => linha(l))}</ul>
           </section>
         );
       })}
