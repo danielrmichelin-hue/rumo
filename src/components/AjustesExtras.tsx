@@ -2,8 +2,8 @@
 
 // Ajustes: quais áreas aparecem na lateral e o atalho da Siri para anotar sem abrir o app
 import { useState, useTransition } from "react";
-import { Copy, KeyRound } from "lucide-react";
-import { gerarChaveAtalho, salvarAreasEscondidas } from "@/app/(app)/acoes";
+import { CalendarCheck, Copy, KeyRound } from "lucide-react";
+import { gerarChaveAtalho, salvarAgendaExterna, salvarAreasEscondidas } from "@/app/(app)/acoes";
 import { useAvisar } from "./Avisos";
 
 const AREAS: [string, string][] = [["negocios", "Negócios"], ["estudos", "Estudos"], ["financas", "Finanças"], ["saude", "Saúde"], ["rotinas", "Rotinas"], ["rotas", "Rotas"], ["notas", "Notas"]];
@@ -44,6 +44,21 @@ export function AtalhoSiri({ chave: inicial, site }: { chave: string | null; sit
       <button type="button" className={chave ? "btn btn--ghost btn--sm" : "btn btn--sm"} disabled={pendente} onClick={() => { if (!chave || confirm("Gerar outra chave? O atalho antigo para de funcionar.")) iniciar(async () => { const r = await gerarChaveAtalho(); if (r.chave) setChave(r.chave); }); }}>
         <KeyRound aria-hidden />{chave ? "Gerar outra chave" : "Criar a chave do atalho"}
       </button>
+    </>
+  );
+}
+
+export function AgendaGoogle({ url: inicial }: { url: string | null }) {
+  const [url, setUrl] = useState(inicial ?? "");
+  const [pendente, iniciar] = useTransition();
+  const avisar = useAvisar();
+  return (
+    <>
+      <form className="quick-add" style={{ margin: 0 }} onSubmit={(e) => { e.preventDefault(); iniciar(async () => { const r = await salvarAgendaExterna(url); avisar({ texto: r.ok ? (url.trim() ? "Agenda ligada. Os compromissos aparecem no Hoje, no Calendário e na Semana." : "Agenda desligada.") : r.erro ?? "Não foi possível guardar." }); }); }}>
+        <input className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" aria-label="Endereço secreto da agenda" />
+        <button className="btn btn--line" type="submit" disabled={pendente}><CalendarCheck aria-hidden />Guardar</button>
+      </form>
+      <p className="field__hint" style={{ marginTop: 10 }}>No Google Agenda pelo computador: Configurações › a sua agenda › “Endereço secreto no formato iCal”.</p>
     </>
   );
 }

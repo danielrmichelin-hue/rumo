@@ -13,6 +13,7 @@ import { CAMPOS_ROTINA, desdeMarcas, feitaEm, hora, type Marcacao, mesDaRotina, 
 import { ChecarRotina } from "@/components/Rotinas";
 import { Logo } from "@/components/Logo";
 import { Children } from "react";
+import { agendaExterna } from "@/lib/ical";
 import { RevisoesDoDia } from "@/components/Aulas";
 import { CAMPOS_PARCELAMENTO, moeda, normalizarParcelamento, parcelasDoCiclo } from "@/lib/financas";
 
@@ -28,7 +29,7 @@ export default async function Page() {
 
   const [{ data: { user } }, { data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }, { data: cursosDb }, { data: materiasDb }, { data: parcDb }] = await Promise.all([
     supabase.auth.getUser(),
-    supabase.from("profiles").select("display_name").maybeSingle(),
+    supabase.from("profiles").select("display_name, ical_url").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").order("position"),
     supabase.from("projects").select("id, name"),
     supabase.from("responsibilities").select(CAMPOS_LISTA).neq("state", "concluida"),
@@ -69,7 +70,8 @@ export default async function Page() {
 
   const ctx = contextos ?? [];
   const nomesProjetos = Object.fromEntries((projetos ?? []).map((p) => [p.id, p.name]));
-  const dia = montarHoje((abertas ?? []) as Responsabilidade[], (feitas ?? []) as Responsabilidade[], (eventos ?? []) as Compromisso[], hoje, agora);
+  const externos = await agendaExterna(perfil?.ical_url, inicio, fim);
+  const dia = montarHoje((abertas ?? []) as Responsabilidade[], (feitas ?? []) as Responsabilidade[], [...((eventos ?? []) as Compromisso[]), ...externos].sort((a, b) => a.starts_at.localeCompare(b.starts_at)), hoje, agora);
   const nome = perfil?.display_name || (user?.email ?? "").split("@")[0];
   const primeiroNome = nome.split(/\s+/)[0];
   const doDiaComFeitas = [...dia.doDia, ...dia.concluidasHoje];

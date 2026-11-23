@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { FormNome } from "@/components/FormNome";
 import { SeletorTema } from "@/components/Tema";
 import { Notificacoes } from "@/components/Notificacoes";
-import { AreasDaLateral, AtalhoSiri } from "@/components/AjustesExtras";
+import { AgendaGoogle, AreasDaLateral, AtalhoSiri } from "@/components/AjustesExtras";
 import { headers } from "next/headers";
 
 export const metadata = { title: "Ajustes" };
@@ -13,7 +13,7 @@ export default async function Page() {
   const supabase = await createClient();
   const [{ data: { user } }, { data: perfil }] = await Promise.all([
     supabase.auth.getUser(),
-    supabase.from("profiles").select("display_name, hidden_areas, capture_token").maybeSingle(),
+    supabase.from("profiles").select("display_name, hidden_areas, capture_token, ical_url").maybeSingle(),
   ]);
 
   return (
@@ -40,6 +40,11 @@ export default async function Page() {
         <section className="card">
           <h2 className="card__t">Áreas na lateral</h2>
           <AreasDaLateral escondidas={perfil?.hidden_areas ?? []} />
+        </section>
+
+        <section className="card">
+          <h2 className="card__t">Agenda do Google</h2>
+          <AgendaGoogle url={perfil?.ical_url ?? null} />
         </section>
 
         <section className="card">

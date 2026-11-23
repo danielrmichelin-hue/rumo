@@ -1503,3 +1503,12 @@ export async function gerarChaveAtalho(): Promise<{ chave: string | null }> {
   atualizar();
   return { chave: error ? null : chave };
 }
+
+export async function salvarAgendaExterna(url: string): Promise<{ ok: boolean; erro?: string }> {
+  const u = url.trim();
+  if (u && (!/^https:\/\/\S+$/.test(u) || u.length > 1000)) return { ok: false, erro: "Cole o endereço que começa com https://" };
+  const supabase = await createClient();
+  const { error } = await supabase.from("profiles").update({ ical_url: u || null }).not("user_id", "is", null);
+  atualizar();
+  return { ok: !error };
+}

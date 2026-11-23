@@ -9,6 +9,9 @@ import { emColunas, numeroSemana, segundaDa, tituloDoMes } from "@/lib/semana";
 import { CAMPOS_LISTA, type Compromisso, type Responsabilidade } from "@/lib/tipos";
 import { AlternarVista } from "./AlternarVista";
 import { VistaMes } from "./VistaMes";
+import { agendaExterna, ehExterno, LINK_AGENDA } from "@/lib/ical";
+
+const COR_AGENDA = "#5B6B8C";
 
 export const metadata = { title: "Calendário" };
 
@@ -29,17 +32,19 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   const ate = fimDoDia(domingo);
 
   const supabase = await createClient();
-  const [{ data: contextos }, { data: eventos }, { data: comPrazo }, { data: semHora }, { data: rotinasDb }, { data: marcasDb }] = await Promise.all([
+  const [{ data: contextos }, { data: eventos }, { data: comPrazo }, { data: semHora }, { data: rotinasDb }, { data: marcasDb }, { data: perfil }] = await Promise.all([
     supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
     supabase.from("events").select("id, title, context_id, starts_at, ends_at, location, course_id, done_at").gte("starts_at", de).lte("starts_at", ate).order("starts_at"),
     supabase.from("responsibilities").select(CAMPOS_LISTA).gte("due_date", segunda).lte("due_date", domingo),
     supabase.from("responsibilities").select(CAMPOS_LISTA).eq("state", "a_fazer").is("due_time", null).eq("today", true),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").not("at_time", "is", null),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", segunda).lte("done_on", domingo),
+    supabase.from("profiles").select("ical_url").maybeSingle(),
   ]);
+  const externos = await agendaExterna(perfil?.ical_url, de, ate);
   const ctx = contextos ?? [];
   const cor = (id: string | null) => ctx.find((c) => c.id === id)?.color;
-  const compromissos = (eventos ?? []) as Compromisso[];
+  const compromissos = [...((eventos ?? []) as Compromisso[]), ...externos];
   // Rotinas com dia e horário entram na grade como blocos (Book: "Academia · 08:00 · Rotina")
   type Bloco = Compromisso & { rotina?: string };
   const blocosRotina: Bloco[] = ((rotinasDb ?? []) as Rotina[]).flatMap((r) =>
@@ -53,8 +58,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   );
   const evs: Bloco[] = [...compromissos, ...blocosRotina].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   // Sessões de estudo em azul de estudo (Book: módulo Estudos no calendário)
-  const corEv = (e: Bloco) => (e.course_id ? AZUL_ESTUDO : e.rotina ? cor(e.context_id) ?? VERDE_ROTINA : cor(e.context_id));
-  const linkEv = (e: Bloco) => (e.rotina ? `/rotinas#${e.rotina}` : `/calendario/${e.id}`);
+  const corEv = (e: Bloco) => (e.course_id ? AZUL_ESTUDO : e.rotina ? cor(e.context_id) ?? VERDE_ROTINA : ehExterno(e.id) ? COR_AGENDA : cor(e.context_id));
+  const linkEv = (e: Bloco) => (e.rotina ? `/rotinas#${e.rotina}` : ehExterno(e.id) ? LINK_AGENDA : `/calendario/${e.id}`);
   const prazos = (comPrazo ?? []) as Responsabilidade[];
 
   // Semana útil; sábado e domingo só aparecem quando têm algo (ou quando hoje é fim de semana)

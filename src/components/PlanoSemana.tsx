@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ehExterno, LINK_AGENDA } from "@/lib/ical";
 import Link from "next/link";
 import { Check, Plus } from "lucide-react";
 import { concluir, criarNoDia, moverParaDia } from "@/app/(app)/acoes";
@@ -119,7 +120,7 @@ export function PlanoSemana({ dias, tarefas: inicial, eventos, contextos, hoje }
               </header>
               {evs.length > 0 && (
                 <ul className="pdia__evs">
-                  {evs.map((e) => <li key={e.id}><Link href={`/calendario/${e.id}`}><time>{e.hora}</time>{e.title}</Link></li>)}
+                  {evs.map((e) => <li key={e.id}><Link href={ehExterno(e.id) ? LINK_AGENDA : `/calendario/${e.id}`} target={ehExterno(e.id) ? "_blank" : undefined}><time>{e.hora}</time>{e.title}</Link></li>)}
                 </ul>
               )}
               <ul className="plano__lista">{ts.map((t) => <Cartao key={t.id} t={t} />)}</ul>
