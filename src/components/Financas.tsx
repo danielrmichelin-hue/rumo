@@ -477,14 +477,3 @@ export function ApagarMovimento({ m }: { m: Movimento }) {
   const [pendente, iniciar] = useTransition();
   return <button type="button" className="icon-btn" aria-label="Apagar movimento" disabled={pendente} onClick={() => { if (confirm(m.origem === "lancamento" ? "Apagar este lançamento?" : "Apagar este rendimento?")) iniciar(() => (m.origem === "lancamento" ? apagarLancamento(m.id) : apagarMovimento(m.id))); }}><Trash2 size={14} /></button>;
 }
-
-/** O formulário de lançar, recolhido num botão; abre sozinho em mês vazio e só fecha quando a pessoa fecha */
-export function GavetaLancamento({ abertaNoInicio, children }: { abertaNoInicio: boolean; children: React.ReactNode }) {
-  const [aberta, setAberta] = useState(abertaNoInicio);
-  return (
-    <details className="fin-novo" open={aberta} onToggle={(e) => setAberta((e.currentTarget as HTMLDetailsElement).open)}>
-      <summary className="btn btn--sm"><Plus aria-hidden />Lançamento</summary>
-      {children}
-    </details>
-  );
-}

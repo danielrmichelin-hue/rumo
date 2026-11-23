@@ -24,11 +24,11 @@ const rotuloDia = (iso: string, hoje: string) => {
 /** Os lançamentos de um mês, agrupados por dia (como o extrato do banco). Tocar num lançamento abre a edição. */
 const diaCurto = (iso: string) => `${Number(iso.slice(8))}/${iso.slice(5, 7)}`;
 
-export function ExtratoMes({ lancamentos, hoje, investimentos = [] }: { lancamentos: Lancamento[]; hoje: string; investimentos?: Investimento[] }) {
+export function ExtratoMes({ lancamentos, hoje, investimentos = [], saldos }: { lancamentos: Lancamento[]; hoje: string; investimentos?: Investimento[]; /** saldo da conta no fim de cada dia: vira um extrato de banco, só por dia */ saldos?: Record<string, number> }) {
   const [busca, setBusca] = useState("");
   const [cat, setCat] = useState("");
   const [editando, setEditando] = useState<string | null>(null);
-  const [vista, setVista] = useState<"tipo" | "dia">("tipo");
+  const [vista, setVista] = useState<"tipo" | "dia">(saldos ? "dia" : "tipo");
   const categorias = useMemo(() => [...new Set(lancamentos.map((l) => l.category))].sort(), [lancamentos]);
   const filtrados = useMemo(() => {
     const t = busca.trim().toLowerCase();
@@ -49,10 +49,12 @@ export function ExtratoMes({ lancamentos, hoje, investimentos = [] }: { lancamen
     <div className="extrato">
       {lancamentos.length > 0 && (
         <div className="extrato__filtros">
-          <div className="seg seg--sm" role="group" aria-label="Agrupar">
-            <button type="button" aria-pressed={vista === "tipo"} onClick={() => setVista("tipo")}>Por tipo</button>
-            <button type="button" aria-pressed={vista === "dia"} onClick={() => setVista("dia")}>Por dia</button>
-          </div>
+          {saldos ? <span /> : (
+            <div className="seg seg--sm" role="group" aria-label="Agrupar">
+              <button type="button" aria-pressed={vista === "tipo"} onClick={() => setVista("tipo")}>Por tipo</button>
+              <button type="button" aria-pressed={vista === "dia"} onClick={() => setVista("dia")}>Por dia</button>
+            </div>
+          )}
           <input className="input" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar neste mês" aria-label="Buscar neste mês" />
           <select className="input" value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Categoria">
             <option value="">Todas as categorias</option>
@@ -65,7 +67,7 @@ export function ExtratoMes({ lancamentos, hoje, investimentos = [] }: { lancamen
         const saldo = lista.filter((l) => l.paid).reduce((t, l) => t + naConta(l), 0);
         return (
           <section key={grupo} className="extrato__dia">
-            <h3><span>{vista === "dia" ? rotuloDia(grupo, hoje) : <>{grupo} <em>{lista.length}</em></>}</span><b className={saldo >= 0 ? "pos" : undefined}>{saldo >= 0 ? "+" : "−"}{moeda(Math.abs(saldo))}</b></h3>
+            <h3><span>{vista === "dia" ? rotuloDia(grupo, hoje) : <>{grupo} <em>{lista.length}</em></>}</span><b className={saldo >= 0 ? "pos" : undefined}>{saldo >= 0 ? "+" : "−"}{moeda(Math.abs(saldo))}{saldos && saldos[grupo] !== undefined && <em className="extrato__saldo">saldo {moeda(saldos[grupo])}</em>}</b></h3>
             <ul>
               {lista.map((l) => {
                 const inv = ehTransferencia(l);

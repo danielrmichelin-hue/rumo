@@ -27,6 +27,8 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   Contas em `fin_accounts` (`account_id` nos lançamentos; sem conta = a principal; arquivada fica fora do mês — a
   Conta Empresa de fev/2026 está arquivada). Categorias do Daniel em `fin_categories` (criar, renomear com os
   lançamentos acompanhando, tipo essencial/estilo/objetivos, arquivar), via `FinancasProvider`/`CampoCategoria`.
+  Aba **Lançamentos** (a primeira e a base): mês do calendário pela data, como extrato de banco (saldo no fim de cada
+  dia), lançar, editar e apagar só ali; Mês (período do salário), Parcelas, Investimentos e Resumo só leem.
   Parcelas pagas = `paid_before` + lançamentos pagos ligados (`sincronizarParcelas`).
   Consultor "Posso comprar parcelado?" na aba Parcelas (`src/components/Consultor.tsx`): renda e gasto do dia a dia médios
   dos 3 meses fechados, parcelas que já saem nos próximos 12 meses, limite de parcelas e meta de investir; veredito por mês.

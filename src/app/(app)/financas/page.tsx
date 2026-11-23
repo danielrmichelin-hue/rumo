@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Download, Route } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Plus, Route } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, ConferirConta, GavetaLancamento, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
+import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, ConferirConta, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
 import { ChecarRotina } from "@/components/Rotinas";
 import { ExtratoMes, GradeParcelas, RolarAteMes } from "@/components/FinancasPlanilha";
 import { FinancasProvider } from "@/components/FinancasContexto";
@@ -20,6 +20,7 @@ import { CAMPOS_ROTA, normalizar, resumirRota } from "@/lib/rotas";
 export const metadata = { title: "Finanças" };
 
 const ABAS = [
+  { v: "lancamentos", r: "Lançamentos" },
   { v: "mes", r: "Mês" },
   { v: "parcelas", r: "Parcelas" },
   { v: "investimentos", r: "Investimentos" },
@@ -30,7 +31,7 @@ const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "o
 /** O mês financeiro: do dia em que recebe até a véspera do próximo (ou o do calendário), em tudo */
 export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string; aba?: string; lm?: string; conta?: string }> }) {
   const { mes: param, aba: abaParam, lm, conta: contaParam } = await searchParams;
-  const aba = ABAS.find((a) => a.v === abaParam)?.v ?? "mes";
+  const aba = ABAS.find((a) => a.v === abaParam)?.v ?? "lancamentos";
   const hoje = hojeISO();
   const supabase = await createClient();
   const [{ data: ajustesDb }, { data: contasDb }, { data: catsDb }, { data: salariosDb }] = await Promise.all([
@@ -141,11 +142,54 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
       <nav className="tabs" aria-label="Partes das finanças">
         {ABAS.map((a) => (
-          <Link key={a.v} href={`/financas?${new URLSearchParams({ ...(a.v !== "mes" ? { aba: a.v } : {}), ...(mes !== atual ? { mes } : {}) })}`} aria-current={a.v === aba ? "page" : undefined}>
+          <Link key={a.v} href={`/financas?${new URLSearchParams({ ...(a.v !== "lancamentos" ? { aba: a.v } : {}), ...(mes !== atual ? { mes } : {}) })}`} aria-current={a.v === aba ? "page" : undefined}>
             {a.r}{a.v === "parcelas" && divida.emCurso > 0 && <em>{divida.emCurso}</em>}{a.v === "investimentos" && investimentos.length > 0 && <em>{investimentos.length}</em>}
           </Link>
         ))}
       </nav>
+
+      {aba === "lancamentos" && (() => {
+        // A base de tudo: os lançamentos pela data, mês do calendário, com o saldo da conta no fim de cada dia
+        const cm = (lm ?? param ?? hoje.slice(0, 7)).slice(0, 7);
+        const cAno = cm.slice(0, 4);
+        const dias = (m: string) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).getUTCDate();
+        const ini = `${cm}-01`, fimCm = `${cm}-${String(dias(cm)).padStart(2, "0")}`;
+        const doCm = todos.filter((l) => l.happened_on >= ini && l.happened_on <= fimCm);
+        const x = extratoDoMes(todos, ini, fimCm);
+        const saldos = Object.fromEntries([...new Set(doCm.map((l) => l.happened_on))].map((d) => [d, saldoAte(todos, d)]));
+        const nomeCm = diaMes(ini).split(" de ")[1];
+        return (
+          <>
+            <div className="meses">
+              <Link href={`/financas?lm=${Number(cAno) - 1}-12`} className="icon-btn" aria-label="Ano anterior"><ChevronLeft size={18} /></Link>
+              <b className="meses__ano">{cAno}</b>
+              <div className="meses__lista">
+                {MESES.map((nome, i) => {
+                  const m = `${cAno}-${String(i + 1).padStart(2, "0")}`;
+                  const n = todos.filter((l) => l.happened_on.startsWith(m)).length;
+                  return (
+                    <Link key={m} href={`/financas?lm=${m}`} className={`mes${m === cm ? " is-atual" : ""}${n ? "" : " is-vazio"}`} aria-current={m === cm ? "page" : undefined}>
+                      <b>{nome}</b><small>{n || "—"}</small>
+                    </Link>
+                  );
+                })}
+              </div>
+              <Link href={`/financas?lm=${Number(cAno) + 1}-01`} className="icon-btn" aria-label="Próximo ano"><ChevronRight size={18} /></Link>
+              <RolarAteMes key={cm} />
+            </div>
+            <section className="fluxo" aria-label={`Conta em ${nomeCm}`}>
+              <div><small>Saldo em 1/{cm.slice(5)}</small><b>{moeda(x.inicial)}</b><span>Fim do mês anterior</span></div>
+              <div className="fluxo__mais"><small>Entradas</small><b className="pos">{moeda(x.entrou)}</b><span>{(n => `${n} ${n === 1 ? "lançamento" : "lançamentos"}`)(doCm.filter((l) => l.kind === "entrada" && !ehAjuste(l)).length)}</span></div>
+              <div className="fluxo__menos"><small>Saídas</small><b>{moeda(x.saiu)}</b><span>{(n => `${n} ${n === 1 ? "lançamento" : "lançamentos"}`)(doCm.filter((l) => l.kind === "saida" && !ehAjuste(l)).length)}</span></div>
+              <div className="fluxo__menos"><small>Investiu</small><b className="transf">{x.investiu < 0 ? "−" : ""}{moeda(Math.abs(x.investiu))}</b><span>Pôs {moeda(x.aportes)} · tirou {moeda(x.resgates)}</span></div>
+              {Math.abs(x.ajustes) >= 0.005 && <div className="fluxo__mais"><small>Ajustes</small><b>{x.ajustes < 0 ? "−" : "+"}{moeda(Math.abs(x.ajustes))}</b><span>Para bater com o banco</span></div>}
+              <div className="fluxo__igual"><small>Saldo em {dias(cm)}/{cm.slice(5)}</small><b className={x.final < 0 ? "neg" : undefined}>{moeda(x.final)}</b><span>{cm === hoje.slice(0, 7) ? <ConferirConta conta={contaSel ?? principal} calculado={saldoAte(todos, hoje)} /> : "Vira o saldo do próximo mês"}</span></div>
+            </section>
+            <NovoLancamento key={cm} contextos={ctx} inicio={ini} fim={fimCm} investimentos={ativos} />
+            <ExtratoMes key={`l${cm}`} lancamentos={doCm} hoje={hoje} investimentos={investimentos} saldos={saldos} />
+          </>
+        );
+      })()}
 
       {aba === "mes" && (
         <>
@@ -170,7 +214,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           </div>
 
           <div className="fin-mes-topo">
-            <p className="fin-periodo">{nomeMes[0].toUpperCase() + nomeMes.slice(1)} · de {Number(inicio.slice(8))}/{inicio.slice(5, 7)} a {Number(fim.slice(8))}/{fim.slice(5, 7)}{contaSel ? ` · ${contaSel.name}` : ""}</p>
+            <p className="fin-periodo">{dr > 1 ? `Mês do salário de ${nomeMes}` : nomeMes[0].toUpperCase() + nomeMes.slice(1)} · de {Number(inicio.slice(8))}/{inicio.slice(5, 7)} a {Number(fim.slice(8))}/{fim.slice(5, 7)}{contaSel ? ` · ${contaSel.name}` : ""}</p>
             {contas.filter((c) => !c.archived).length > 1 && (
               <nav className="chips fin-contas" aria-label="Conta">
                 <Link href={`/financas?mes=${mes}`} className="chip" aria-current={!contaSel ? "page" : undefined}>Todas</Link>
@@ -187,9 +231,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
             <div className="fluxo__igual"><small>{esteMes ? "Saldo agora" : "Saldo final"}</small><b className={ext.final < 0 ? "neg" : undefined}>{moeda(ext.final)}</b><span>{esteMes ? <ConferirConta conta={contaSel ?? principal} calculado={saldoAte(todos, hoje)} /> : "Vira o saldo inicial do próximo"}</span></div>
           </section>
 
-          <GavetaLancamento key={mes} abertaNoInicio={!lancamentos.length}>
-            <NovoLancamento key={mes} contextos={ctx} inicio={inicio} fim={fim} investimentos={ativos} />
-          </GavetaLancamento>
+          <p className="fin-lancar"><Link href={`/financas?lm=${hoje.slice(0, 7)}`} className="btn btn--sm"><Plus aria-hidden />Lançar</Link><span>Os números deste mês saem da aba Lançamentos.</span></p>
 
           <div className="fin-cols">
             <div className="fin-principal">

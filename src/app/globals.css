@@ -1272,10 +1272,6 @@ a.route__t:hover { color: var(--accent-text); }
 .mes.is-atual { background: linear-gradient(180deg, #8F74F5, var(--accent)); box-shadow: 0 10px 22px -10px rgba(108, 78, 217, .9); }
 .mes.is-atual::before { background: rgba(255, 255, 255, .85); }
 .mes.is-atual b, .mes.is-atual small { color: #fff; }
-.fin-novo { margin: 0 0 16px; }
-.fin-novo > summary { list-style: none; display: inline-flex; }
-.fin-novo > summary::-webkit-details-marker { display: none; }
-.fin-novo[open] > summary { margin-bottom: 10px; }
 .extrato { display: grid; gap: 14px; min-width: 0; align-content: start; }
 .extrato__filtros { display: grid; grid-template-columns: auto minmax(0, 1fr) 200px; gap: 8px; align-items: center; }
 .extrato__dia h3 em { margin-left: 4px; font-style: normal; font-weight: 500; color: var(--text-3); }
@@ -1447,7 +1443,6 @@ a.route__t:hover { color: var(--accent-text); }
 .cap-extra { display: grid; gap: 8px; }
 .cap-extra .input--area { min-height: 64px; }
 @media (max-width: 860px) {
-  .capture__box { max-height: 92dvh; overflow-y: auto; }
   .cap-tipo button { font-size: 12px !important; gap: 4px !important; }
   .cap-tipo svg { display: none; }
   .cap-linha > span { width: 100%; }
@@ -1553,3 +1548,10 @@ a.route__t:hover { color: var(--accent-text); }
   .consultor__barra { height: 100px; }
   .consultor__meses em { font-size: 9.5px; }
 }
+
+/* Painéis por cima da tela: a rolagem fica dentro do painel, e a tela de trás não se mexe */
+.capture__box { max-height: calc(100dvh - 14vh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+body:has(.capture) { overflow: hidden; }
+@media (max-width: 860px) { .capture__box { max-height: 92dvh; } }
+.extrato__saldo { margin-left: 10px; font-style: normal; font-weight: 500; color: var(--text-2); }
+.fin-lancar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 16px; font-size: 13px; color: var(--text-2); }
