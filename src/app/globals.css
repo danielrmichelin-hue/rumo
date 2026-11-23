@@ -1462,3 +1462,4 @@ a.route__t:hover { color: var(--accent-text); }
 .nums__resultado { background: linear-gradient(160deg, var(--accent-soft), var(--surface) 70%) !important; }
 .nums b.neg { color: var(--danger); }
 @media (max-width: 760px) { .nums--conta > div:nth-child(3)::before { left: 50%; top: -12px; margin: 0 0 0 -11px; } }
+.fin-periodo { margin: -4px 0 10px; font-size: 13px; font-weight: 600; color: var(--accent-text); }

@@ -60,7 +60,7 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   `topic_id` nas sessões) e 0010 (rotinas mensais: `month_day`, uma frequência por rotina) e 0011 (estudos: `study_modules` opcionais, revisões
   `review_step`/`next_review_on` nas aulas) e 0012 (Finanças: `fin_entries`, `fin_budgets`; `amount` e `category` nas rotinas = conta
   fixa) e 0013 (Saúde: `dose` e `ends_on` nas rotinas = remédio com fim; `health_kind` nos events = consulta, exame, vacina,
-  procedimento; `health_measures` com peso, pressão etc.) e 0014 (Finanças completas: `fin_settings` com dia do pagamento, envelopes
+  procedimento; `health_measures` com peso, pressão etc.) e 0014 (Finanças completas: `fin_settings` com dia do pagamento (`pay_day`, início do mês financeiro), envelopes
   e saldo da conta; `fin_installments` parcelamentos; `installment_id` nos lançamentos; `fin_investments` e `fin_inv_moves`) e 0015 (`subtasks`: checklist dentro da tarefa) e 0016 (lançamentos são a base: `investment_id` nos lançamentos; investir = saída com
   investimento, resgatar = entrada com investimento, e o app lê como `aporte`/`resgate` em `normalizarLancamento`; de
   `fin_inv_moves` o app lê só os rendimentos) e 0017 (avisos: `push_subscriptions`, `push_sent`, `rumo_segredo` lendo o cofre,
@@ -84,7 +84,9 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   textos genéricos (pós, faculdade, idioma, curso). Com as
   sessões como compromissos do Core (events com `course_id`); Rotinas (quando é dia dela, a semana em pontos, sem sequência; mensais "todo dia 10" ficam no Hoje até serem feitas)
   em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`; Finanças do mês (resumo, contas fixas = rotinas mensais com valor,
-  categorias, planilha CSV; o mês é o do calendário, 1 a 30, em tudo; parcelamentos,
+  categorias, planilha CSV; o mês financeiro vai do dia em que recebe (`fin_settings.pay_day`, em Finanças › Ajustes;
+  Daniel: 20) até a véspera do próximo, com o nome do mês em que o salário entra (outubro = 20/10 a 19/11), em tudo
+  (`limitesDoMes(mes, dia)`, `mesDoDia`); sem dia, o mês do calendário; parcelamentos,
   investimentos com projeção, envelopes parcelas/investir/livre, saldo da conta somado a partir do informado) em `src/lib/financas.ts`; abas Mês (faixa dos 12 meses, entrou/saiu/investiu/ainda pode gastar, o que falta pagar para marcar, o extrato
   por dia, a divisão e as categorias), Parcelas
   (grade parcela por parcela), Investimentos e Resumo (categoria por mês), com as tabelas em `src/components/FinancasPlanilha.tsx`; Saúde (remédio = rotina com dose, um horário por rotina; consultas = compromissos

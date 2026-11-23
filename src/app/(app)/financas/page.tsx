@@ -8,7 +8,7 @@ import { Anel } from "@/components/Caminho";
 import type { ContextItem } from "@/components/Shell";
 import { diaMes, hojeISO, rotuloData, somarMeses } from "@/lib/datas";
 import {
-  CAMPOS_INVESTIMENTO, CAMPOS_LANCAMENTO, CAMPOS_MOVIMENTO, CAMPOS_PARCELAMENTO, contasDoMes, envelopes, limitesDoMes, mesCurto, mesVizinho, moeda,
+  CAMPOS_INVESTIMENTO, CAMPOS_LANCAMENTO, CAMPOS_MOVIMENTO, CAMPOS_PARCELAMENTO, contasDoMes, envelopes, limitesDoMes, mesCurto, mesDoDia, mesVizinho, moeda,
   movimentosDe, naConta, normalizarAjustes, normalizarInvestimento, normalizarLancamento, normalizarMovimento, normalizarParcelamento, parcelasDoCiclo, projetar, resumoDoMes,
   resumoParcelamentos, saldoAtual, saldoDaConta, situacaoParcelamento, TIPOS_INVESTIMENTO, type Orcamento,
 } from "@/lib/financas";
@@ -25,24 +25,26 @@ const ABAS = [
 ] as const;
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
-/** O mês do calendário (1 a 30), em tudo */
+/** O mês financeiro: do dia em que recebe até a véspera do próximo (ou o do calendário), em tudo */
 export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string; aba?: string; lm?: string }> }) {
   const { mes: param, aba: abaParam, lm } = await searchParams;
   const aba = ABAS.find((a) => a.v === abaParam)?.v ?? "mes";
   const hoje = hojeISO();
-  const atual = hoje.slice(0, 7);
+  const supabase = await createClient();
+  const { data: ajustesDb } = await supabase.from("fin_settings").select("pay_day, pct_parcelas, pct_investir, pct_livre, cash_balance, cash_on").maybeSingle();
+  const aj = normalizarAjustes(ajustesDb);
+  const dr = aj.pay_day; // dia em que recebe: o mês vai dele até a véspera do próximo
+  const atual = mesDoDia(hoje, dr);
   const pedido = param ?? lm;
   const mes = pedido && /^\d{4}-(0[1-9]|1[0-2])$/.test(pedido) ? pedido : atual;
-  const { inicio, fim } = limitesDoMes(mes);
+  const { inicio, fim } = limitesDoMes(mes, dr);
   const ano = mes.slice(0, 4);
   const esteMes = mes === atual;
-  const supabase = await createClient();
-  const { data: ajustesDb } = await supabase.from("fin_settings").select("pct_parcelas, pct_investir, pct_livre, cash_balance, cash_on").maybeSingle();
-  const aj = normalizarAjustes(ajustesDb);
+  const doMes = (m: string, l: { happened_on: string }) => { const x = limitesDoMes(m, dr); return l.happened_on >= x.inicio && l.happened_on <= x.fim; };
 
   const [{ data: todosDb }, { data: rotinasDb }, { data: marcasDb }, { data: orcDb }, { data: contextos }, { data: rotasDb }, { data: atrasadosDb }, { data: parcDb }, { data: invDb }, { data: movDb }, { data: depoisDb }, { data: transfDb }] = await Promise.all([
     // Aba Mês: o ano todo (a faixa dos meses); Resumo: tudo
-    aba === "mes" ? supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).gte("happened_on", `${ano}-01-01`).lte("happened_on", `${ano}-12-31`).order("happened_on", { ascending: false })
+    aba === "mes" ? supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).gte("happened_on", limitesDoMes(`${ano}-01`, dr).inicio).lte("happened_on", limitesDoMes(`${ano}-12`, dr).fim).order("happened_on", { ascending: false })
       : aba === "resumo" ? supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).order("happened_on", { ascending: false })
       : Promise.resolve({ data: [] }),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").not("month_day", "is", null).not("amount", "is", null),
@@ -93,8 +95,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const nomeMes = diaMes(`${mes}-01`).split(" de ")[1];
   const credores = [...new Set(parcelamentos.map((p) => p.creditor).filter((c): c is string => !!c))];
   const ativos = investimentos.filter((i) => i.status === "ativo");
-  const saldoMes = (m: string) => todos.filter((l) => l.paid && l.happened_on.startsWith(m)).reduce((t, l) => t + naConta(l), 0);
-  const temMes = (m: string) => todos.some((l) => l.happened_on.startsWith(m));
+  const saldoMes = (m: string) => todos.filter((l) => l.paid && doMes(m, l)).reduce((t, l) => t + naConta(l), 0);
+  const temMes = (m: string) => todos.some((l) => doMes(m, l));
 
   const Barra = ({ usado, alvo }: { usado: number; alvo: number }) => (
     <span className="fin-cat__bar"><i style={{ width: `${alvo > 0 ? Math.min(100, (usado / alvo) * 100) : usado > 0 ? 100 : 0}%` }} /></span>
@@ -149,6 +151,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
             <RolarAteMes key={mes} />
           </div>
 
+          {dr > 1 && <p className="fin-periodo">{nomeMes[0].toUpperCase() + nomeMes.slice(1)} · de {Number(inicio.slice(8))}/{inicio.slice(5, 7)} a {Number(fim.slice(8))}/{fim.slice(5, 7)}</p>}
           <div className="nums nums--conta">
             <div><small>Entrou em {nomeMes}</small><b className="pos">{moeda(r.entrou)}</b>{r.aReceber > 0 && <span>e {moeda(r.aReceber)} a receber</span>}</div>
             <div><small>Saiu</small><b>{moeda(r.saiu)}</b>{r.aPagar > 0 && <span>e {moeda(r.aPagar + parcelasAPagar.reduce((t, x) => t + x.s.parcela, 0))} a pagar</span>}</div>
@@ -157,7 +160,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           </div>
 
           <GavetaLancamento key={mes} abertaNoInicio={!lancamentos.length}>
-            <NovoLancamento key={mes} contextos={ctx} mes={mes} investimentos={ativos} />
+            <NovoLancamento key={mes} contextos={ctx} inicio={inicio} fim={fim} investimentos={ativos} />
           </GavetaLancamento>
 
           <div className="fin-cols">
@@ -269,7 +272,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
 
       {aba === "resumo" && (() => {
-        const ciclos = Array.from({ length: 12 }, (_, k) => { const m = mesVizinho(atual, k - 11); return { m, ...limitesDoMes(m) }; });
+        const ciclos = Array.from({ length: 12 }, (_, k) => { const m = mesVizinho(atual, k - 11); return { m, ...limitesDoMes(m, dr) }; });
         const daqui = (l: { happened_on: string }, c: { inicio: string; fim: string }) => l.happened_on >= c.inicio && l.happened_on <= c.fim;
         const pagos = todos.filter((l) => l.paid);
         const usados = ciclos.filter((c) => pagos.some((l) => daqui(l, c)) || movs.some((m) => daqui(m, c)));

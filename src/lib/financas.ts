@@ -46,11 +46,29 @@ export const normalizarLancamento = (l: Record<string, unknown>): Lancamento => 
 /** O contrário, para gravar: aporte e resgate viram saída e entrada com o investimento */
 export const tipoNoBanco = (kind: TipoLancamento): "entrada" | "saida" => (kind === "aporte" || kind === "saida" ? "saida" : "entrada");
 
-/** Primeiro e último dia do mês "AAAA-MM" */
-export function limitesDoMes(mes: string) {
+const ultimoDia = (a: number, m: number) => new Date(Date.UTC(a, m, 0)).getUTCDate();
+const dataDo = (a: number, m: number, d: number) => {
+  const x = new Date(Date.UTC(a, m - 1, 1));
+  const ano = x.getUTCFullYear(), mes = x.getUTCMonth() + 1;
+  return `${ano}-${String(mes).padStart(2, "0")}-${String(Math.min(d, ultimoDia(ano, mes))).padStart(2, "0")}`;
+};
+
+/** O mês financeiro "AAAA-MM": do dia em que recebe até a véspera do mesmo dia no mês seguinte
+ *  (recebe dia 20: outubro = 20/10 a 19/11). Recebe dia 1 (ou sem dia): o mês do calendário. */
+export function limitesDoMes(mes: string, diaRecebe = 1) {
   const [a, m] = mes.split("-").map(Number);
-  const ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
-  return { inicio: `${mes}-01`, fim: `${mes}-${String(ultimo).padStart(2, "0")}` };
+  if (diaRecebe <= 1) return { inicio: `${mes}-01`, fim: dataDo(a, m, ultimoDia(a, m)) };
+  const inicio = dataDo(a, m, diaRecebe);
+  const prox = dataDo(a, m + 1, diaRecebe);
+  const fim = new Date(Date.parse(`${prox}T12:00:00Z`) - 86400000).toISOString().slice(0, 10);
+  return { inicio, fim };
+}
+
+/** Em que mês financeiro cai um dia */
+export function mesDoDia(dia: string, diaRecebe = 1): string {
+  const [a, m, d] = dia.split("-").map(Number);
+  const daqui = `${a}-${String(m).padStart(2, "0")}`;
+  return diaRecebe <= 1 || d >= Math.min(diaRecebe, ultimoDia(a, m)) ? daqui : mesVizinho(daqui, -1);
 }
 
 export function mesVizinho(mes: string, delta: number) {
@@ -73,8 +91,9 @@ export function contasDoMes(rotinas: Rotina[], marcas: Marcacao[], inicio: strin
       let dia = diaNoMes(r, inicio);
       if (dia < inicio) dia = diaNoMes(r, fim);
       const nome = simples(r.title);
-      const lancada = lancamentos.find((l) => l.kind === "saida" && l.happened_on.slice(0, 7) === dia.slice(0, 7) && (l.routine_id === r.id || (nome.length >= 3 && simples(l.description).includes(nome))));
-      const pagaEm = marcas.filter((x) => x.routine_id === r.id && x.done_on.slice(0, 7) === dia.slice(0, 7)).map((x) => x.done_on).sort()[0] ?? lancada?.happened_on ?? null;
+      const noPeriodo = (d: string) => d >= inicio && d <= fim;
+      const lancada = lancamentos.find((l) => l.kind === "saida" && noPeriodo(l.happened_on) && (l.routine_id === r.id || (nome.length >= 3 && simples(l.description).includes(nome))));
+      const pagaEm = marcas.filter((x) => x.routine_id === r.id && noPeriodo(x.done_on)).map((x) => x.done_on).sort()[0] ?? lancada?.happened_on ?? null;
       return { rotina: r, dia, valor: Number(r.amount), paga: !!pagaEm, pagaEm, texto: pagaEm ? "Paga" : `Dia ${Number(dia.slice(8))}` };
     })
     .sort((a, b) => a.dia.localeCompare(b.dia));
@@ -102,10 +121,10 @@ export function resumoDoMes(lancamentos: Lancamento[], contas: ContaFixa[], orca
 
 // ---------- ajustes: a divisão do que entra e o saldo da conta ----------
 
-export type Ajustes = { pct_parcelas: number; pct_investir: number; pct_livre: number; cash_balance: number | null; cash_on: string | null };
-export const AJUSTES_PADRAO: Ajustes = { pct_parcelas: 50, pct_investir: 20, pct_livre: 30, cash_balance: null, cash_on: null };
+export type Ajustes = { pay_day: number; pct_parcelas: number; pct_investir: number; pct_livre: number; cash_balance: number | null; cash_on: string | null };
+export const AJUSTES_PADRAO: Ajustes = { pay_day: 1, pct_parcelas: 50, pct_investir: 20, pct_livre: 30, cash_balance: null, cash_on: null };
 export const normalizarAjustes = (a: Record<string, unknown> | null): Ajustes =>
-  a ? { ...AJUSTES_PADRAO, ...(a as Ajustes), cash_balance: a.cash_balance === null || a.cash_balance === undefined ? null : Number(a.cash_balance) } : AJUSTES_PADRAO;
+  a ? { ...AJUSTES_PADRAO, ...(a as Ajustes), pay_day: Number(a.pay_day) || 1, cash_balance: a.cash_balance === null || a.cash_balance === undefined ? null : Number(a.cash_balance) } : AJUSTES_PADRAO;
 
 // ---------- parcelamentos ----------
 

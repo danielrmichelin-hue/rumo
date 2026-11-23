@@ -10,9 +10,9 @@ import { CampoContexto, Painel } from "./Comuns";
 import type { ContextItem } from "./Shell";
 
 /** Lançar em segundos: saída, entrada, investir ou resgatar ("ainda vou pagar" vira conta a pagar no mês) */
-export function NovoLancamento({ contextos, mes, investimentos = [] }: { contextos: ContextItem[]; mes: string; investimentos?: Investimento[] }) {
+export function NovoLancamento({ contextos, inicio, fim, investimentos = [] }: { contextos: ContextItem[]; inicio: string; fim: string; investimentos?: Investimento[] }) {
   const hoje = hojeISO();
-  const padraoDia = hoje.slice(0, 7) === mes ? hoje : `${mes}-01`;
+  const padraoDia = hoje >= inicio && hoje <= fim ? hoje : inicio;
   const [tipo, setTipo] = useState<TipoLancamento>("saida");
   const [valor, setValor] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -156,6 +156,7 @@ export function AjustesFinancas({ ajustes, saldoConta }: { ajustes: Ajustes; sal
   const [aberto, setAberto] = useState(false);
   const [pct, setPct] = useState([ajustes.pct_parcelas, ajustes.pct_investir, ajustes.pct_livre].map(String));
   const [saldo, setSaldo] = useState(saldoConta === null ? "" : saldoConta.toFixed(2).replace(".", ","));
+  const [diaRecebe, setDiaRecebe] = useState(ajustes.pay_day > 1 ? String(ajustes.pay_day) : "");
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
@@ -173,13 +174,18 @@ export function AjustesFinancas({ ajustes, saldoConta }: { ajustes: Ajustes; sal
               e.preventDefault();
               setErro(null);
               iniciar(async () => {
-                const r = await salvarAjustesFinancas({ pct_parcelas: Number(pct[0]), pct_investir: Number(pct[1]), pct_livre: Number(pct[2]), cash_balance: saldo.trim() ? numeroBR(saldo) : null });
+                const r = await salvarAjustesFinancas({ pay_day: Number(diaRecebe) || null, pct_parcelas: Number(pct[0]), pct_investir: Number(pct[1]), pct_livre: Number(pct[2]), cash_balance: saldo.trim() ? numeroBR(saldo) : null });
                 if (!r.ok) return setErro(r.erro ?? "Não foi possível guardar.");
                 avisar({ texto: "Ajustes guardados." });
                 setAberto(false);
               });
             }}
           >
+            <label className="field">
+              Dia em que recebo
+              <input className="input" style={{ maxWidth: 120 }} inputMode="numeric" value={diaRecebe} onChange={(e) => setDiaRecebe(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="1" />
+              <span className="field__hint">{Number(diaRecebe) >= 2 && Number(diaRecebe) <= 28 ? `Cada mês vai do dia ${Number(diaRecebe)} até o dia ${Number(diaRecebe) - 1} do mês seguinte.` : Number(diaRecebe) > 28 ? "Use um dia de 1 a 28." : "Vazio ou 1: o mês do calendário."}</span>
+            </label>
             <div className="field">
               Como divido o que entra no mês
               <div className="fin-pcts">

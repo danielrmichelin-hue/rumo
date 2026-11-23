@@ -9,7 +9,7 @@ import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, t
 import { CORES_CONTEXTO, type Estado } from "@/lib/tipos";
 import { CORES_MATERIA, INTERVALOS, proximaRevisao, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 import { textoFrequencia } from "@/lib/rotinas";
-import { CAMPOS_LANCAMENTO, limitesDoMes, moeda, naConta, normalizarLancamento, tipoNoBanco, TIPOS_INVESTIMENTO } from "@/lib/financas";
+import { CAMPOS_LANCAMENTO, limitesDoMes, mesDoDia, moeda, naConta, normalizarLancamento, tipoNoBanco, TIPOS_INVESTIMENTO } from "@/lib/financas";
 import { TIPOS_SAUDE, type TipoMedida, MEDIDAS } from "@/lib/saude";
 
 function atualizar() {
@@ -1092,7 +1092,8 @@ export async function marcarRotina(id: string, dia: string, feita: boolean) {
   // Conta fixa (rotina mensal com valor): pagar lança a saída do mês; desmarcar tira
   const { data: r } = await supabase.from("routines").select("title, amount, category, month_day, context_id").eq("id", id).single();
   if (r?.month_day && r.amount) {
-    const { inicio, fim } = limitesDoMes(dia.slice(0, 7));
+    const { data: aj } = await supabase.from("fin_settings").select("pay_day").maybeSingle();
+    const { inicio, fim } = limitesDoMes(mesDoDia(dia, aj?.pay_day ?? 1), aj?.pay_day ?? 1);
     const { data: ja } = await supabase.from("fin_entries").select("id").eq("routine_id", id).gte("happened_on", inicio).lte("happened_on", fim);
     if (feita && !ja?.length) await supabase.from("fin_entries").insert({ kind: "saida", amount: r.amount, description: r.title, category: r.category ?? "Contas da casa", happened_on: dia, paid: true, routine_id: id, context_id: r.context_id });
     if (!feita && ja?.length) await supabase.from("fin_entries").delete().in("id", ja.map((x) => x.id));
@@ -1232,7 +1233,7 @@ export async function apagarSubtarefa(id: string) {
 
 // ---------- finanças: ajustes, parcelamentos, investimentos ----------
 
-export type DadosAjustes = { pct_parcelas: number; pct_investir: number; pct_livre: number; cash_balance: number | null };
+export type DadosAjustes = { pay_day?: number | null; pct_parcelas: number; pct_investir: number; pct_livre: number; cash_balance: number | null };
 
 export async function salvarAjustesFinancas(d: DadosAjustes): Promise<{ ok: boolean; erro?: string }> {
   const pct = [d.pct_parcelas, d.pct_investir, d.pct_livre].map((x) => Math.round(Number(x) || 0));
@@ -1244,7 +1245,7 @@ export async function salvarAjustesFinancas(d: DadosAjustes): Promise<{ ok: bool
   // Saldo informado vale a partir de hoje (o Rumo soma o que vier depois)
   const saldoMudou = d.cash_balance !== null && Number(antes?.cash_balance ?? NaN) !== d.cash_balance;
   const { error } = await supabase.from("fin_settings").upsert({
-    user_id: user.id, pay_day: null, pct_parcelas: pct[0], pct_investir: pct[1], pct_livre: pct[2],
+    user_id: user.id, pay_day: d.pay_day && d.pay_day >= 2 && d.pay_day <= 28 ? Math.round(d.pay_day) : null, pct_parcelas: pct[0], pct_investir: pct[1], pct_livre: pct[2],
     ...(d.cash_balance === null ? { cash_balance: null, cash_on: null } : saldoMudou ? { cash_balance: Math.round(d.cash_balance * 100) / 100, cash_on: hojeISO() } : {}),
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id" });
