@@ -1681,3 +1681,4 @@ body:has(.capture) { overflow: hidden; }
 .diag .diag--atencao { border-left-color: var(--warn-mark); }
 .diag .diag--bom { border-left-color: var(--ok); }
 @media (max-width: 860px) { .painel-fin { grid-template-columns: 1fr; } }
+.planilha-linha { grid-template-columns: 0 minmax(0, 260px) minmax(0, 1fr) !important; }

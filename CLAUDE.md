@@ -43,6 +43,12 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   saldo real, previsão depois de hoje; Painel = resumo dos meses fechados, 50/30/20 por tipo e diagnóstico (`src/lib/painel.ts`);
   Extrato = "Conferir com o extrato" na aba Lançamentos (`src/lib/extrato.ts`, CSV ou OFX do Nubank; casa por valor e até 3 dias,
   e o Pix único das parcelas com as saídas do mesmo dia; `lancarVarios` grava tudo ou nada).
+  Espelho da planilha (por enquanto o Daniel alimenta a planilha Excel, controle.xlsx, e o Rumo espelha): "Atualizar da planilha"
+  no topo de Finanças (`src/components/AtualizarPlanilha.tsx`): lê o .xlsx no navegador (`src/lib/xlsx.ts`, sem biblioteca),
+  as abas Lançamentos, Dívidas, Investimentos e Meu Mês (`lerPlanilha` em `src/lib/planilha.ts`), compara com o Rumo (`espelhar`:
+  mesmo dia, conta, tipo e valor; soma de vários no mesmo dia; data até 3 dias) e mostra novos, só no Rumo (saem, menos os depois do
+  último dia da planilha), rendimentos, parcelamentos, plano e a prova do saldo da Conta Corrente. Aplica tudo de uma vez pela função
+  `rumo_espelhar_planilha` (migração 0024) via `espelharPlanilha` em `acoes.ts`.
   Dinheiro: `numeroBR` lê "64,00", "64.00" e "1.234,56"; páginas de Finanças leem com `todasAsLinhas` (o banco devolve no máximo
   1.000 linhas por vez; nunca somar lista cortada).
 
@@ -93,7 +99,7 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   pg_cron `rumo-avisos` a cada 5 min chamando a função `avisos`) e 0018 (`study_questions`: exercícios com acertos por matéria/tema;
   `study_mocks`: provas e notas) e 0019 (notas decimais em `study_mocks`) e 0020 (`profiles.hidden_areas`: áreas escondidas da lateral;
   `profiles.capture_token` e as funções `rumo_contextos_por_chave`/`rumo_capturar_por_chave` para o atalho da Siri em
-  `src/app/api/capturar/route.ts`, rota pública com a chave) e 0022 (`fin_accounts`, `account_id`, `fin_categories`, `paid_before`) e 0023 (`plan_steps` nos investimentos: o plano em degraus) e 0021 (`profiles.ical_url`: agenda do Google pelo endereço
+  `src/app/api/capturar/route.ts`, rota pública com a chave) e 0022 (`fin_accounts`, `account_id`, `fin_categories`, `paid_before`) e 0023 (`plan_steps` nos investimentos: o plano em degraus) e 0024 (`rumo_espelhar_planilha`: o espelho da planilha numa transação) e 0021 (`profiles.ical_url`: agenda do Google pelo endereço
   secreto iCal, lida em `src/lib/ical.ts` com cache de 5 min e mostrada no Hoje, Calendário e Semana; ids `g-…` abrem o Google
   Agenda; dia inteiro fica de fora) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.

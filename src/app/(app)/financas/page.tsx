@@ -8,6 +8,7 @@ import { FinancasProvider } from "@/components/FinancasContexto";
 import { Consultor, type BaseConsultor } from "@/components/Consultor";
 import { Decisoes } from "@/components/Decisoes";
 import { ConferirExtrato } from "@/components/ConferirExtrato";
+import { AtualizarPlanilha } from "@/components/AtualizarPlanilha";
 import { avisosDoDia, checagens } from "@/lib/conferencia";
 import { METAS_NATUREZA, painelDoPeriodo } from "@/lib/painel";
 import { Anel } from "@/components/Caminho";
@@ -151,6 +152,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           <h1 className="page__t">Finanças</h1>
         </div>
         <div className="page__actions">
+          <AtualizarPlanilha lancamentos={tudo} investimentos={investimentos} parcelamentos={parcelamentos} ajustes={aj} hoje={hoje}
+            rendimentos={(movDb ?? []).map(normalizarMovimento).filter((m) => m.kind === "rendimento" && m.note !== SALDO_INICIAL && m.note !== AJUSTE).map((m) => ({ id: m.id, investment_id: m.investment_id, happened_on: m.happened_on, amount: m.amount }))} />
           <AjustesFinancas ajustes={aj} />
           <a href={`/financas/planilha?mes=${mes}`} className="btn btn--line btn--sm"><Download aria-hidden />Planilha</a>
         </div>

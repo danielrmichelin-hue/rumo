@@ -1326,6 +1326,40 @@ export async function pagarParcela(id: string): Promise<{ ok: boolean; lancament
   return { ok: true, lancamento: l?.id };
 }
 
+/** O que vai para o banco quando o Rumo espelha a planilha (tudo numa transação só) */
+export type PacoteEspelho = {
+  parcelamentos_novos: { chave: string; title: string; category: string; total: number; installments: number; first_due: string; creditor: string | null }[];
+  parcelamentos_alterar: { id: string; total: number; installments: number; first_due: string }[];
+  lancamentos_apagar: string[];
+  lancamentos_novos: { kind: "entrada" | "saida"; amount: number; description: string; category: string; happened_on: string; account_id: string | null; investment_id: string | null; installment_id: string | null; parcela_chave: string | null }[];
+  rendimentos_apagar: string[];
+  rendimentos_novos: { investment_id: string; amount: number; happened_on: string; note: string | null }[];
+  pagas: { id: string | null; chave: string | null; pagas: number }[];
+  plano: { investment_id: string; plan_steps: { de: string; valor: number }[]; monthly_rate: number | null; monthly_plan: number | null } | null;
+  pcts: { pct_parcelas: number; pct_investir: number; pct_livre: number } | null;
+};
+
+/** Espelhar a planilha: confere cada item e aplica tudo de uma vez (ou nada) */
+export async function espelharPlanilha(p: PacoteEspelho): Promise<{ ok: boolean; erro?: string; feito?: Record<string, number> }> {
+  const idOk = (v: string | null) => v === null || ehId(v);
+  const dataOk = (v: string) => DATA.test(v);
+  const valorOk = (v: number) => Number.isFinite(v) && v > 0 && v < 100_000_000;
+  const ruim = (onde: string) => ({ ok: false, erro: `Não deu para atualizar: ${onde}. Nada foi gravado.` });
+  if (p.parcelamentos_novos.some((x) => !x.chave || !x.title.trim() || !valorOk(x.total) || !(x.installments >= 1 && x.installments <= 360) || !dataOk(x.first_due))) return ruim("um parcelamento novo está incompleto");
+  if (p.parcelamentos_alterar.some((x) => !ehId(x.id) || !valorOk(x.total) || !(x.installments >= 1 && x.installments <= 360) || !dataOk(x.first_due))) return ruim("um parcelamento alterado está incompleto");
+  if (!p.lancamentos_apagar.every(ehId) || !p.rendimentos_apagar.every(ehId)) return ruim("item a apagar inválido");
+  if (p.lancamentos_novos.some((x) => !["entrada", "saida"].includes(x.kind) || !valorOk(x.amount) || !x.description.trim() || !x.category.trim() || !dataOk(x.happened_on) || !idOk(x.account_id) || !idOk(x.investment_id) || !idOk(x.installment_id))) return ruim("um lançamento novo está incompleto");
+  if (p.rendimentos_novos.some((x) => !ehId(x.investment_id) || !valorOk(x.amount) || !dataOk(x.happened_on))) return ruim("um rendimento novo está incompleto");
+  if (p.pagas.some((x) => !(Number.isInteger(x.pagas) && x.pagas >= 0 && x.pagas <= 360) || (x.id === null && !x.chave) || !idOk(x.id))) return ruim("parcelas pagas inválidas");
+  if (p.plano && (!ehId(p.plano.investment_id) || p.plano.plan_steps.some((d) => !/^\d{4}-(0[1-9]|1[0-2])$/.test(d.de) || !(d.valor >= 0)) || (p.plano.monthly_rate !== null && !(p.plano.monthly_rate >= 0 && p.plano.monthly_rate <= 0.2)))) return ruim("o plano de investimento");
+  if (p.pcts && p.pcts.pct_parcelas + p.pcts.pct_investir + p.pcts.pct_livre !== 100) return ruim("a divisão do mês não soma 100%");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("rumo_espelhar_planilha", { p });
+  if (error) return { ok: false, erro: "O banco recusou a atualização. Nada foi gravado." };
+  atualizar();
+  return { ok: true, feito: data as Record<string, number> };
+}
+
 /** Conferência: estes lançamentos iguais são de verdade (não aparecem mais como repetidos) */
 export async function marcarConferidos(ids: string[]) {
   const validos = ids.filter(ehId).slice(0, 50);
