@@ -1663,3 +1663,21 @@ body:has(.capture) { overflow: hidden; }
   .extrato-banco__campos .input:first-child { grid-column: 1 / -1; }
   .nums--3 { grid-template-columns: 1fr; }
 }
+
+/* Plano de investimento mês a mês */
+.inv__plano-acao { display: flex; justify-content: flex-end; margin: 6px 0; }
+.degrau { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 36px; gap: 8px; align-items: end; }
+.tabela--plano td small { margin-left: 4px; font-size: 11px; color: var(--text-3); }
+.tabela--plano tr.is-previsto td { color: var(--text-2); }
+.tabela--plano tr.is-atual td { background: var(--accent-soft); font-weight: 500; }
+
+/* Painel do período (aba Resumo) */
+.painel-fin { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+.painel-fin .barras__t small { margin-left: 6px; font-size: 11.5px; color: var(--text-3); }
+.diag { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.diag li { display: grid; gap: 3px; padding: 12px 14px; border-radius: 14px; background: var(--sunk); border-left: 3px solid var(--accent); }
+.diag li b { font-size: 13.5px; font-weight: 600; }
+.diag li span { font-size: 13px; line-height: 1.45; color: var(--text-2); }
+.diag .diag--atencao { border-left-color: var(--warn-mark); }
+.diag .diag--bom { border-left-color: var(--ok); }
+@media (max-width: 860px) { .painel-fin { grid-template-columns: 1fr; } }

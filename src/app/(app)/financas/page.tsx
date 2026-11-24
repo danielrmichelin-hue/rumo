@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Check, ChevronLeft, ChevronRight, Download, Plus, Route } from "lucide-react";
 import { createClient, todasAsLinhas } from "@/lib/supabase/server";
-import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, ConferirConta, CopiarValor, MarcarConferidos, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
+import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, ConferirConta, CopiarValor, MarcarConferidos, PlanoDegraus, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
 import { ChecarRotina } from "@/components/Rotinas";
 import { ExtratoMes, GradeParcelas, RolarAteMes } from "@/components/FinancasPlanilha";
 import { FinancasProvider } from "@/components/FinancasContexto";
@@ -9,12 +9,13 @@ import { Consultor, type BaseConsultor } from "@/components/Consultor";
 import { Decisoes } from "@/components/Decisoes";
 import { ConferirExtrato } from "@/components/ConferirExtrato";
 import { avisosDoDia, checagens } from "@/lib/conferencia";
+import { METAS_NATUREZA, painelDoPeriodo } from "@/lib/painel";
 import { Anel } from "@/components/Caminho";
 import type { ContextItem } from "@/components/Shell";
 import { diaMes, hojeISO, rotuloData, somarMeses } from "@/lib/datas";
 import {
   AJUSTE, CAMPOS_CATEGORIA, CAMPOS_CONTA, CAMPOS_INVESTIMENTO, CAMPOS_LANCAMENTO, CAMPOS_MOVIMENTO, CAMPOS_PARCELAMENTO, contasDoMes, datasDeSalario, ehAjuste, extratoDoMes, saldoAte, SALDO_INICIAL, type Categoria, type Conta, envelopes, limitesDoMes, mesCurto, mesDoDia, mesVizinho, moeda,
-  movimentosDe, naConta, normalizarAjustes, normalizarInvestimento, normalizarLancamento, normalizarMovimento, normalizarParcelamento, parcelasDoCiclo, pixDoMes, projetar, regrasDe, valorParcela, resumoDoMes,
+  movimentosDe, naConta, normalizarAjustes, normalizarInvestimento, normalizarLancamento, normalizarMovimento, normalizarParcelamento, parcelasDoCiclo, pixDoMes, projetarPlano, aporteDoMes, planoMesAMes, regrasDe, valorParcela, resumoDoMes,
   NATUREZAS, resumoParcelamentos, saldoAtual, situacaoParcelamento, TIPOS_INVESTIMENTO, type Orcamento,
 } from "@/lib/financas";
 import { CAMPOS_ROTINA, type Marcacao, type Rotina } from "@/lib/rotinas";
@@ -405,6 +406,37 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
               </section>
             )}
             <Consultor base={base} />
+            {emCurso.length > 0 && (() => {
+              // Quando cada dívida sai (a aba Metas da planilha): na ordem em que acabam, quanto cada uma libera e quanto sobra de parcela por mês depois
+              const linhasSai = emCurso.map((p) => ({ p, s: situacaoParcelamento(p, hoje) })).sort((a, b) => a.s.ultima.localeCompare(b.s.ultima) || a.p.title.localeCompare(b.p.title));
+              return (
+                <section className="bloco" style={{ marginTop: 16 }}>
+                  <h2 className="sec__h">Quando cada dívida sai</h2>
+                  <div className="planilha__rolo">
+                    <table className="tabela">
+                      <thead><tr><th>Dívida</th><th className="num">Falta pagar</th><th className="num">Parcelas</th><th className="num">Parcela</th><th>Última</th><th className="num">Libera por mês</th><th className="num">% da renda</th><th className="num">Depois, sai por mês</th></tr></thead>
+                      <tbody>
+                        {linhasSai.map(({ p, s }) => {
+                          const depois = linhasSai.filter((x) => x.s.ultima > s.ultima).reduce((t, x) => t + x.s.parcela, 0);
+                          return (
+                            <tr key={p.id}>
+                              <td>{p.title}</td>
+                              <td className="num">{moeda(s.restante)}</td>
+                              <td className="num">{s.faltam}</td>
+                              <td className="num">{moeda(s.parcela)}</td>
+                              <td>{mesCurto(s.ultima)}</td>
+                              <td className="num pos">{moeda(s.parcela)}</td>
+                              <td className="num">{rendaAtual > 0 ? `${String(Math.round((s.parcela / rendaAtual) * 1000) / 10).replace(".", ",")}%` : "—"}</td>
+                              <td className="num">{moeda(depois)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              );
+            })()}
             {emCurso.length > 0 && <Decisoes parcelamentos={emCurso} investido={investido} rende={investimentos.find((i) => i.status === "ativo" && i.monthly_rate)?.monthly_rate ?? 0.009} porMes={pix.total || esteMes.parcelas} />}
             <div style={{ margin: "16px 0" }}><NovoParcelamento contextos={ctx} credores={credores} /></div>
             {parcelamentos.length === 0 ? <p className="empty">Nenhum parcelamento.</p> : (
@@ -474,9 +506,61 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           </section>
         );
         if (!usados.length) return <>{blocoConferencia}<p className="empty">Nada lançado nos últimos 12 meses.</p></>;
+        // O painel usa só os meses fechados (o de agora ainda não acabou e puxaria as médias para baixo)
+        const fechadosPn = usados.filter((c) => c.fim < hoje);
+        const periodoPn = fechadosPn.length ? fechadosPn : usados;
+        const pn = painelDoPeriodo({ lancamentos: todos, ciclos: periodoPn, categorias, pctParcelas: aj.pct_parcelas, pctInvestir: aj.pct_investir });
+        const pctR = (v: number) => (pn.entrou ? `${String(Math.round((v / pn.entrou) * 1000) / 10).replace(".", ",")}%` : "—");
+        const linhaPn = (rotulo: string, v: number, forte = false) => (
+          <tr className={forte ? "tabela__forte" : undefined}><td>{rotulo}</td><td className="num">{moeda(v)}</td><td className="num">{moeda(v / pn.meses)}</td><td className="num">{pctR(v)}</td></tr>
+        );
         return (
           <>
             {blocoConferencia}
+            <div className="painel-fin">
+              <section className="bloco">
+                <h2 className="sec__h">Resumo do período<span className="sec__act">{mesCurto(periodoPn[0].inicio)} a {mesCurto(periodoPn[periodoPn.length - 1].inicio)} · {pn.meses} {pn.meses === 1 ? "mês fechado" : "meses fechados"}</span></h2>
+                <div className="planilha__rolo">
+                  <table className="tabela">
+                    <thead><tr><th /><th className="num">Total</th><th className="num">Por mês</th><th className="num">% da renda</th></tr></thead>
+                    <tbody>
+                      {linhaPn("Entrou", pn.entrou, true)}
+                      {linhaPn("Saiu", pn.saiu, true)}
+                      {linhaPn("Sobra (entrou − saiu)", pn.sobra)}
+                      {linhaPn("Aportes", pn.aportes)}
+                      {linhaPn("Resgates", pn.resgates)}
+                      {linhaPn("Investido de verdade (aportes − resgates)", pn.investiu, true)}
+                      {linhaPn("Contas fixas e assinaturas", pn.fixos)}
+                      {linhaPn("Parcelas", pn.parcelas)}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+              <section className="bloco">
+                <h2 className="sec__h">Para onde vai o dinheiro · 50/30/20</h2>
+                <ul className="barras">
+                  {(["essencial", "estilo", "objetivos"] as const).map((k) => {
+                    const v = pn.porNatureza[k], meta = METAS_NATUREZA[k], p = pn.entrou ? v / pn.entrou : 0;
+                    return (
+                      <li key={k}>
+                        <span className="barras__t">{k === "objetivos" ? "Objetivos e investimento" : NATUREZAS[k]}<small>meta {meta * 100}%</small></span>
+                        <span className={`barras__b barras__b--${k === "objetivos" ? (p >= meta ? "bom" : "medio") : p > meta ? "fraco" : "bom"}`}><i style={{ width: `${Math.min(100, p * 100)}%` }} /></span>
+                        <b>{pctR(v)}</b>
+                      </li>
+                    );
+                  })}
+                  {pn.porNatureza.semTipo > 0 && <li><span className="barras__t">Sem tipo<small>dê um tipo à categoria em Ajustes</small></span><span className="barras__b"><i style={{ width: `${Math.min(100, (pn.porNatureza.semTipo / Math.max(1, pn.entrou)) * 100)}%` }} /></span><b>{pctR(pn.porNatureza.semTipo)}</b></li>}
+                </ul>
+              </section>
+            </div>
+            {pn.diag.length > 0 && (
+              <section className="bloco" style={{ marginBottom: 16 }}>
+                <h2 className="sec__h">Diagnóstico · onde melhorar</h2>
+                <ul className="diag">
+                  {pn.diag.map((d) => <li key={d.titulo} className={`diag--${d.tom}`}><b>{d.titulo}</b><span>{d.texto}</span></li>)}
+                </ul>
+              </section>
+            )}
             <p className="field__hint" style={{ margin: "0 0 10px" }}>Em R$, cada mês de {dr > 1 ? `${dr} a ${dr - 1}` : "1 a 31"}. O saldo final de um mês é o inicial do seguinte.</p>
             <div className="planilha__rolo">
               <table className="tabela tabela--resumo">
@@ -510,7 +594,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
             <div><small>Investido hoje</small><b className="pos">{moeda(investido)}</b></div>
             <div><small>Aportes neste mês</small><b>{moeda(movsMes.filter((m) => m.kind === "aporte").reduce((t, m) => t + m.amount, 0))}</b><span>Resgates: {moeda(movsMes.filter((m) => m.kind === "resgate").reduce((t, m) => t + m.amount, 0))}</span></div>
             <div><small>Rendeu nos últimos 12 meses</small><b>{moeda(movs.filter((m) => m.kind === "rendimento" && m.happened_on > somarMeses(hoje, -12)).reduce((t, m) => t + m.amount, 0))}</b><span>O que você lançou como rendimento</span></div>
-            <div><small>Em 12 meses, no plano</small><b>{moeda(investimentos.filter((i) => i.status === "ativo").reduce((t, i) => t + projetar(saldoAtual(i, movs), i.monthly_rate ?? 0, i.monthly_plan ?? 0, 12), 0))}</b><span>Com o aporte e a taxa de cada um</span></div>
+            <div><small>Em 12 meses, no plano</small><b>{moeda(investimentos.filter((i) => i.status === "ativo").reduce((t, i) => t + projetarPlano(i, saldoAtual(i, movs), atual, 12), 0))}</b><span>Com o aporte e a taxa de cada um</span></div>
           </div>
           <div style={{ marginBottom: 16 }}><NovoInvestimento /></div>
 
@@ -520,7 +604,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
               {investimentos.map((i) => {
                 const saldo = saldoAtual(i, movs);
                 const meus = movs.filter((m) => m.investment_id === i.id);
-                const anos = [1, 3, 5].map((a) => ({ a, v: projetar(saldo, i.monthly_rate ?? 0, i.monthly_plan ?? 0, a * 12) }));
+                const anos = [1, 3, 5].map((a) => ({ a, v: projetarPlano(i, saldo, atual, a * 12) }));
+                const planoAgora = aporteDoMes(i, atual);
+                // Plano mês a mês: do primeiro movimento (ou degrau) até 2 anos à frente
+                const primeiro = [meus.length ? mesDoDia(meus[meus.length - 1].happened_on, dr, salarios) : atual, i.plan_steps?.[0]?.de ?? atual].sort()[0];
+                const nMeses = Math.min(120, Math.max(1, (Number(atual.slice(0, 4)) - Number(primeiro.slice(0, 4))) * 12 + Number(atual.slice(5)) - Number(primeiro.slice(5)) + 25));
+                const linhasPlano = (i.monthly_rate || i.plan_steps?.length || i.monthly_plan) ? planoMesAMes(i, movs, Array.from({ length: nMeses }, (_, k) => { const m = mesVizinho(primeiro, k); return { m, ...lim(m) }; }), hoje) : [];
                 return (
                   <section key={i.id} className="bloco inv">
                     <div className="inv__head">
@@ -528,10 +617,34 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                       <div className="inv__saldo"><b>{moeda(saldo)}</b><small>Pelos lançamentos · <AjustarInvestimento inv={i} saldo={saldo} /></small></div>
                     </div>
                     <Movimentar inv={i} />
-                    {(i.monthly_plan || i.monthly_rate) && (
+                    {(planoAgora || i.monthly_rate || i.plan_steps?.length) ? (
                       <p className="inv__proj">
-                        {i.monthly_plan ? `Pondo ${moeda(i.monthly_plan)} por mês` : "Sem aportes"}{i.monthly_rate ? "" : ", sem rendimento estimado"}: {anos.map(({ a, v }) => `${moeda(v)} em ${a} ${a === 1 ? "ano" : "anos"}`).join(" · ")}.
+                        {planoAgora ? `Pondo ${moeda(planoAgora)} por mês${i.plan_steps?.some((d) => d.de > atual) ? " (e mais nos próximos degraus)" : ""}` : "Sem aportes"}{i.monthly_rate ? "" : ", sem rendimento estimado"}: {anos.map(({ a, v }) => `${moeda(v)} em ${a} ${a === 1 ? "ano" : "anos"}`).join(" · ")}.
                       </p>
+                    ) : null}
+                    <div className="inv__plano-acao"><PlanoDegraus inv={i} /></div>
+                    {linhasPlano.length > 0 && (
+                      <details className="fold" open={!!i.plan_steps?.length}>
+                        <summary className="sec__h"><ChevronRight aria-hidden />Plano mês a mês</summary>
+                        <div className="planilha__rolo">
+                          <table className="tabela tabela--plano">
+                            <thead><tr><th>Mês</th><th className="num">Plano: pôr</th><th className="num">Feito</th><th className="num">Rendeu</th><th className="num">Saldo</th><th className="num">Só pelo plano</th></tr></thead>
+                            <tbody>
+                              {linhasPlano.map((l) => (
+                                <tr key={l.m} className={l.atual ? "is-atual" : l.previsto ? "is-previsto" : undefined}>
+                                  <td>{mesCurto(`${l.m}-01`)}{l.atual ? " · agora" : ""}</td>
+                                  <td className="num">{moeda(l.planejado)}</td>
+                                  <td className={`num${l.feito !== null && !l.atual && l.feito + 0.005 < l.planejado ? " neg" : ""}`}>{l.feito === null ? "—" : moeda(l.feito)}</td>
+                                  <td className="num">{l.rendeu ? moeda(l.rendeu) : "—"}</td>
+                                  <td className="num"><b>{moeda(l.saldo)}</b>{l.previsto ? <small> previsto</small> : null}</td>
+                                  <td className="num">{moeda(l.noPlano)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="field__hint">Até hoje, o feito e o saldo são dos lançamentos; depois, previsão com o plano e o rendimento de {String(Math.round((i.monthly_rate ?? 0) * 10000) / 100).replace(".", ",")}% ao mês. “Só pelo plano” é onde o saldo estaria se cada mês seguisse o plano.</p>
+                      </details>
                     )}
                     {meus.length > 0 && (
                       <details className="fold">

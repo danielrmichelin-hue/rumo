@@ -2,7 +2,7 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import { Archive, ArchiveRestore, Check, Copy, Plus, Scale, Settings2, Trash2 } from "lucide-react";
-import { marcarConferidos, apagarInvestimento, apagarLancamento, apagarMovimento, conferirConta, conferirInvestimento, criarCategoria, criarConta, criarInvestimento, planoInvestimento, salvarCategoria, salvarConta, criarParcelamento, criarRotina, desfazerParcela, lancar, marcarLancamentoPago, movimentarInvestimento, pagarParcela, salvarAjustesFinancas, salvarOrcamento } from "@/app/(app)/acoes";
+import { marcarConferidos, salvarPlanoDegraus, apagarInvestimento, apagarLancamento, apagarMovimento, conferirConta, conferirInvestimento, criarCategoria, criarConta, criarInvestimento, planoInvestimento, salvarCategoria, salvarConta, criarParcelamento, criarRotina, desfazerParcela, lancar, marcarLancamentoPago, movimentarInvestimento, pagarParcela, salvarAjustesFinancas, salvarOrcamento } from "@/app/(app)/acoes";
 import { hojeISO, numeroBR, rotuloData } from "@/lib/datas";
 import { moeda, naConta, NATUREZAS, nomesCategorias, ROTULO_TIPO, sugerirCategoria, TIPOS_INVESTIMENTO, type Ajustes, type Categoria, type Conta, type Investimento, type Lancamento, type Movimento, type Natureza, type TipoLancamento } from "@/lib/financas";
 import { CampoCategoria, CampoConta, useFinancas } from "./FinancasContexto";
@@ -413,11 +413,50 @@ export function AjustarInvestimento({ inv, saldo }: { inv: Investimento; saldo: 
     }}>
       <label className="field">No app do banco<input className="input" inputMode="decimal" value={v.real} onChange={(e) => setV({ ...v, real: e.target.value })} placeholder={saldo.toFixed(2).replace(".", ",")} autoFocus /><span className="field__hint">{dif ? `Diferença ${dif > 0 ? "+" : "−"}${moeda(Math.abs(dif))}: vira um ajuste` : "Igual ao do Rumo"}</span></label>
       <label className="field">Rende ao mês (%)<input className="input" inputMode="decimal" value={v.taxa} onChange={(e) => setV({ ...v, taxa: e.target.value })} /></label>
-      <label className="field">Pôr por mês<input className="input" inputMode="decimal" value={v.plano} onChange={(e) => setV({ ...v, plano: e.target.value })} /></label>
+      {!inv.plan_steps?.length && <label className="field">Pôr por mês<input className="input" inputMode="decimal" value={v.plano} onChange={(e) => setV({ ...v, plano: e.target.value })} /></label>}
       <button className="btn btn--sm" type="submit" disabled={pendente}>OK</button>
       <button className="btn btn--ghost btn--sm" type="button" onClick={() => setAberto(false)}>Cancelar</button>
       <button className="icon-btn" type="button" aria-label={`Apagar ${inv.name}`} onClick={() => { if (confirm(`Apagar "${inv.name}" e o histórico dele?`)) iniciar(() => apagarInvestimento(inv.id)); }}><Trash2 size={15} /></button>
     </form>
+  );
+}
+
+/** O plano em degraus (a aba Investimentos da planilha): a partir de cada mês, quanto pôr por mês */
+export function PlanoDegraus({ inv }: { inv: Investimento }) {
+  const [aberto, setAberto] = useState(false);
+  const inicial = () => (inv.plan_steps?.length ? inv.plan_steps : [{ de: hojeISO().slice(0, 7), valor: inv.monthly_plan ?? 0 }]).map((d) => ({ de: d.de, valor: d.valor ? String(d.valor).replace(".", ",") : "" }));
+  const [linhas, setLinhas] = useState(inicial);
+  const [erro, setErro] = useState<string | null>(null);
+  const [pendente, iniciar] = useTransition();
+  const mudar = (k: number, v: Partial<{ de: string; valor: string }>) => setLinhas((l) => l.map((x, i) => (i === k ? { ...x, ...v } : x)));
+  return (
+    <>
+      <button type="button" className="btn btn--line btn--sm" onClick={() => { setLinhas(inicial()); setErro(null); setAberto(true); }}>Plano mês a mês</button>
+      {aberto && (
+        <Painel titulo={`Plano de ${inv.name}`} fechar={() => setAberto(false)}>
+          <form className="detail" style={{ gap: 12 }} onSubmit={(e) => {
+            e.preventDefault();
+            iniciar(async () => {
+              const r = await salvarPlanoDegraus(inv.id, linhas.map((l) => ({ de: l.de, valor: numeroBR(l.valor) })));
+              if (!r.ok) return setErro(r.erro ?? "Não foi possível guardar.");
+              setAberto(false);
+            });
+          }}>
+            <p className="field__hint">A partir de cada mês (do salário), quanto pôr por mês. O último degrau vale dali em diante.</p>
+            {linhas.map((l, k) => (
+              <div key={k} className="degrau">
+                <label className="field">A partir de<input className="input" type="month" value={l.de} onChange={(e) => mudar(k, { de: e.target.value })} required /></label>
+                <label className="field">Pôr por mês<input className="input" inputMode="decimal" value={l.valor} onChange={(e) => mudar(k, { valor: e.target.value })} placeholder="0,00" /></label>
+                <button type="button" className="icon-btn" aria-label="Tirar este degrau" onClick={() => setLinhas((x) => x.filter((_, i) => i !== k))}><Trash2 size={15} /></button>
+              </div>
+            ))}
+            <button type="button" className="btn btn--ghost btn--sm" style={{ justifySelf: "start" }} onClick={() => setLinhas((x) => [...x, { de: "", valor: "" }])}><Plus aria-hidden />Degrau</button>
+            {erro && <p className="note note--err" role="alert">{erro}</p>}
+            <div className="detail__foot"><button className="btn" type="submit" disabled={pendente}>{pendente ? "Guardando…" : "Guardar plano"}</button></div>
+          </form>
+        </Painel>
+      )}
+    </>
   );
 }
 

@@ -288,13 +288,63 @@ export const TIPOS_INVESTIMENTO: Record<TipoInvestimento, string> = {
   cripto: "Cripto",
   outro: "Outro",
 };
-export type Investimento = { id: string; name: string; kind: TipoInvestimento; institution: string | null; balance: number; balance_on: string; monthly_rate: number | null; monthly_plan: number | null; status: "ativo" | "encerrado"; note: string | null };
+export type Investimento = { id: string; name: string; kind: TipoInvestimento; institution: string | null; balance: number; balance_on: string; monthly_rate: number | null; monthly_plan: number | null; status: "ativo" | "encerrado"; note: string | null; plan_steps?: Degrau[] };
+/** Plano em degraus: a partir do mês "de", pôr "valor" por mês */
+export type Degrau = { de: string; valor: number };
 /** Movimento de um investimento: aportes e resgates vêm dos lançamentos; rendimentos, da aba Investimentos */
 export type Movimento = { id: string; investment_id: string; kind: "aporte" | "resgate" | "rendimento"; amount: number; happened_on: string; note: string | null; origem: "lancamento" | "rendimento"; descricao?: string };
-export const CAMPOS_INVESTIMENTO = "id, name, kind, institution, balance, balance_on, monthly_rate, monthly_plan, status, note";
+export const CAMPOS_INVESTIMENTO = "id, name, kind, institution, balance, balance_on, monthly_rate, monthly_plan, status, note, plan_steps";
 export const CAMPOS_MOVIMENTO = "id, investment_id, kind, amount, happened_on, note";
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
-export const normalizarInvestimento = (i: Record<string, unknown>): Investimento => ({ ...(i as Investimento), balance: Number(i.balance), monthly_rate: num(i.monthly_rate), monthly_plan: num(i.monthly_plan) });
+export const normalizarInvestimento = (i: Record<string, unknown>): Investimento => ({
+  ...(i as Investimento), balance: Number(i.balance), monthly_rate: num(i.monthly_rate), monthly_plan: num(i.monthly_plan),
+  plan_steps: (Array.isArray(i.plan_steps) ? i.plan_steps as Degrau[] : []).filter((d) => /^\d{4}-\d{2}$/.test(String(d?.de)) && Number(d?.valor) >= 0).map((d) => ({ de: d.de, valor: Number(d.valor) })).sort((a, b) => a.de.localeCompare(b.de)),
+});
+
+/** Quanto o plano manda pôr naquele mês: o degrau em vigor; sem degraus, o "pôr por mês" de sempre */
+export function aporteDoMes(i: Pick<Investimento, "plan_steps" | "monthly_plan">, mes: string) {
+  const degraus = i.plan_steps ?? [];
+  if (!degraus.length) return i.monthly_plan ?? 0;
+  return [...degraus].reverse().find((d) => d.de <= mes)?.valor ?? 0;
+}
+
+/** Onde o saldo chega em N meses seguindo o plano (os degraus mudam o aporte com o tempo) */
+export function projetarPlano(i: Investimento, saldo: number, desdeMes: string, meses: number) {
+  let v = saldo;
+  for (let k = 1; k <= meses; k++) v = v * (1 + (i.monthly_rate ?? 0)) + aporteDoMes(i, mesVizinho(desdeMes, k));
+  return v;
+}
+
+export type LinhaPlano = { m: string; planejado: number; feito: number | null; rendeu: number; saldo: number; noPlano: number; previsto: boolean; atual: boolean };
+
+/** O plano mês a mês (a aba Investimentos da planilha): o que o plano manda pôr, o que foi posto de verdade,
+ *  quanto rendeu, o saldo (real até hoje, previsto depois) e onde o saldo estaria só seguindo o plano. */
+export function planoMesAMes(i: Investimento, movs: Movimento[], ciclos: { m: string; inicio: string; fim: string }[], hoje: string): LinhaPlano[] {
+  const taxa = i.monthly_rate ?? 0;
+  const meus = movs.filter((m) => m.investment_id === i.id);
+  const vespera = (d: string) => new Date(Date.parse(`${d}T12:00:00Z`) - 86400000).toISOString().slice(0, 10);
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  let noPlano = ciclos.length ? saldoAtual(i, meus, vespera(ciclos[0].inicio)) : 0;
+  let base = 0;
+  return ciclos.map((c) => {
+    const planejado = aporteDoMes(i, c.m);
+    noPlano = noPlano * (1 + taxa) + planejado;
+    if (c.inicio > hoje) {
+      const rendeu = base * taxa;
+      base = base + rendeu + planejado;
+      return { m: c.m, planejado, feito: null, rendeu: r2(rendeu), saldo: r2(base), noPlano: r2(noPlano), previsto: true, atual: false };
+    }
+    const ate = c.fim < hoje ? c.fim : hoje;
+    const doMes = meus.filter((m) => m.happened_on >= c.inicio && m.happened_on <= ate);
+    const feito = r2(doMes.reduce((t, m) => t + (m.note === SALDO_INICIAL ? m.amount : m.note === AJUSTE ? 0 : m.kind === "aporte" ? m.amount : m.kind === "resgate" ? -m.amount : 0), 0));
+    const rendeu = r2(doMes.reduce((t, m) => t + (m.note === SALDO_INICIAL ? 0 : m.note === AJUSTE ? (m.kind === "resgate" ? -m.amount : m.amount) : m.kind === "rendimento" ? m.amount : 0), 0));
+    const saldo = saldoAtual(i, meus, ate);
+    const atual = c.fim >= hoje;
+    // O mês de hoje: o que ainda falta pôr conta na previsão dos próximos
+    base = atual ? saldo + Math.max(0, planejado - feito) : saldo;
+    return { m: c.m, planejado, feito, rendeu, saldo, noPlano: r2(noPlano), previsto: false, atual };
+  });
+}
 export const normalizarMovimento = (m: Record<string, unknown>): Movimento => ({ ...(m as Movimento), amount: Number(m.amount), origem: "rendimento" });
 /** Os lançamentos de investir e resgatar, como movimentos do investimento */
 export const movimentosDe = (lancamentos: Lancamento[]): Movimento[] =>

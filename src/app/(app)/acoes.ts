@@ -1473,6 +1473,24 @@ export async function planoInvestimento(id: string, taxa: number | null, plano: 
   atualizar();
 }
 
+/** O plano em degraus: a partir de cada mês, quanto pôr; o "pôr por mês" passa a ser o degrau de agora */
+export async function salvarPlanoDegraus(id: string, degraus: { de: string; valor: number }[]): Promise<{ ok: boolean; erro?: string }> {
+  if (!ehId(id)) return { ok: false, erro: "Investimento inválido." };
+  const limpos = degraus.filter((d) => d.de || d.valor);
+  if (limpos.some((d) => !/^\d{4}-(0[1-9]|1[0-2])$/.test(d.de))) return { ok: false, erro: "Cada degrau precisa do mês em que começa." };
+  if (limpos.some((d) => !Number.isFinite(d.valor) || d.valor < 0 || d.valor > 10_000_000)) return { ok: false, erro: "Valor inválido em um dos degraus." };
+  const porMes = new Map(limpos.map((d) => [d.de, Math.round(d.valor * 100) / 100]));
+  if (porMes.size !== limpos.length) return { ok: false, erro: "Dois degraus no mesmo mês." };
+  const ordenados = [...porMes.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([de, valor]) => ({ de, valor }));
+  const agora = hojeISO().slice(0, 7);
+  const vigente = [...ordenados].reverse().find((d) => d.de <= agora)?.valor ?? null;
+  const supabase = await createClient();
+  const { error } = await supabase.from("fin_investments").update({ plan_steps: ordenados, ...(ordenados.length ? { monthly_plan: vigente && vigente > 0 ? vigente : null } : {}) }).eq("id", id);
+  if (error) return { ok: false, erro: "Não foi possível guardar o plano." };
+  atualizar();
+  return { ok: true };
+}
+
 /** Conferir com o banco: a diferença vira um lançamento "Ajuste de saldo" na conta (o saldo continua vindo só de lançamentos) */
 export async function conferirConta(contaId: string | null, calculado: number, real: number): Promise<{ ok: boolean; diferenca?: number }> {
   const dif = Math.round((real - calculado) * 100) / 100;

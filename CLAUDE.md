@@ -33,6 +33,18 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   por parcela. Parcela = total/n no centavo e a última fecha o total (`valorParcela`). Parcela paga na grade não se desmarca.
   Consultor "Posso comprar parcelado?" na aba Parcelas (`src/components/Consultor.tsx`): renda e gasto do dia a dia médios
   dos 3 meses fechados, parcelas que já saem nos próximos 12 meses, limite de parcelas e meta de investir; veredito por mês.
+  O Rumo faz tudo o que a planilha do Daniel fazia (não reinventar): Início = topo de Finanças + "O que eu preciso saber hoje"
+  (`avisosDoDia` em `src/lib/conferencia.ts`); Conciliação = "Conferência" na aba Resumo (`checagens`: conta negativa, repetidos
+  — "São de verdade" grava `Conferido: não é repetido` na nota —, categoria fora da lista, valores, pago no futuro,
+  transferências, investimento negativo, parcelas × lançamentos, vencidos); Regras = a categoria vem da última vez que lançou a
+  mesma descrição (`regrasDe`/`sugerirCategoria`); Decisões = "Quitar antes ou deixar rendendo?" (`quitarOuManter`,
+  `src/components/Decisoes.tsx`; quitar lança uma saída por parcela que faltava); Metas = "Quando cada dívida sai" (aba Parcelas) e
+  as metas em Investimentos; Investimentos = plano em degraus (`plan_steps`, `planoMesAMes`, `PlanoDegraus`): planejado × feito ×
+  saldo real, previsão depois de hoje; Painel = resumo dos meses fechados, 50/30/20 por tipo e diagnóstico (`src/lib/painel.ts`);
+  Extrato = "Conferir com o extrato" na aba Lançamentos (`src/lib/extrato.ts`, CSV ou OFX do Nubank; casa por valor e até 3 dias,
+  e o Pix único das parcelas com as saídas do mesmo dia; `lancarVarios` grava tudo ou nada).
+  Dinheiro: `numeroBR` lê "64,00", "64.00" e "1.234,56"; páginas de Finanças leem com `todasAsLinhas` (o banco devolve no máximo
+  1.000 linhas por vez; nunca somar lista cortada).
 
 - Tarefa (no banco: `responsibilities`) tem 3 estados: `a_fazer`, `aguardando`, `concluida`. "Atrasada" é exibição
   quando o prazo passou, e é **direta**: vermelho, "Atrasada há N dias", no topo do Hoje.
@@ -81,7 +93,7 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   pg_cron `rumo-avisos` a cada 5 min chamando a função `avisos`) e 0018 (`study_questions`: exercícios com acertos por matéria/tema;
   `study_mocks`: provas e notas) e 0019 (notas decimais em `study_mocks`) e 0020 (`profiles.hidden_areas`: áreas escondidas da lateral;
   `profiles.capture_token` e as funções `rumo_contextos_por_chave`/`rumo_capturar_por_chave` para o atalho da Siri em
-  `src/app/api/capturar/route.ts`, rota pública com a chave) e 0022 (`fin_accounts`, `account_id`, `fin_categories`, `paid_before`) e 0021 (`profiles.ical_url`: agenda do Google pelo endereço
+  `src/app/api/capturar/route.ts`, rota pública com a chave) e 0022 (`fin_accounts`, `account_id`, `fin_categories`, `paid_before`) e 0023 (`plan_steps` nos investimentos: o plano em degraus) e 0021 (`profiles.ical_url`: agenda do Google pelo endereço
   secreto iCal, lida em `src/lib/ical.ts` com cache de 5 min e mostrada no Hoje, Calendário e Semana; ids `g-…` abrem o Google
   Agenda; dia inteiro fica de fora) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
