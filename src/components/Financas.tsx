@@ -2,9 +2,9 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import { Archive, ArchiveRestore, Check, Copy, Plus, Scale, Settings2, Trash2 } from "lucide-react";
-import { apagarInvestimento, apagarLancamento, apagarMovimento, conferirConta, conferirInvestimento, criarCategoria, criarConta, criarInvestimento, planoInvestimento, salvarCategoria, salvarConta, criarParcelamento, criarRotina, desfazerParcela, lancar, marcarLancamentoPago, movimentarInvestimento, pagarParcela, salvarAjustesFinancas, salvarOrcamento } from "@/app/(app)/acoes";
+import { marcarConferidos, apagarInvestimento, apagarLancamento, apagarMovimento, conferirConta, conferirInvestimento, criarCategoria, criarConta, criarInvestimento, planoInvestimento, salvarCategoria, salvarConta, criarParcelamento, criarRotina, desfazerParcela, lancar, marcarLancamentoPago, movimentarInvestimento, pagarParcela, salvarAjustesFinancas, salvarOrcamento } from "@/app/(app)/acoes";
 import { hojeISO, numeroBR, rotuloData } from "@/lib/datas";
-import { moeda, naConta, NATUREZAS, nomesCategorias, ROTULO_TIPO, TIPOS_INVESTIMENTO, type Ajustes, type Categoria, type Conta, type Investimento, type Lancamento, type Movimento, type Natureza, type TipoLancamento } from "@/lib/financas";
+import { moeda, naConta, NATUREZAS, nomesCategorias, ROTULO_TIPO, sugerirCategoria, TIPOS_INVESTIMENTO, type Ajustes, type Categoria, type Conta, type Investimento, type Lancamento, type Movimento, type Natureza, type TipoLancamento } from "@/lib/financas";
 import { CampoCategoria, CampoConta, useFinancas } from "./FinancasContexto";
 import { useAvisar } from "./Avisos";
 import { CampoContexto, Painel } from "./Comuns";
@@ -17,7 +17,10 @@ export function NovoLancamento({ contextos, inicio, fim, investimentos = [] }: {
   const [tipo, setTipo] = useState<TipoLancamento>("saida");
   const [valor, setValor] = useState("");
   const [descricao, setDescricao] = useState("");
-  const { categorias: cats } = useFinancas();
+  const { categorias: cats, regras } = useFinancas();
+  const [catManual, setCatManual] = useState(false);
+  const [regra, setRegra] = useState<string | null>(null);
+  const [tipoAntes, setTipoAntes] = useState<TipoLancamento | null>(null); // a regra trocou o tipo: o que era antes
   const padraoCat = (k: "entrada" | "saida") => { const n = nomesCategorias(cats, k); return k === "saida" ? n.find((c) => c === "Mercado") ?? n[0] : n[0]; };
   const [categoria, setCategoria] = useState(padraoCat("saida"));
   const [conta, setConta] = useState("");
@@ -29,7 +32,25 @@ export function NovoLancamento({ contextos, inicio, fim, investimentos = [] }: {
   const avisar = useAvisar();
   const transferencia = tipo === "aporte" || tipo === "resgate";
   const nomeInv = investimentos.find((i) => i.id === investimento)?.name ?? "";
-  const escolher = (t: TipoLancamento) => { setTipo(t); if (t === "saida" || t === "entrada") setCategoria(padraoCat(t)); };
+  const escolher = (t: TipoLancamento) => { setTipo(t); setCatManual(false); setRegra(null); setTipoAntes(null); if (t === "saida" || t === "entrada") setCategoria(padraoCat(t)); };
+  // Regras: a descrição já lançada antes traz o tipo e a categoria da última vez (se você não escolheu outra)
+  const descrever = (texto: string) => {
+    setDescricao(texto);
+    if (transferencia) return;
+    if (catManual && texto.trim()) return;
+    const proprio = (tipoAntes ?? tipo) as "entrada" | "saida";
+    const s = texto.trim() ? sugerirCategoria(regras, texto, proprio) : null;
+    if (!s || !nomesCategorias(cats, s.k).includes(s.c)) {
+      // Sem regra: volta ao tipo e à categoria de antes da sugestão
+      if (regra) { setTipo(proprio); setCategoria(padraoCat(proprio)); }
+      setTipoAntes(null); setRegra(null); setCatManual(false);
+      return;
+    }
+    if (s.k !== tipo) { setTipoAntes(tipoAntes ?? tipo); setTipo(s.k); }
+    else if (s.k === proprio) setTipoAntes(null);
+    setCategoria(s.c);
+    setRegra(s.exata ? `Como da última vez: ${s.c}` : `Pela regra de "${s.t}": ${s.c}`);
+  };
 
   return (
     <form
@@ -41,7 +62,7 @@ export function NovoLancamento({ contextos, inicio, fim, investimentos = [] }: {
           const r = await lancar({ kind: tipo, amount: numeroBR(valor), description: desc, category: categoria, happened_on: dia, paid: !aPagar, context_id: contexto || null, investment_id: transferencia ? investimento : null, account_id: conta || null });
           if (!r.ok) return avisar({ texto: r.erro ?? "Não foi possível lançar." });
           avisar({ texto: `${ROTULO_TIPO[tipo]}: ${moeda(numeroBR(valor))}${transferencia ? ` em ${nomeInv}` : ""}${aPagar && !transferencia ? ", a pagar" : ""}.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => apagarLancamento(r.id!)) } });
-          setValor(""); setDescricao(""); setAPagar(false);
+          setValor(""); setDescricao(""); setAPagar(false); setCatManual(false); setRegra(null); setTipoAntes(null);
         });
       }}
     >
@@ -52,21 +73,23 @@ export function NovoLancamento({ contextos, inicio, fim, investimentos = [] }: {
       </div>
       <div className="fin-form__linha">
         <label className="field">Valor<input className="input" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" required aria-label="Valor" /></label>
-        <label className="field fin-form__desc">O que foi<input className="input" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={transferencia ? `${ROTULO_TIPO[tipo]} · ${nomeInv}` : tipo === "saida" ? "Ex.: Mercado da semana" : "Ex.: Salário"} maxLength={120} required={!transferencia} /></label>
+        <label className="field fin-form__desc">O que foi<input className="input" list="descricoes-lancadas" autoComplete="off" value={descricao} onChange={(e) => descrever(e.target.value)} placeholder={transferencia ? `${ROTULO_TIPO[tipo]} · ${nomeInv}` : tipo === "saida" ? "Ex.: Mercado da semana" : "Ex.: Salário"} maxLength={120} required={!transferencia} /></label>
         {transferencia ? (
           <label className="field">
             Investimento
             <select className="input" value={investimento} onChange={(e) => setInvestimento(e.target.value)}>{investimentos.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}</select>
           </label>
         ) : (
-          <CampoCategoria kind={tipo === "entrada" ? "entrada" : "saida"} value={categoria} onChange={setCategoria} />
+          <CampoCategoria kind={tipo === "entrada" ? "entrada" : "saida"} value={categoria} onChange={(c) => { setCategoria(c); setCatManual(true); setRegra(null); setTipoAntes(null); }} />
         )}
+        <datalist id="descricoes-lancadas">{regras.slice(0, 300).map((r) => <option key={r.d} value={r.t} />)}</datalist>
         <label className="field">{aPagar ? "Vence em" : "Dia"}<input className="input" type="date" value={dia} onChange={(e) => setDia(e.target.value)} required /></label>
       </div>
       <div className="fin-form__pe">
         {transferencia
           ? <span className="field__hint">{tipo === "aporte" ? "Sai da conta e entra no investimento." : "Sai do investimento e volta para a conta."}</span>
           : <label className="check-line"><input type="checkbox" checked={aPagar} onChange={(e) => setAPagar(e.target.checked)} />{tipo === "saida" ? "Ainda vou pagar" : "Ainda vou receber"}</label>}
+        {regra && !transferencia && <span className="field__hint fin-form__regra">{regra}</span>}
         <CampoConta value={conta} onChange={setConta} />
         {!transferencia && <details className="fin-form__mais"><summary>Contexto</summary><CampoContexto contextos={contextos} value={contexto} onChange={setContexto} /></details>}
         <button className="btn btn--sm" type="submit" disabled={pendente || !valor || (!transferencia && !descricao.trim()) || (transferencia && !investimento)}><Plus aria-hidden />Lançar</button>
@@ -237,6 +260,12 @@ export function CopiarValor({ valor }: { valor: number }) {
       {copiado ? <><Check aria-hidden />Copiado</> : <><Copy aria-hidden />Copiar valor</>}
     </button>
   );
+}
+
+/** Conferência: os lançamentos iguais no mesmo dia são de verdade */
+export function MarcarConferidos({ ids }: { ids: string[] }) {
+  const [pendente, iniciar] = useTransition();
+  return <button type="button" className="btn btn--line btn--sm" disabled={pendente} onClick={() => iniciar(() => marcarConferidos(ids))}><Check aria-hidden />{pendente ? "Marcando…" : "São de verdade"}</button>;
 }
 
 export function PagarTodas({ ids, total, rotulo = "Paguei todas" }: { ids: string[]; total: number; rotulo?: string }) {

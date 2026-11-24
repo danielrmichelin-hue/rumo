@@ -1,17 +1,20 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Download, Plus, Route } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, ConferirConta, CopiarValor, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
+import { AlertTriangle, ArrowRight, Check, ChevronLeft, ChevronRight, Download, Plus, Route } from "lucide-react";
+import { createClient, todasAsLinhas } from "@/lib/supabase/server";
+import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, ConferirConta, CopiarValor, MarcarConferidos, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
 import { ChecarRotina } from "@/components/Rotinas";
 import { ExtratoMes, GradeParcelas, RolarAteMes } from "@/components/FinancasPlanilha";
 import { FinancasProvider } from "@/components/FinancasContexto";
 import { Consultor, type BaseConsultor } from "@/components/Consultor";
+import { Decisoes } from "@/components/Decisoes";
+import { ConferirExtrato } from "@/components/ConferirExtrato";
+import { avisosDoDia, checagens } from "@/lib/conferencia";
 import { Anel } from "@/components/Caminho";
 import type { ContextItem } from "@/components/Shell";
 import { diaMes, hojeISO, rotuloData, somarMeses } from "@/lib/datas";
 import {
   AJUSTE, CAMPOS_CATEGORIA, CAMPOS_CONTA, CAMPOS_INVESTIMENTO, CAMPOS_LANCAMENTO, CAMPOS_MOVIMENTO, CAMPOS_PARCELAMENTO, contasDoMes, datasDeSalario, ehAjuste, extratoDoMes, saldoAte, SALDO_INICIAL, type Categoria, type Conta, envelopes, limitesDoMes, mesCurto, mesDoDia, mesVizinho, moeda,
-  movimentosDe, naConta, normalizarAjustes, normalizarInvestimento, normalizarLancamento, normalizarMovimento, normalizarParcelamento, parcelasDoCiclo, pixDoMes, projetar, valorParcela, resumoDoMes,
+  movimentosDe, naConta, normalizarAjustes, normalizarInvestimento, normalizarLancamento, normalizarMovimento, normalizarParcelamento, parcelasDoCiclo, pixDoMes, projetar, regrasDe, valorParcela, resumoDoMes,
   NATUREZAS, resumoParcelamentos, saldoAtual, situacaoParcelamento, TIPOS_INVESTIMENTO, type Orcamento,
 } from "@/lib/financas";
 import { CAMPOS_ROTINA, type Marcacao, type Rotina } from "@/lib/rotinas";
@@ -39,7 +42,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
     supabase.from("fin_accounts").select(CAMPOS_CONTA).order("position"),
     supabase.from("fin_categories").select(CAMPOS_CATEGORIA).order("position"),
     // O salário marca o começo de cada mês (se cair antes do dia, o mês começa nele)
-    supabase.from("fin_entries").select("kind, category, happened_on").eq("kind", "entrada").eq("category", "Salário"),
+    todasAsLinhas((de, ate) => supabase.from("fin_entries").select("kind, category, happened_on").eq("kind", "entrada").eq("category", "Salário").order("happened_on").range(de, ate)),
   ]);
   const contas = (contasDb ?? []) as Conta[];
   const categorias = (catsDb ?? []) as Categoria[];
@@ -57,7 +60,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
   const [{ data: todosDb }, { data: rotinasDb }, { data: marcasDb }, { data: orcDb }, { data: contextos }, { data: rotasDb }, { data: parcDb }, { data: invDb }, { data: movDb }] = await Promise.all([
     // Todos os lançamentos: o saldo de cada mês é a soma de tudo o que veio antes
-    supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).order("happened_on", { ascending: false }),
+    todasAsLinhas((de, ate) => supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).order("happened_on", { ascending: false }).order("id").range(de, ate)),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").not("month_day", "is", null).not("amount", "is", null),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", inicio).lte("done_on", fim),
     supabase.from("fin_budgets").select("id, category, monthly_limit"),
@@ -65,7 +68,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
     supabase.from("routes").select(CAMPOS_ROTA).eq("kind", "financeiro").order("created_at"),
     supabase.from("fin_installments").select(CAMPOS_PARCELAMENTO).order("first_due"),
     supabase.from("fin_investments").select(CAMPOS_INVESTIMENTO).order("created_at"),
-    supabase.from("fin_inv_moves").select(CAMPOS_MOVIMENTO).order("happened_on", { ascending: false }),
+    todasAsLinhas((de, ate) => supabase.from("fin_inv_moves").select(CAMPOS_MOVIMENTO).order("happened_on", { ascending: false }).order("id").range(de, ate)),
   ]);
   // Contas: sem conta = a principal; arquivada fica fora do mês (a não ser que seja escolhida)
   const principal = contas.find((c) => !c.archived) ?? null;
@@ -116,12 +119,31 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const saldoMes = (m: string) => todos.filter((l) => l.paid && doMes(m, l) && !ehAjuste(l)).reduce((t, l) => t + naConta(l), 0);
   const temMes = (m: string) => todos.some((l) => doMes(m, l));
 
+  // O mês de hoje (do salário): o Pix das parcelas, a renda e os 3 meses fechados para as médias
+  const lAtual = lim(atual);
+  const nomeAtual = diaMes(`${atual}-01`).split(" de ")[1];
+  const pix = pixDoMes(parcelamentos, lAtual.inicio, lAtual.fim);
+  const fechados = [1, 2, 3].map((k) => lim(mesVizinho(atual, -k)));
+  const media = (f: (l: (typeof todos)[number]) => boolean) => fechados.reduce((t, x) => t + todos.filter((l) => l.paid && !ehAjuste(l) && l.happened_on >= x.inicio && l.happened_on <= x.fim && f(l)).reduce((a, l) => a + l.amount, 0), 0) / 3;
+  const rendaAtual = todos.filter((l) => l.paid && l.kind === "entrada" && !ehAjuste(l) && l.happened_on >= lAtual.inicio && l.happened_on <= lAtual.fim).reduce((t, l) => t + l.amount, 0) || media((l) => l.kind === "entrada");
+
+  // Conferência (a Conciliação da planilha) e os avisos do topo (o Início da planilha)
+  const conferencia = checagens({
+    lancamentos: tudo, daConta: tudo.filter((l) => !arquivadas.has(contaDe(l) ?? "")), categorias, parcelamentos,
+    investimentos: ativos.map((i) => ({ nome: i.name, saldo: saldoAtual(i, movs) })), idsInvestimentos: new Set(investimentos.map((i) => i.id)), hoje,
+  });
+  const avisos = avisosDoDia({
+    problemas: conferencia.filter((c) => !c.ok).length, parcelasMes: pix.total, renda: rendaAtual, pctLimite: aj.pct_parcelas,
+    tenho: conta + investido, devo: divida.deve, parcelamentos, hoje, pixFalta: pix.falta, pixVencido: pix.itens.some((i) => !i.paga && i.vence <= hoje),
+    nomeMes: nomeAtual, livre: esteMes ? { alvo: env.livre.alvo, usado: env.livre.usado } : null,
+  });
+
   const Barra = ({ usado, alvo }: { usado: number; alvo: number }) => (
     <span className="fin-cat__bar"><i style={{ width: `${alvo > 0 ? Math.min(100, (usado / alvo) * 100) : usado > 0 ? 100 : 0}%` }} /></span>
   );
 
   return (
-    <FinancasProvider categorias={categorias} contas={contas}>
+    <FinancasProvider categorias={categorias} contas={contas} regras={regrasDe(tudo)}>
     <div className="page page--wide">
       <div className="page__head">
         <div>
@@ -139,6 +161,20 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         <div><small>Devo em parcelas</small><b>{moeda(divida.deve)}</b>{divida.ultima && <span>Livre em {mesCurto(divida.ultima)}</span>}</div>
         <div><small>Tenho menos o que devo</small><b className={conta + investido - divida.deve < 0 ? "neg" : undefined}>{moeda(conta + investido - divida.deve)}</b></div>
       </div>
+
+      {avisos.length > 0 && (
+        <details className="avisos" open={aba === "lancamentos"}>
+          <summary className="sec__h"><ChevronRight aria-hidden />O que eu preciso saber hoje{avisos.some((a) => a.tom === "erro") && <em className="avisos__n">{avisos.filter((a) => a.tom === "erro").length}</em>}</summary>
+          <ul>
+            {avisos.map((a) => (
+              <li key={a.texto} className={`aviso aviso--${a.tom}`}>
+                {a.tom === "info" ? <ArrowRight aria-hidden /> : <AlertTriangle aria-hidden />}
+                {a.link ? <Link href={a.link}>{a.texto}</Link> : <span>{a.texto}</span>}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <nav className="tabs" aria-label="Partes das finanças">
         {ABAS.map((a) => (
@@ -186,6 +222,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
               <div className="fluxo__igual"><small>Saldo em {dias(cm)}/{cm.slice(5)}</small><b className={x.final < 0 ? "neg" : undefined}>{moeda(x.final)}</b><span>{cm === hoje.slice(0, 7) ? <ConferirConta conta={contaSel ?? principal} calculado={saldoAte(todos, hoje)} /> : "Vira o saldo do próximo mês"}</span></div>
             </section>
             <NovoLancamento key={cm} contextos={ctx} inicio={ini} fim={fimCm} investimentos={ativos} />
+            <div className="fin-extrato"><ConferirExtrato lancamentos={tudo.filter((l) => !arquivadas.has(contaDe(l) ?? ""))} investimentos={investimentos} /></div>
             <ExtratoMes key={`l${cm}`} lancamentos={doCm} hoje={hoje} investimentos={investimentos} saldos={saldos} />
           </>
         );
@@ -333,8 +370,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         const quitados = comSit.filter(({ s }) => s.estado === "quitado").sort((a, b) => b.s.ultima.localeCompare(a.s.ultima)).map(({ p }) => p);
         const totalComprado = parcelamentos.reduce((t, p) => t + p.total, 0);
         // Consultor: renda e gasto do dia a dia (sem parcelas) dos 3 meses fechados; parcelas que já saem nos próximos 12
-        const fechados = [1, 2, 3].map((k) => lim(mesVizinho(atual, -k)));
-        const media = (f: (l: (typeof todos)[number]) => boolean) => fechados.reduce((t, x) => t + todos.filter((l) => l.paid && !ehAjuste(l) && l.happened_on >= x.inicio && l.happened_on <= x.fim && f(l)).reduce((a, l) => a + l.amount, 0), 0) / 3;
         // Cada parcela cai no mês (do salário) em que vence: um parcelamento que começa em dezembro só pesa de dezembro em diante
         const vencimentos = parcelamentos.flatMap((p) => { const s = situacaoParcelamento(p, hoje); return Array.from({ length: p.installments }, (_, i) => ({ dia: somarMeses(p.first_due, i), v: valorParcela(p, i) })); });
         const base: BaseConsultor = {
@@ -343,9 +378,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           meses: Array.from({ length: 12 }, (_, k) => { const m = mesVizinho(atual, k); const x = lim(m); return { rotulo: mesCurto(`${m}-01`), parcelas: Math.round(vencimentos.filter((v) => v.dia >= x.inicio && v.dia <= x.fim).reduce((t, v) => t + v.v, 0) * 100) / 100 }; }),
         };
         const [esteMes, proximoMes] = base.meses;
-        const lAtual = lim(atual);
-        const pix = pixDoMes(parcelamentos, lAtual.inicio, lAtual.fim);
-        const nomeAtual = diaMes(`${atual}-01`).split(" de ")[1];
         const aComecar = comSit.filter(({ s }) => s.estado === "a_comecar").length;
         return (
           <>
@@ -373,6 +405,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
               </section>
             )}
             <Consultor base={base} />
+            {emCurso.length > 0 && <Decisoes parcelamentos={emCurso} investido={investido} rende={investimentos.find((i) => i.status === "ativo" && i.monthly_rate)?.monthly_rate ?? 0.009} porMes={pix.total || esteMes.parcelas} />}
             <div style={{ margin: "16px 0" }}><NovoParcelamento contextos={ctx} credores={credores} /></div>
             {parcelamentos.length === 0 ? <p className="empty">Nenhum parcelamento.</p> : (
               <>
@@ -407,9 +440,43 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         const cel = (v: number) => (Math.abs(v) < 0.005 ? <span className="tabela__zero">—</span> : moeda(v).replace("R$", "").trim());
         const n = Math.max(1, usados.length);
         const rotulo = (c: { inicio: string }) => mesCurto(c.inicio);
-        if (!usados.length) return <p className="empty">Nada lançado nos últimos 12 meses.</p>;
+        const erradas = conferencia.filter((c) => !c.ok);
+        const blocoConferencia = (
+          <section className="bloco conf" id="conferencia">
+            <h2 className="sec__h">Conferência<span className="sec__act">{erradas.length ? `${erradas.length} ${erradas.length === 1 ? "pede" : "pedem"} correção` : "Tudo certo"}</span></h2>
+            <ul className="conf__lista">
+              {conferencia.map((c) => {
+                const grupos = c.chave === "repetidos" ? [...new Map(c.itens.map((i) => [`${i.dia}|${i.texto}`, c.itens.filter((x) => x.dia === i.dia && x.texto === i.texto)])).values()] : [];
+                return (
+                  <li key={c.chave} className={c.ok ? "is-ok" : "is-erro"}>
+                    <span className="conf__marca" aria-hidden>{c.ok ? <Check /> : <AlertTriangle />}</span>
+                    <div>
+                      <b>{c.titulo}</b>
+                      <small>{c.detalhe}</small>
+                      {!c.ok && c.chave === "repetidos" && (
+                        <ul className="conf__itens">
+                          {grupos.slice(0, 12).map((g) => (
+                            <li key={g[0].dia + g[0].texto}><Link href={`/financas?lm=${g[0].dia.slice(0, 7)}`}>{diaMes(g[0].dia)} · {g[0].texto}</Link><MarcarConferidos ids={g.map((x) => x.id)} /></li>
+                          ))}
+                        </ul>
+                      )}
+                      {!c.ok && c.chave !== "repetidos" && (
+                        <ul className="conf__itens">
+                          {c.itens.slice(0, 12).map((i) => <li key={i.id}>{/^\d{4}-\d{2}-\d{2}$/.test(i.dia) && c.chave !== "parcelas" && c.chave !== "investimentos" ? <Link href={`/financas?lm=${i.dia.slice(0, 7)}`}>{diaMes(i.dia)} · {i.texto}</Link> : <span>{i.texto}</span>}</li>)}
+                          {c.itens.length > 12 && <li><span>e mais {c.itens.length - 12}</span></li>}
+                        </ul>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+        if (!usados.length) return <>{blocoConferencia}<p className="empty">Nada lançado nos últimos 12 meses.</p></>;
         return (
           <>
+            {blocoConferencia}
             <p className="field__hint" style={{ margin: "0 0 10px" }}>Em R$, cada mês de {dr > 1 ? `${dr} a ${dr - 1}` : "1 a 31"}. O saldo final de um mês é o inicial do seguinte.</p>
             <div className="planilha__rolo">
               <table className="tabela tabela--resumo">

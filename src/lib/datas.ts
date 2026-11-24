@@ -131,9 +131,13 @@ export const horaDe = (timestamp: string) => agoraHora(new Date(timestamp));
 /** Parâmetro de rota é um id do banco? */
 export const ehId = (v: string | undefined | null): v is string => !!v && /^[0-9a-f-]{36}$/i.test(v);
 
-/** Número digitado no jeito brasileiro: "1.234,5" → 1234.5 (NaN vira 0) */
+/** Número digitado: "1.234,5" → 1234.5, "64.00" → 64 (o que não for número vira 0) */
 export function numeroBR(v: string): number {
-  const n = Number(v.replace(/\./g, "").replace(",", "."));
+  let t = v.replace(/[R$\s]/g, "");
+  // "1.234,56" e "1,5" (vírgula decimal); "64.00" e "0.9" (ponto decimal); "1.234" (ponto de milhar)
+  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  else if (/\.\d{3}$/.test(t) || (t.match(/\./g) ?? []).length > 1) t = t.replace(/\./g, "");
+  const n = Number(t);
   return Number.isFinite(n) ? n : 0;
 }
 

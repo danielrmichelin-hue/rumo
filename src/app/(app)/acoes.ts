@@ -9,7 +9,8 @@ import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, t
 import { CORES_CONTEXTO, type Estado } from "@/lib/tipos";
 import { CORES_MATERIA, INTERVALOS, proximaRevisao, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 import { textoFrequencia } from "@/lib/rotinas";
-import { AJUSTE, CAMPOS_LANCAMENTO, limitesDoMes, mesDoDia, moeda, SALDO_INICIAL, naConta, normalizarLancamento, tipoNoBanco, TIPOS_INVESTIMENTO, valorParcela } from "@/lib/financas";
+import { AJUSTE, CAMPOS_LANCAMENTO, limitesDoMes, mesDoDia, moeda, SALDO_INICIAL, naConta, normalizarLancamento, tipoNoBanco, TIPOS_INVESTIMENTO, valorParcela, dividir } from "@/lib/financas";
+import { CONFERIDO } from "@/lib/conferencia";
 import { TIPOS_SAUDE, type TipoMedida, MEDIDAS } from "@/lib/saude";
 
 function atualizar() {
@@ -1153,23 +1154,44 @@ function tipoLancamento(kind: string, investimento?: string | null): { erro: str
   return { kind: kind === "entrada" ? "entrada" : "saida", investment_id: null };
 }
 
-export async function lancar(d: DadosLancamento): Promise<{ ok: boolean; erro?: string; id?: string }> {
+/** A linha do banco para um lançamento, ou o erro em português */
+function linhaDoLancamento(d: DadosLancamento): { linha?: Record<string, unknown>; erro?: string } {
   const description = d.description.trim().slice(0, 120);
-  if (!(d.amount > 0)) return { ok: false, erro: "Informe o valor." };
-  if (!description) return { ok: false, erro: "Diga o que foi." };
-  if (!DATA.test(d.happened_on)) return { ok: false, erro: "Data inválida." };
+  if (!(d.amount > 0) || !Number.isFinite(d.amount)) return { erro: "Informe o valor." };
+  if (!description) return { erro: "Diga o que foi." };
+  if (!DATA.test(d.happened_on)) return { erro: "Data inválida." };
   const t = tipoLancamento(d.kind, d.investment_id);
-  if ("erro" in t) return { ok: false, erro: t.erro };
+  if ("erro" in t) return { erro: t.erro };
   const transferencia = t.kind === "aporte" || t.kind === "resgate";
+  return {
+    linha: { kind: tipoNoBanco(t.kind), investment_id: t.investment_id, amount: Math.round(d.amount * 100) / 100, description, category: transferencia ? "Investimentos" : d.category.trim().slice(0, 60) || "Outros", happened_on: d.happened_on, paid: transferencia ? true : d.paid, context_id: d.context_id || null, account_id: ehId(d.account_id ?? null) ? d.account_id : null },
+  };
+}
+
+export async function lancar(d: DadosLancamento): Promise<{ ok: boolean; erro?: string; id?: string }> {
+  const r = linhaDoLancamento(d);
+  if (!r.linha) return { ok: false, erro: r.erro };
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("fin_entries")
-    .insert({ kind: tipoNoBanco(t.kind), investment_id: t.investment_id, amount: Math.round(d.amount * 100) / 100, description, category: transferencia ? "Investimentos" : d.category.trim().slice(0, 60) || "Outros", happened_on: d.happened_on, paid: transferencia ? true : d.paid, context_id: d.context_id || null, account_id: ehId(d.account_id ?? null) ? d.account_id : null })
-    .select("id")
-    .single();
+  const { data, error } = await supabase.from("fin_entries").insert(r.linha).select("id").single();
   if (error || !data) return { ok: false, erro: "Não foi possível lançar." };
   atualizar();
   return { ok: true, id: data.id };
+}
+
+/** Vários lançamentos de uma vez (do extrato do banco): ou entram todos, ou nenhum */
+export async function lancarVarios(lista: DadosLancamento[]): Promise<{ ok: boolean; erro?: string; ids?: string[] }> {
+  if (!lista.length || lista.length > 500) return { ok: false, erro: "Nada para lançar." };
+  const linhas: Record<string, unknown>[] = [];
+  for (const [i, d] of lista.entries()) {
+    const r = linhaDoLancamento(d);
+    if (!r.linha) return { ok: false, erro: `Linha ${i + 1} (${d.description || "sem descrição"}): ${r.erro}` };
+    linhas.push(r.linha);
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("fin_entries").insert(linhas).select("id");
+  if (error || !data || data.length !== linhas.length) return { ok: false, erro: "Não foi possível lançar. Nada foi gravado." };
+  atualizar();
+  return { ok: true, ids: data.map((l) => l.id) };
 }
 
 export async function apagarLancamento(id: string) {
@@ -1302,6 +1324,55 @@ export async function pagarParcela(id: string): Promise<{ ok: boolean; lancament
   await sincronizarParcelas(supabase, [id]);
   atualizar();
   return { ok: true, lancamento: l?.id };
+}
+
+/** Conferência: estes lançamentos iguais são de verdade (não aparecem mais como repetidos) */
+export async function marcarConferidos(ids: string[]) {
+  const validos = ids.filter(ehId).slice(0, 50);
+  if (!validos.length) return;
+  const supabase = await createClient();
+  const { data } = await supabase.from("fin_entries").select("id, note").in("id", validos);
+  for (const l of data ?? []) {
+    if ((l.note ?? "").includes(CONFERIDO)) continue;
+    await supabase.from("fin_entries").update({ note: l.note ? `${l.note} · ${CONFERIDO}` : CONFERIDO }).eq("id", l.id);
+  }
+  atualizar();
+}
+
+/** Quitar o parcelamento hoje: uma saída por parcela que falta (ligada a ele), somando exatamente o valor pago */
+export async function quitarParcelamento(id: string, valorPago: number): Promise<{ ok: boolean; erro?: string; lancamentos?: string[] }> {
+  if (!ehId(id)) return { ok: false, erro: "Parcelamento inválido." };
+  const supabase = await createClient();
+  const { data: p } = await supabase.from("fin_installments").select("title, category, total, installments, paid_count, context_id").eq("id", id).single();
+  if (!p) return { ok: false, erro: "Parcelamento não encontrado." };
+  const faltam = p.installments - p.paid_count;
+  if (faltam <= 0) return { ok: false, erro: "Este parcelamento já está quitado." };
+  const restante = Math.round(Array.from({ length: faltam }, (_, i) => valorParcela({ total: Number(p.total), installments: p.installments }, p.paid_count + i)).reduce((t, v) => t + v, 0) * 100) / 100;
+  const valor = Math.round(valorPago * 100) / 100;
+  if (!(valor > 0) || valor > restante + 0.005) return { ok: false, erro: `O valor da quitação vai de R$ 0,01 até ${moeda(restante)}.` };
+  // Sem desconto, cada lançamento é a parcela de verdade; com desconto, o valor pago dividido entre elas
+  const valores = Math.abs(valor - restante) < 0.005
+    ? Array.from({ length: faltam }, (_, i) => valorParcela({ total: Number(p.total), installments: p.installments }, p.paid_count + i))
+    : dividir(valor, faltam);
+  const hoje = hojeISO();
+  const linhas = valores.map((v, i) => ({
+    kind: "saida", amount: v, category: p.category, happened_on: hoje, paid: true, installment_id: id, context_id: p.context_id,
+    description: `${p.title.trim()} · quitação, parcela ${p.paid_count + i + 1} de ${p.installments}`.slice(0, 120),
+  }));
+  const { data, error } = await supabase.from("fin_entries").insert(linhas).select("id");
+  if (error) return { ok: false, erro: "Não foi possível lançar a quitação." };
+  await sincronizarParcelas(supabase, [id]);
+  atualizar();
+  return { ok: true, lancamentos: (data ?? []).map((l) => l.id) };
+}
+
+/** Desfaz a quitação: apaga os lançamentos dela */
+export async function desfazerQuitacao(id: string, lancamentos: string[]) {
+  if (!ehId(id) || !lancamentos.every(ehId)) return;
+  const supabase = await createClient();
+  await supabase.from("fin_entries").delete().in("id", lancamentos).eq("installment_id", id);
+  await sincronizarParcelas(supabase, [id]);
+  atualizar();
 }
 
 /** Desfaz o último pagamento (tira o lançamento dele, se houver, e volta uma parcela) */

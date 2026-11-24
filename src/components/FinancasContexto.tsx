@@ -4,13 +4,13 @@
 import { createContext, useContext, useState, useTransition } from "react";
 import { Check, X } from "lucide-react";
 import { criarCategoria } from "@/app/(app)/acoes";
-import { nomesCategorias, type Categoria, type Conta } from "@/lib/financas";
+import { nomesCategorias, type Categoria, type Conta, type Regra } from "@/lib/financas";
 import { useAvisar } from "./Avisos";
 
-const Ctx = createContext<{ categorias: Categoria[]; contas: Conta[] }>({ categorias: [], contas: [] });
+const Ctx = createContext<{ categorias: Categoria[]; contas: Conta[]; regras: Regra[] }>({ categorias: [], contas: [], regras: [] });
 
-export function FinancasProvider({ categorias, contas, children }: { categorias: Categoria[]; contas: Conta[]; children: React.ReactNode }) {
-  return <Ctx.Provider value={{ categorias, contas }}>{children}</Ctx.Provider>;
+export function FinancasProvider({ categorias, contas, regras = [], children }: { categorias: Categoria[]; contas: Conta[]; regras?: Regra[]; children: React.ReactNode }) {
+  return <Ctx.Provider value={{ categorias, contas, regras }}>{children}</Ctx.Provider>;
 }
 
 export const useFinancas = () => useContext(Ctx);

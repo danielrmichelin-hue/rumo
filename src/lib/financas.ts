@@ -21,6 +21,7 @@ export type Lancamento = {
   investment_id?: string | null;
   /** de qual conta (sem conta = a principal) */
   account_id?: string | null;
+  note?: string | null;
 };
 export type Conta = { id: string; name: string; position: number; archived: boolean };
 export const CAMPOS_CONTA = "id, name, position, archived";
@@ -39,7 +40,7 @@ export const nomesCategorias = (lista: Categoria[], kind: "entrada" | "saida") =
 };
 export type Orcamento = { id: string; category: string; monthly_limit: number };
 
-export const CAMPOS_LANCAMENTO = "id, kind, amount, description, category, happened_on, paid, routine_id, context_id, installment_id, investment_id, account_id";
+export const CAMPOS_LANCAMENTO = "id, kind, amount, description, category, happened_on, paid, routine_id, context_id, installment_id, investment_id, account_id, note";
 
 export const CATEGORIAS_SAIDA = ["Moradia", "Mercado", "Restaurantes e delivery", "Contas da casa", "Transporte", "Saúde", "Cuidados pessoais", "Educação", "Lazer", "Assinaturas", "Compras", "Presentes e doações", "Impostos", "Outros"];
 export const CATEGORIAS_ENTRADA = ["Salário", "Pró-labore", "Vendas", "Serviços", "Rendimentos", "Outros"];
@@ -47,6 +48,45 @@ export const CATEGORIAS_ENTRADA = ["Salário", "Pró-labore", "Vendas", "Serviç
 export const ROTULO_TIPO: Record<TipoLancamento, string> = { saida: "Saída", entrada: "Entrada", aporte: "Investi", resgate: "Resgatei" };
 /** Investir e resgatar são transferências entre a conta e o investimento: não são gasto nem renda */
 export const ehTransferencia = (l: Pick<Lancamento, "kind">) => l.kind === "aporte" || l.kind === "resgate";
+
+// ---------- regras: a categoria sai da última vez que lançou a mesma coisa ----------
+
+/** Uma descrição já lançada: o texto, o tipo e a categoria da última vez */
+export type Regra = { d: string; t: string; k: "entrada" | "saida"; c: string };
+const PALAVRAS_VAZIAS = new Set(["de", "da", "do", "das", "dos", "e", "a", "o", "em", "no", "na", "para", "pix", "compra", "pagamento", "transferencia", "enviada", "recebida", "enviado", "recebido", "pelo", "pela", "debito", "credito", "ltda", "com", "sem"]);
+/** "Combustível Fox · parcela 2 de 5" → "combustivel fox" */
+export const normalizarDescricao = (s: string) =>
+  s.split("·")[0].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
+
+/** As regras a partir dos lançamentos (do mais recente): uma por descrição, sem transferências nem ajustes */
+export function regrasDe(lancamentos: Lancamento[]): Regra[] {
+  const vistas = new Map<string, Regra>();
+  for (const l of [...lancamentos].sort((a, b) => b.happened_on.localeCompare(a.happened_on))) {
+    if (ehTransferencia(l) || ehAjuste(l) || !l.category) continue;
+    const d = normalizarDescricao(l.description);
+    if (d.length >= 2 && !vistas.has(d)) vistas.set(d, { d, t: l.description.split("·")[0].trim(), k: l.kind as "entrada" | "saida", c: l.category });
+  }
+  return [...vistas.values()];
+}
+
+/** A categoria para uma descrição: igual a uma já lançada, depois começando igual, depois pela primeira palavra */
+export function sugerirCategoria(regras: Regra[], texto: string, kind?: "entrada" | "saida"): (Regra & { exata: boolean }) | null {
+  const n = normalizarDescricao(texto);
+  if (n.length < 3) return null;
+  const doTipo = kind ? regras.filter((r) => r.k === kind) : regras;
+  const exata = doTipo.find((r) => r.d === n) ?? regras.find((r) => r.d === n);
+  if (exata) return { ...exata, exata: true };
+  const comeco = n.length >= 4 ? doTipo.find((r) => r.d.startsWith(n)) : undefined;
+  if (comeco) return { ...comeco, exata: false };
+  // A que tem mais palavras em comum (Posto Fox → "fox" → Combustível Fox); no empate, a lançada mais recente
+  const palavras = n.split(" ").filter((w) => w.length >= 3 && !PALAVRAS_VAZIAS.has(w));
+  let melhor: Regra | null = null, pontos = 0;
+  for (const r of doTipo) {
+    const p = palavras.filter((w) => r.d.split(" ").includes(w)).length;
+    if (p > pontos) { melhor = r; pontos = p; }
+  }
+  return melhor ? { ...melhor, exata: false } : null;
+}
 /** Efeito na conta: entrada e resgate somam; saída e aporte tiram */
 export const naConta = (l: Pick<Lancamento, "kind" | "amount">) => (l.kind === "entrada" || l.kind === "resgate" ? l.amount : -l.amount);
 
@@ -159,9 +199,9 @@ export const normalizarAjustes = (a: Record<string, unknown> | null): Ajustes =>
 
 // ---------- parcelamentos ----------
 
-export type Parcelamento = { id: string; title: string; category: string; total: number; installments: number; paid_count: number; first_due: string; creditor: string | null; context_id: string | null; note: string | null };
-export const CAMPOS_PARCELAMENTO = "id, title, category, total, installments, paid_count, first_due, creditor, context_id, note";
-export const normalizarParcelamento = (p: Record<string, unknown>): Parcelamento => ({ ...(p as Parcelamento), total: Number(p.total), installments: Number(p.installments), paid_count: Number(p.paid_count) });
+export type Parcelamento = { id: string; title: string; category: string; total: number; installments: number; paid_count: number; paid_before?: number; first_due: string; creditor: string | null; context_id: string | null; note: string | null };
+export const CAMPOS_PARCELAMENTO = "id, title, category, total, installments, paid_count, paid_before, first_due, creditor, context_id, note";
+export const normalizarParcelamento = (p: Record<string, unknown>): Parcelamento => ({ ...(p as Parcelamento), total: Number(p.total), installments: Number(p.installments), paid_count: Number(p.paid_count), paid_before: Number(p.paid_before ?? 0) });
 
 const MES_CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 /** "dez/27" */
@@ -181,6 +221,27 @@ export function situacaoParcelamento(p: Parcelamento, hoje: string) {
 export function valorParcela(p: Pick<Parcelamento, "total" | "installments">, k: number) {
   const base = Math.round((p.total / p.installments) * 100) / 100;
   return k === p.installments - 1 ? Math.round((p.total - base * (p.installments - 1)) * 100) / 100 : base;
+}
+
+/** Divide um valor em n partes no centavo; a última leva a diferença (a soma bate exato) */
+export function dividir(valor: number, n: number) {
+  const base = Math.round((valor / n) * 100) / 100;
+  return Array.from({ length: n }, (_, k) => (k === n - 1 ? Math.round((valor - base * (n - 1)) * 100) / 100 : base));
+}
+
+/** Quitar antes ou deixar rendendo (a conta da aba Decisões da planilha), até o fim das parcelas que faltam.
+ *  Quitar: sai hoje o custo da quitação (com juros, o valor presente das parcelas) e, a cada mês, o que seria a parcela vai para o investimento.
+ *  Manter: o investido fica rendendo e as parcelas saem do salário. */
+export function quitarOuManter(p: Parcelamento, investido: number, jurosMes: number, rendeMes: number) {
+  const faltam = Array.from({ length: p.installments - p.paid_count }, (_, i) => valorParcela(p, p.paid_count + i));
+  const n = faltam.length;
+  const restante = Math.round(faltam.reduce((t, v) => t + v, 0) * 100) / 100;
+  const custo = jurosMes > 0 ? Math.round(faltam.reduce((t, v, i) => t + v / Math.pow(1 + jurosMes, i + 1), 0) * 100) / 100 : restante;
+  const cresce = (v: number, meses: number) => v * Math.pow(1 + rendeMes, meses);
+  const quitar = cresce(investido - custo, n) + faltam.reduce((t, v, i) => t + cresce(v, n - 1 - i), 0);
+  const manter = cresce(investido, n);
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  return { n, restante, custo, economia: r2(restante - custo), sobraInvestido: r2(investido - custo), quitar: r2(quitar), manter: r2(manter), diferenca: r2(quitar - manter) };
 }
 
 /** O Pix das parcelas do mês: as que vencem entre início e fim e as que ficaram para trás sem pagar */
