@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { Check, Trash2, X } from "lucide-react";
 import { apagarLancamento, apagarParcelamento, desfazerParcela, editarLancamento, pagarParcela, salvarParcelamento } from "@/app/(app)/acoes";
 import { numeroBR, somarMeses } from "@/lib/datas";
-import { ehTransferencia, mesCurto, moeda, naConta, ROTULO_TIPO, situacaoParcelamento, type Investimento, type Lancamento, type Parcelamento } from "@/lib/financas";
+import { ehTransferencia, mesCurto, ordemDoDia, moeda, naConta, ROTULO_TIPO, situacaoParcelamento, type Investimento, type Lancamento, type Parcelamento } from "@/lib/financas";
 import { CampoCategoria, CampoConta } from "./FinancasContexto";
 import { useAvisar } from "./Avisos";
 import { Painel } from "./Comuns";
@@ -48,7 +48,7 @@ export function ExtratoMes({ lancamentos, hoje, investimentos = [], saldos }: { 
   // Extrato de banco: uma lista só, do dia 1 ao fim do mês, com a data em cada linha e o saldo depois de cada lançamento
   const lista = useMemo(() => {
     if (!saldos) return [];
-    const ordem = [...lancamentos].sort((a, b) => a.happened_on.localeCompare(b.happened_on));
+    const ordem = [...lancamentos].sort(ordemDoDia);
     if (!ordem.length) return [];
     const d0 = ordem[0].happened_on;
     let saldo = (saldos[d0] ?? 0) - ordem.filter((l) => l.paid && l.happened_on === d0).reduce((t, l) => t + naConta(l), 0);

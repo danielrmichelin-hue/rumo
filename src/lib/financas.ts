@@ -22,6 +22,7 @@ export type Lancamento = {
   /** de qual conta (sem conta = a principal) */
   account_id?: string | null;
   note?: string | null;
+  created_at?: string;
 };
 export type Conta = { id: string; name: string; position: number; archived: boolean };
 export const CAMPOS_CONTA = "id, name, position, archived";
@@ -40,13 +41,16 @@ export const nomesCategorias = (lista: Categoria[], kind: "entrada" | "saida") =
 };
 export type Orcamento = { id: string; category: string; monthly_limit: number };
 
-export const CAMPOS_LANCAMENTO = "id, kind, amount, description, category, happened_on, paid, routine_id, context_id, installment_id, investment_id, account_id, note";
+export const CAMPOS_LANCAMENTO = "id, kind, amount, description, category, happened_on, paid, routine_id, context_id, installment_id, investment_id, account_id, note, created_at";
 
 export const CATEGORIAS_SAIDA = ["Moradia", "Mercado", "Restaurantes e delivery", "Contas da casa", "Transporte", "Saúde", "Cuidados pessoais", "Educação", "Lazer", "Assinaturas", "Compras", "Presentes e doações", "Impostos", "Outros"];
 export const CATEGORIAS_ENTRADA = ["Salário", "Pró-labore", "Vendas", "Serviços", "Rendimentos", "Outros"];
 
 export const ROTULO_TIPO: Record<TipoLancamento, string> = { saida: "Saída", entrada: "Entrada", aporte: "Investi", resgate: "Resgatei" };
 /** Investir e resgatar são transferências entre a conta e o investimento: não são gasto nem renda */
+/** No mesmo dia, o que entra vem antes do que sai (o salário antes das contas); depois, na ordem em que foi lançado */
+export const ordemDoDia = (a: Lancamento, b: Lancamento) =>
+  a.happened_on.localeCompare(b.happened_on) || Number(naConta(b) > 0) - Number(naConta(a) > 0) || (a.created_at ?? "").localeCompare(b.created_at ?? "") || a.id.localeCompare(b.id);
 export const ehTransferencia = (l: Pick<Lancamento, "kind">) => l.kind === "aporte" || l.kind === "resgate";
 
 // ---------- regras: a categoria sai da última vez que lançou a mesma coisa ----------
