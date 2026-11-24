@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient, todasAsLinhas } from "@/lib/supabase/server";
-import { AjustesFinancas, CopiarValor } from "@/components/Financas";
+import { CopiarValor } from "@/components/Financas";
 import { GradeParcelas, RolarAteMes } from "@/components/FinancasPlanilha";
 import { FinancasProvider } from "@/components/FinancasContexto";
 import { Consultor, type BaseConsultor } from "@/components/Consultor";
@@ -148,7 +148,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         <div className="page__actions">
           <AtualizarPlanilha lancamentos={tudo} investimentos={investimentos} parcelamentos={parcelamentos} ajustes={aj} hoje={hoje}
             rendimentos={(movDb ?? []).map(normalizarMovimento).filter((m) => m.kind === "rendimento" && m.note !== SALDO_INICIAL && m.note !== AJUSTE).map((m) => ({ id: m.id, investment_id: m.investment_id, happened_on: m.happened_on, amount: m.amount }))} />
-          <AjustesFinancas ajustes={aj} />
         </div>
       </div>
 

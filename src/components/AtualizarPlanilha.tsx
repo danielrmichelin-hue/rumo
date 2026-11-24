@@ -8,7 +8,7 @@ import { espelharPlanilha, type PacoteEspelho } from "@/app/(app)/acoes";
 import { lerXlsx } from "@/lib/xlsx";
 import { ABAS_PLANILHA, espelhar, lerPlanilha, type PlanilhaLida } from "@/lib/planilha";
 import { moeda, ROTULO_TIPO, type Investimento, type Lancamento, type Parcelamento } from "@/lib/financas";
-import { CampoCategoria, useFinancas } from "./FinancasContexto";
+import { useFinancas } from "./FinancasContexto";
 import { useAvisar } from "./Avisos";
 import { Painel } from "./Comuns";
 
@@ -127,7 +127,7 @@ export function AtualizarPlanilha({ lancamentos, investimentos, parcelamentos, r
                           <div className="extrato-banco__campos">
                             {n.tipo === "aporte" || n.tipo === "resgate"
                               ? <span className="field__hint">{ROTULO_TIPO[n.tipo]} · investimento</span>
-                              : <CampoCategoria kind={n.tipo} value={categorias[n.chave] ?? n.category} onChange={(v) => setCategorias((c) => ({ ...c, [n.chave]: v }))} rotulo="" />}
+                              : <span className="field__hint">{n.category}</span>}
                           </div>
                         </li>
                       ))}

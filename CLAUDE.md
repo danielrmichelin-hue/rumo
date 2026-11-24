@@ -28,7 +28,7 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   Conta Empresa de fev/2026 está arquivada). Categorias do Daniel em `fin_categories` (criar, renomear com os
   lançamentos acompanhando, tipo essencial/estilo/objetivos, arquivar), via `FinancasProvider`/`CampoCategoria`.
   **Por enquanto Finanças é só para ver (decisão do Daniel, 24/11/2026)**: a planilha manda e entra por "Atualizar da planilha";
-  sem aba Lançamentos e sem botões de lançar, editar, apagar, pagar parcela ou mexer em investimento. Abas: Mês (abre primeiro;
+  sem aba Lançamentos e sem botões de lançar, editar, apagar, pagar parcela, mexer em investimento, nem Ajustes (categorias, contas, dia do salário); o único botão é "Atualizar da planilha", e nele a categoria só aparece. Abas: Mês (abre primeiro;
   período do salário, para pagar, divisão, para onde foi), Parcelas (Pix do mês, "Quando cada uma acaba" = linha do tempo e
   "Quanto sai por mês" empilhado com o limite, em `src/components/GraficosFinancas.tsx`; consultor, quitar ou manter, quando cada
   dívida sai, grade), Investimentos (evolução real × previsto × plano, plano mês a mês, metas) e Resumo (conferência, painel).
