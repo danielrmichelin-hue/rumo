@@ -105,7 +105,7 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   pg_cron `rumo-avisos` a cada 5 min chamando a função `avisos`) e 0018 (`study_questions`: exercícios com acertos por matéria/tema;
   `study_mocks`: provas e notas) e 0019 (notas decimais em `study_mocks`) e 0020 (`profiles.hidden_areas`: áreas escondidas da lateral;
   `profiles.capture_token` e as funções `rumo_contextos_por_chave`/`rumo_capturar_por_chave` para o atalho da Siri em
-  `src/app/api/capturar/route.ts`, rota pública com a chave) e 0022 (`fin_accounts`, `account_id`, `fin_categories`, `paid_before`) e 0023 (`plan_steps` nos investimentos: o plano em degraus) e 0024 (`rumo_espelhar_planilha`: o espelho da planilha numa transação) e 0021 (`profiles.ical_url`: agenda do Google pelo endereço
+  `src/app/api/capturar/route.ts`, rota pública com a chave) e 0022 (`fin_accounts`, `account_id`, `fin_categories`, `paid_before`) e 0023 (`plan_steps` nos investimentos: o plano em degraus) e 0024 (`rumo_espelhar_planilha`: o espelho da planilha numa transação) e 0025 (a mesma função com WHERE em todo UPDATE: a API do Supabase recusa UPDATE sem WHERE) e 0021 (`profiles.ical_url`: agenda do Google pelo endereço
   secreto iCal, lida em `src/lib/ical.ts` com cache de 5 min e mostrada no Hoje, Calendário e Semana; ids `g-…` abrem o Google
   Agenda; dia inteiro fica de fora) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.

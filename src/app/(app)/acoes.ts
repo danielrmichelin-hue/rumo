@@ -1355,7 +1355,7 @@ export async function espelharPlanilha(p: PacoteEspelho): Promise<{ ok: boolean;
   if (p.pcts && p.pcts.pct_parcelas + p.pcts.pct_investir + p.pcts.pct_livre !== 100) return ruim("a divisão do mês não soma 100%");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("rumo_espelhar_planilha", { p });
-  if (error) return { ok: false, erro: "O banco recusou a atualização. Nada foi gravado." };
+  if (error) return { ok: false, erro: `O banco recusou a atualização (${error.message.slice(0, 160)}). Nada foi gravado.` };
   atualizar();
   return { ok: true, feito: data as Record<string, number> };
 }
