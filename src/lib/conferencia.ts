@@ -35,7 +35,7 @@ export function checagens({ lancamentos, daConta, categorias, parcelamentos, inv
     if (saldo < -0.05 && dia <= hoje) negativos.push({ id: dia, dia, texto: `Fim do dia ${dm(dia)}: ${moeda(saldo)}` });
   }
   add("negativo", "A conta não fica negativa em nenhum dia", negativos.reverse(), "Em nenhum dia o saldo ficou abaixo de zero.",
-    (n) => `Em ${n} ${n === 1 ? "dia" : "dias"} o saldo ficou negativo: falta lançar uma entrada, ou um valor ou uma data está errado.`);
+    (n) => `Em ${n} ${n === 1 ? "dia" : "dias"} o saldo ficou negativo: falta uma entrada na planilha, ou um valor ou uma data está errado.`);
 
   // 2. Lançamentos repetidos (mesmo dia, valor, tipo e descrição), a menos que já tenha conferido
   const grupos = new Map<string, Lancamento[]>();
@@ -46,7 +46,7 @@ export function checagens({ lancamentos, daConta, categorias, parcelamentos, inv
   }
   const repetidos = [...grupos.values()].filter((g) => g.length > 1).flatMap((g) => g.map((l) => item(l, ` · ${g.length}x no dia`)));
   add("repetidos", "Nenhum lançamento repetido", repetidos.sort((a, b) => b.dia.localeCompare(a.dia)), "Nenhum lançamento igual no mesmo dia.",
-    (n) => `${n} lançamentos iguais no mesmo dia. Se forem de verdade, marque como conferidos; se não, apague o que sobrou.`);
+    (n) => `${n} lançamentos iguais no mesmo dia. Se não forem de verdade, apague o que sobrou na planilha.`);
 
   // 3. Categoria que existe na lista (renomear pela lista acompanha os lançamentos; uma solta fica fora dos resumos)
   const nomes = { entrada: new Set(categorias.filter((c) => c.kind === "entrada").map((c) => c.name)), saida: new Set(categorias.filter((c) => c.kind === "saida").map((c) => c.name)) };
@@ -83,12 +83,12 @@ export function checagens({ lancamentos, daConta, categorias, parcelamentos, inv
     return [];
   });
   add("parcelas", "Parcelas pagas batem com os lançamentos", parcelasErradas, "Cada parcela paga tem o seu lançamento.",
-    (n) => `${n} ${n === 1 ? "parcelamento não bate" : "parcelamentos não batem"}: abra e corrija quantas estão pagas.`);
+    (n) => `${n} ${n === 1 ? "parcelamento não bate" : "parcelamentos não batem"}: confira as pagas na aba Dívidas da planilha.`);
 
   // 9. Nada a pagar esquecido
   const vencidos = lancamentos.filter((l) => !l.paid && l.happened_on < hoje).map((l) => item(l, ` · venceu ${dm(l.happened_on)}`));
   add("vencidos", "Nada a pagar ou receber esquecido", vencidos, "Nenhum lançamento em aberto com data passada.",
-    (n) => `${n} em aberto com a data já passada: marque como pago ou mude a data.`);
+    (n) => `${n} em aberto com a data já passada.`);
 
   return lista;
 }

@@ -1,18 +1,16 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Check, ChevronLeft, ChevronRight, Download, Plus, Route } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient, todasAsLinhas } from "@/lib/supabase/server";
-import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, ConferirConta, CopiarValor, MarcarConferidos, PlanoDegraus, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
-import { ChecarRotina } from "@/components/Rotinas";
-import { ExtratoMes, GradeParcelas, RolarAteMes } from "@/components/FinancasPlanilha";
+import { AjustesFinancas, CopiarValor } from "@/components/Financas";
+import { GradeParcelas, RolarAteMes } from "@/components/FinancasPlanilha";
 import { FinancasProvider } from "@/components/FinancasContexto";
 import { Consultor, type BaseConsultor } from "@/components/Consultor";
 import { Decisoes } from "@/components/Decisoes";
-import { ConferirExtrato } from "@/components/ConferirExtrato";
+import { EvolucaoInvestimento, LinhaDoTempoParcelas, prepararParcelas, SaiPorMes } from "@/components/GraficosFinancas";
 import { AtualizarPlanilha } from "@/components/AtualizarPlanilha";
 import { avisosDoDia, checagens } from "@/lib/conferencia";
 import { METAS_NATUREZA, painelDoPeriodo } from "@/lib/painel";
 import { Anel } from "@/components/Caminho";
-import type { ContextItem } from "@/components/Shell";
 import { diaMes, hojeISO, rotuloData, somarMeses } from "@/lib/datas";
 import {
   AJUSTE, CAMPOS_CATEGORIA, CAMPOS_CONTA, CAMPOS_INVESTIMENTO, CAMPOS_LANCAMENTO, CAMPOS_MOVIMENTO, CAMPOS_PARCELAMENTO, contasDoMes, datasDeSalario, ehAjuste, extratoDoMes, saldoAte, SALDO_INICIAL, type Categoria, type Conta, envelopes, limitesDoMes, mesCurto, mesDoDia, mesVizinho, moeda,
@@ -25,7 +23,6 @@ import { CAMPOS_ROTA, normalizar, resumirRota } from "@/lib/rotas";
 export const metadata = { title: "Finanças" };
 
 const ABAS = [
-  { v: "lancamentos", r: "Lançamentos" },
   { v: "mes", r: "Mês" },
   { v: "parcelas", r: "Parcelas" },
   { v: "investimentos", r: "Investimentos" },
@@ -36,7 +33,7 @@ const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "o
 /** O mês financeiro: do dia em que recebe até a véspera do próximo (ou o do calendário), em tudo */
 export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string; aba?: string; lm?: string; conta?: string }> }) {
   const { mes: param, aba: abaParam, lm, conta: contaParam } = await searchParams;
-  const aba = ABAS.find((a) => a.v === abaParam)?.v ?? "lancamentos";
+  const aba = ABAS.find((a) => a.v === abaParam)?.v ?? "mes";
   const hoje = hojeISO();
   const supabase = await createClient();
   const [{ data: ajustesDb }, { data: contasDb }, { data: catsDb }, { data: salariosDb }] = await Promise.all([
@@ -60,13 +57,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const esteMes = mes === atual;
   const doMes = (m: string, l: { happened_on: string }) => { const x = lim(m); return l.happened_on >= x.inicio && l.happened_on <= x.fim; };
 
-  const [{ data: todosDb }, { data: rotinasDb }, { data: marcasDb }, { data: orcDb }, { data: contextos }, { data: rotasDb }, { data: parcDb }, { data: invDb }, { data: movDb }] = await Promise.all([
+  const [{ data: todosDb }, { data: rotinasDb }, { data: marcasDb }, { data: orcDb }, { data: rotasDb }, { data: parcDb }, { data: invDb }, { data: movDb }] = await Promise.all([
     // Todos os lançamentos: o saldo de cada mês é a soma de tudo o que veio antes
     todasAsLinhas((de, ate) => supabase.from("fin_entries").select(CAMPOS_LANCAMENTO).order("happened_on", { ascending: false }).order("id").range(de, ate)),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").not("month_day", "is", null).not("amount", "is", null),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", inicio).lte("done_on", fim),
     supabase.from("fin_budgets").select("id, category, monthly_limit"),
-    supabase.from("contexts").select("id, name, color, kind").eq("archived", false).order("position"),
     supabase.from("routes").select(CAMPOS_ROTA).eq("kind", "financeiro").order("created_at"),
     supabase.from("fin_installments").select(CAMPOS_PARCELAMENTO).order("first_due"),
     supabase.from("fin_investments").select(CAMPOS_INVESTIMENTO).order("created_at"),
@@ -85,7 +81,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const ext = extratoDoMes(todos, inicio, fim);
   const fixas = contasDoMes((rotinasDb ?? []) as Rotina[], (marcasDb ?? []) as Marcacao[], inicio, fim, lancamentos);
   const r = resumoDoMes([...lancamentos, ...atrasados], fixas, (orcDb ?? []) as Orcamento[]);
-  const ctx = (contextos ?? []) as ContextItem[];
   const parcelamentos = (parcDb ?? []).map(normalizarParcelamento);
   const investimentos = (invDb ?? []).map(normalizarInvestimento);
   // Movimentos dos investimentos: aportes e resgates vêm dos lançamentos; rendimentos, da aba Investimentos
@@ -116,7 +111,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const natureza = (cat: string) => categorias.find((c) => c.kind === "saida" && c.name === cat)?.nature ?? null;
   const porNatureza = (["essencial", "estilo", "objetivos"] as const).map((n) => ({ n, v: r.categorias.filter((c) => natureza(c.categoria) === n).reduce((t, c) => t + c.gasto, 0) }));
   const nomeMes = diaMes(`${mes}-01`).split(" de ")[1];
-  const credores = [...new Set(parcelamentos.map((p) => p.creditor).filter((c): c is string => !!c))];
   const ativos = investimentos.filter((i) => i.status === "ativo");
   const saldoMes = (m: string) => todos.filter((l) => l.paid && doMes(m, l) && !ehAjuste(l)).reduce((t, l) => t + naConta(l), 0);
   const temMes = (m: string) => todos.some((l) => doMes(m, l));
@@ -155,7 +149,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           <AtualizarPlanilha lancamentos={tudo} investimentos={investimentos} parcelamentos={parcelamentos} ajustes={aj} hoje={hoje}
             rendimentos={(movDb ?? []).map(normalizarMovimento).filter((m) => m.kind === "rendimento" && m.note !== SALDO_INICIAL && m.note !== AJUSTE).map((m) => ({ id: m.id, investment_id: m.investment_id, happened_on: m.happened_on, amount: m.amount }))} />
           <AjustesFinancas ajustes={aj} />
-          <a href={`/financas/planilha?mes=${mes}`} className="btn btn--line btn--sm"><Download aria-hidden />Planilha</a>
         </div>
       </div>
 
@@ -167,7 +160,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
       </div>
 
       {avisos.length > 0 && (
-        <details className="avisos" open={aba === "lancamentos"}>
+        <details className="avisos" open={aba === "mes"}>
           <summary className="sec__h"><ChevronRight aria-hidden />O que eu preciso saber hoje{avisos.some((a) => a.tom === "erro") && <em className="avisos__n">{avisos.filter((a) => a.tom === "erro").length}</em>}</summary>
           <ul>
             {avisos.map((a) => (
@@ -182,55 +175,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
       <nav className="tabs" aria-label="Partes das finanças">
         {ABAS.map((a) => (
-          <Link key={a.v} href={`/financas?${new URLSearchParams({ ...(a.v !== "lancamentos" ? { aba: a.v } : {}), ...(mes !== atual ? { mes } : {}) })}`} aria-current={a.v === aba ? "page" : undefined}>
+          <Link key={a.v} href={`/financas?${new URLSearchParams({ ...(a.v !== "mes" ? { aba: a.v } : {}), ...(mes !== atual ? { mes } : {}) })}`} aria-current={a.v === aba ? "page" : undefined}>
             {a.r}{a.v === "parcelas" && divida.emCurso > 0 && <em>{divida.emCurso}</em>}{a.v === "investimentos" && investimentos.length > 0 && <em>{investimentos.length}</em>}
           </Link>
         ))}
       </nav>
-
-      {aba === "lancamentos" && (() => {
-        // A base de tudo: os lançamentos pela data, mês do calendário, com o saldo da conta no fim de cada dia
-        const cm = (lm ?? param ?? hoje.slice(0, 7)).slice(0, 7);
-        const cAno = cm.slice(0, 4);
-        const dias = (m: string) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).getUTCDate();
-        const ini = `${cm}-01`, fimCm = `${cm}-${String(dias(cm)).padStart(2, "0")}`;
-        const doCm = todos.filter((l) => l.happened_on >= ini && l.happened_on <= fimCm);
-        const x = extratoDoMes(todos, ini, fimCm);
-        const saldos = Object.fromEntries([...new Set(doCm.map((l) => l.happened_on))].map((d) => [d, saldoAte(todos, d)]));
-        const nomeCm = diaMes(ini).split(" de ")[1];
-        return (
-          <>
-            <div className="meses">
-              <Link href={`/financas?lm=${Number(cAno) - 1}-12`} className="icon-btn" aria-label="Ano anterior"><ChevronLeft size={18} /></Link>
-              <b className="meses__ano">{cAno}</b>
-              <div className="meses__lista">
-                {MESES.map((nome, i) => {
-                  const m = `${cAno}-${String(i + 1).padStart(2, "0")}`;
-                  const n = todos.filter((l) => l.happened_on.startsWith(m)).length;
-                  return (
-                    <Link key={m} href={`/financas?lm=${m}`} className={`mes${m === cm ? " is-atual" : ""}${n ? "" : " is-vazio"}`} aria-current={m === cm ? "page" : undefined}>
-                      <b>{nome}</b><small>{n || "—"}</small>
-                    </Link>
-                  );
-                })}
-              </div>
-              <Link href={`/financas?lm=${Number(cAno) + 1}-01`} className="icon-btn" aria-label="Próximo ano"><ChevronRight size={18} /></Link>
-              <RolarAteMes key={cm} />
-            </div>
-            <section className="fluxo" aria-label={`Conta em ${nomeCm}`}>
-              <div><small>Saldo em 1/{cm.slice(5)}</small><b>{moeda(x.inicial)}</b><span>Fim do mês anterior</span></div>
-              <div className="fluxo__mais"><small>Entradas</small><b className="pos">{moeda(x.entrou)}</b><span>{(n => `${n} ${n === 1 ? "lançamento" : "lançamentos"}`)(doCm.filter((l) => l.kind === "entrada" && !ehAjuste(l)).length)}</span></div>
-              <div className="fluxo__menos"><small>Saídas</small><b>{moeda(x.saiu)}</b><span>{(n => `${n} ${n === 1 ? "lançamento" : "lançamentos"}`)(doCm.filter((l) => l.kind === "saida" && !ehAjuste(l)).length)}</span></div>
-              <div className="fluxo__menos"><small>Investiu</small><b className="transf">{x.investiu < 0 ? "−" : ""}{moeda(Math.abs(x.investiu))}</b><span>Pôs {moeda(x.aportes)} · tirou {moeda(x.resgates)}</span></div>
-              {Math.abs(x.ajustes) >= 0.005 && <div className="fluxo__mais"><small>Ajustes</small><b>{x.ajustes < 0 ? "−" : "+"}{moeda(Math.abs(x.ajustes))}</b><span>Para bater com o banco</span></div>}
-              <div className="fluxo__igual"><small>Saldo em {dias(cm)}/{cm.slice(5)}</small><b className={x.final < 0 ? "neg" : undefined}>{moeda(x.final)}</b><span>{cm === hoje.slice(0, 7) ? <ConferirConta conta={contaSel ?? principal} calculado={saldoAte(todos, hoje)} /> : "Vira o saldo do próximo mês"}</span></div>
-            </section>
-            <NovoLancamento key={cm} contextos={ctx} inicio={ini} fim={fimCm} investimentos={ativos} />
-            <div className="fin-extrato"><ConferirExtrato lancamentos={tudo.filter((l) => !arquivadas.has(contaDe(l) ?? ""))} investimentos={investimentos} /></div>
-            <ExtratoMes key={`l${cm}`} lancamentos={doCm} hoje={hoje} investimentos={investimentos} saldos={saldos} />
-          </>
-        );
-      })()}
 
       {aba === "mes" && (
         <>
@@ -269,22 +218,20 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
             <div className="fluxo__menos"><small>Saiu</small><b>{moeda(ext.saiu)}</b>{r.aPagar + parcelasAPagar.reduce((t, x) => t + x.valor, 0) > 0 ? <span>e {moeda(r.aPagar + parcelasAPagar.reduce((t, x) => t + x.valor, 0))} a pagar</span> : <span>Gastos e parcelas</span>}</div>
             <div className="fluxo__menos"><small>Investiu</small><b className="transf">{ext.investiu < 0 ? "−" : ""}{moeda(Math.abs(ext.investiu))}</b><span>{ext.investiu < 0 ? "Resgatou mais do que pôs" : `Pôs ${moeda(ext.aportes)} · tirou ${moeda(ext.resgates)}`}</span></div>
             {Math.abs(ext.ajustes) >= 0.005 && <div className="fluxo__mais"><small>Ajustes</small><b>{ext.ajustes < 0 ? "−" : "+"}{moeda(Math.abs(ext.ajustes))}</b><span>Para bater com o banco</span></div>}
-            <div className="fluxo__igual"><small>{esteMes ? "Saldo agora" : "Saldo final"}</small><b className={ext.final < 0 ? "neg" : undefined}>{moeda(ext.final)}</b><span>{esteMes ? <ConferirConta conta={contaSel ?? principal} calculado={saldoAte(todos, hoje)} /> : "Vira o saldo inicial do próximo"}</span></div>
+            <div className="fluxo__igual"><small>{esteMes ? "Saldo agora" : "Saldo final"}</small><b className={ext.final < 0 ? "neg" : undefined}>{moeda(ext.final)}</b><span>{esteMes ? "Pela planilha" : "Vira o saldo inicial do próximo"}</span></div>
           </section>
-
-          <p className="fin-lancar"><Link href={`/financas?lm=${hoje.slice(0, 7)}`} className="btn btn--sm"><Plus aria-hidden />Lançar</Link><span>Os números deste mês saem da aba Lançamentos.</span></p>
 
           <div className="fin-cols">
             <div className="fin-principal">
               <section className="bloco">
-                <h2 className="sec__h">Para pagar em {nomeMes} {nAPagar > 0 && <em>{nAPagar}</em>}<span className="sec__act">{parcelasAPagar.length > 1 && <PagarTodas ids={parcelasAPagar.map((x) => x.p.id)} total={parcelasAPagar.reduce((t, x) => t + x.valor, 0)} />}<NovaContaFixa contextos={ctx} /></span></h2>
+                <h2 className="sec__h">Para pagar em {nomeMes} {nAPagar > 0 && <em>{nAPagar}</em>}<span className="sec__act">{moeda(parcelasAPagar.reduce((t, x) => t + x.valor, 0) + contasAbertas.reduce((t, c) => t + c.valor, 0) + aPagarLanc.reduce((t, l) => t + l.amount, 0))}</span></h2>
                 {nAPagar === 0 ? (
                   <p className="bloco__vazio">{fixas.length || parcelamentos.length ? "Tudo pago neste mês." : "Nada para pagar."}</p>
                 ) : (
                   <ul className="list">
                     {parcelasAPagar.map(({ p, valor, numero, vence, atrasada }) => (
                       <li key={p.id} className="row fin-conta">
-                        {esteMes || vence <= hoje ? <PagarParcela id={p.id} titulo={p.title} rotulo={`parcela ${numero} de ${p.installments}`} /> : <span />}
+                        <span className={`fin-conta__marca${atrasada || vence < hoje ? " is-late" : ""}`} aria-hidden />
                         <div className="row__body">
                           <span className="row__t">{p.title}</span>
                           <span className="props"><span className="prop">Parcela {numero} de {p.installments}</span><span className={`prop${atrasada || vence < hoje ? " prop--late" : ""}`}>{atrasada || vence < hoje ? `Venceu ${rotuloData(vence, hoje)}` : vence === hoje ? "Vence hoje" : `Dia ${Number(vence.slice(8))}`}</span></span>
@@ -294,7 +241,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                     ))}
                     {contasAbertas.map((c) => (
                       <li key={c.rotina.id} className="row fin-conta">
-                        {esteMes ? <ChecarRotina rotina={c.rotina} feita={false} /> : <span />}
+                        <span className={`fin-conta__marca${c.dia < hoje && esteMes ? " is-late" : ""}`} aria-hidden />
                         <div className="row__body">
                           <span className="row__t">{c.rotina.title}</span>
                           <span className="props"><span className="prop">Conta fixa</span><span className={`prop${c.dia < hoje && esteMes ? " prop--late" : ""}`}>Dia {Number(c.dia.slice(8))}</span></span>
@@ -302,12 +249,51 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                         <span className="fin-l__v">{moeda(c.valor)}</span>
                       </li>
                     ))}
-                    {aPagarLanc.map((l) => <LinhaLancamento key={l.id} l={l} contexto={ctx.find((c) => c.id === l.context_id)} />)}
+                    {aPagarLanc.map((l) => (
+                      <li key={l.id} className="row fin-conta">
+                        <span className={`fin-conta__marca${l.happened_on < hoje ? " is-late" : ""}`} aria-hidden />
+                        <div className="row__body">
+                          <span className="row__t">{l.description}</span>
+                          <span className="props"><span className="prop">{l.category}</span><span className={`prop${l.happened_on < hoje ? " prop--late" : ""}`}>{l.kind === "entrada" ? "A receber" : "Vence"} {rotuloData(l.happened_on, hoje)}</span></span>
+                        </div>
+                        <span className={`fin-l__v${l.kind === "entrada" ? " pos" : ""}`}>{moeda(l.amount)}</span>
+                      </li>
+                    ))}
                   </ul>
                 )}
               </section>
 
-              <ExtratoMes key={mes} lancamentos={lancamentos} hoje={hoje} investimentos={investimentos} />
+              <section className="bloco" style={{ marginTop: 16 }}>
+                <h2 className="sec__h">Para onde foi em {nomeMes}</h2>
+                {r.categorias.length === 0 ? (
+                  <p className="bloco__vazio">Nenhum gasto.</p>
+                ) : (
+                  <>
+                  {r.saiu > 0 && porNatureza.some((x) => x.v > 0) && (
+                    <div className="natureza" aria-label="Tipo de gasto">
+                      <span className="natureza__barra">{porNatureza.map((x) => x.v > 0 && <i key={x.n} className={`natureza--${x.n}`} style={{ width: `${(x.v / r.saiu) * 100}%` }} />)}</span>
+                      <span className="natureza__leg">{porNatureza.map((x) => <span key={x.n}><i className={`natureza--${x.n}`} />{NATUREZAS[x.n]} {Math.round((x.v / r.saiu) * 100)}%</span>)}</span>
+                    </div>
+                  )}
+                  <ul className="fin-cats">
+                    {r.categorias.map((c) => {
+                      const media = mediaCat(c.categoria);
+                      const delta = media > 0 ? (c.gasto - media) / media : null;
+                      return (
+                        <li key={c.categoria} className={c.limite && c.gasto > c.limite ? "is-passou" : undefined}>
+                          <span className="fin-cat__t"><b>{c.categoria}</b><span>{moeda(c.gasto)}{c.limite ? <small> de {moeda(c.limite)}</small> : null}</span></span>
+                          <span className="fin-cat__bar">
+                            <i style={{ width: `${(c.gasto / maxCat) * 100}%` }} />
+                            {c.limite ? <u style={{ left: `${(c.limite / maxCat) * 100}%` }} aria-hidden /> : null}
+                          </span>
+                          <small className="fin-cat__nota">{r.saiu ? `${Math.round((c.gasto / r.saiu) * 100)}% dos gastos` : ""}{delta !== null && Math.abs(delta) >= 0.05 ? <> · <span className={delta > 0 ? "sobe" : "desce"}>{delta > 0 ? "↑" : "↓"} {Math.round(Math.abs(delta) * 100)}% vs média ({moeda(media)})</span></> : media > 0 ? " · na média" : ""}</small>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  </>
+                )}
+              </section>
             </div>
 
             <aside className="fin-lado">
@@ -332,37 +318,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                 )}
               </section>
 
-              <section className="bloco">
-                <h2 className="sec__h">Para onde foi em {nomeMes}</h2>
-                {r.categorias.length === 0 ? (
-                  <p className="bloco__vazio">Nenhum gasto.</p>
-                ) : (
-                  <>
-                  {r.saiu > 0 && porNatureza.some((x) => x.v > 0) && (
-                    <div className="natureza" aria-label="Tipo de gasto">
-                      <span className="natureza__barra">{porNatureza.map((x) => x.v > 0 && <i key={x.n} className={`natureza--${x.n}`} style={{ width: `${(x.v / r.saiu) * 100}%` }} />)}</span>
-                      <span className="natureza__leg">{porNatureza.map((x) => <span key={x.n}><i className={`natureza--${x.n}`} />{NATUREZAS[x.n]} {Math.round((x.v / r.saiu) * 100)}%</span>)}</span>
-                    </div>
-                  )}
-                  <ul className="fin-cats">
-                    {r.categorias.map((c) => {
-                      const media = mediaCat(c.categoria);
-                      const delta = media > 0 ? (c.gasto - media) / media : null;
-                      return (
-                        <li key={c.categoria} className={c.limite && c.gasto > c.limite ? "is-passou" : undefined}>
-                          <span className="fin-cat__t"><b>{c.categoria}</b><span>{moeda(c.gasto)} <LimiteCategoria categoria={c.categoria} limite={c.limite} /></span></span>
-                          <span className="fin-cat__bar">
-                            <i style={{ width: `${(c.gasto / maxCat) * 100}%` }} />
-                            {c.limite ? <u style={{ left: `${(c.limite / maxCat) * 100}%` }} aria-hidden /> : null}
-                          </span>
-                          <small className="fin-cat__nota">{r.saiu ? `${Math.round((c.gasto / r.saiu) * 100)}% dos gastos` : ""}{delta !== null && Math.abs(delta) >= 0.05 ? <> · <span className={delta > 0 ? "sobe" : "desce"}>{delta > 0 ? "↑" : "↓"} {Math.round(Math.abs(delta) * 100)}% vs média ({moeda(media)})</span></> : media > 0 ? " · na média" : ""}</small>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  </>
-                )}
-              </section>
             </aside>
           </div>
         </>
@@ -375,7 +330,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         const totalComprado = parcelamentos.reduce((t, p) => t + p.total, 0);
         // Consultor: renda e gasto do dia a dia (sem parcelas) dos 3 meses fechados; parcelas que já saem nos próximos 12
         // Cada parcela cai no mês (do salário) em que vence: um parcelamento que começa em dezembro só pesa de dezembro em diante
-        const vencimentos = parcelamentos.flatMap((p) => { const s = situacaoParcelamento(p, hoje); return Array.from({ length: p.installments }, (_, i) => ({ dia: somarMeses(p.first_due, i), v: valorParcela(p, i) })); });
+        const vencimentos = parcelamentos.flatMap((p) => { return Array.from({ length: p.installments }, (_, i) => ({ dia: somarMeses(p.first_due, i), v: valorParcela(p, i) })); });
         const base: BaseConsultor = {
           renda: Math.round(media((l) => l.kind === "entrada")), gasto: Math.round(media((l) => l.kind === "saida" && !l.installment_id)),
           pctParcelas: aj.pct_parcelas, pctInvestir: aj.pct_investir,
@@ -396,7 +351,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                 <h2 className="sec__h">Pix das parcelas de {nomeAtual}<span className="sec__act">{diaMes(lAtual.inicio)} a {diaMes(lAtual.fim)}</span></h2>
                 <div className="pix__total">
                   <div><small>{pix.falta ? (pix.pago ? "Falta mandar" : "Mandar no Pix") : "Pago"}</small><b>{moeda(pix.falta || pix.total)}</b>{pix.pago > 0 && pix.falta > 0 && <span>Já mandou {moeda(pix.pago)} de {moeda(pix.total)}</span>}</div>
-                  {pix.falta > 0 && <span className="pix__acoes"><CopiarValor valor={pix.falta} /><PagarTodas ids={pix.itens.filter((i) => !i.paga).map((i) => i.p.id)} total={pix.falta} rotulo="Mandei o Pix" /></span>}
+                  {pix.falta > 0 && <span className="pix__acoes"><CopiarValor valor={pix.falta} /></span>}
                 </div>
                 <ul className="pix__lista">
                   {pix.itens.map((i) => (
@@ -408,6 +363,21 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                 </ul>
               </section>
             )}
+            {emCurso.length > 0 && (() => {
+              const tl = prepararParcelas(emCurso, (d) => mesDoDia(d, dr, salarios), atual);
+              return (
+                <>
+                  <section className="bloco" style={{ marginBottom: 16 }}>
+                    <h2 className="sec__h">Quando cada uma acaba<span className="sec__act">livre de parcelas em {divida.ultima ? mesCurto(divida.ultima) : "—"}</span></h2>
+                    <LinhaDoTempoParcelas {...tl} />
+                  </section>
+                  <section className="bloco" style={{ marginBottom: 16 }}>
+                    <h2 className="sec__h">Quanto sai por mês<span className="sec__act">a cada uma que acaba, o mês fica mais leve</span></h2>
+                    <SaiPorMes {...tl} limite={Math.round(rendaAtual * aj.pct_parcelas) / 100} />
+                  </section>
+                </>
+              );
+            })()}
             <Consultor base={base} />
             {emCurso.length > 0 && (() => {
               // Quando cada dívida sai (a aba Metas da planilha): na ordem em que acabam, quanto cada uma libera e quanto sobra de parcela por mês depois
@@ -441,12 +411,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
               );
             })()}
             {emCurso.length > 0 && <Decisoes parcelamentos={emCurso} investido={investido} rende={investimentos.find((i) => i.status === "ativo" && i.monthly_rate)?.monthly_rate ?? 0.009} porMes={pix.total || esteMes.parcelas} />}
-            <div style={{ margin: "16px 0" }}><NovoParcelamento contextos={ctx} credores={credores} /></div>
             {parcelamentos.length === 0 ? <p className="empty">Nenhum parcelamento.</p> : (
               <>
-                {emCurso.length > 0 && <section className="sec"><h2 className="sec__h">Em curso <em>{emCurso.length}</em></h2><GradeParcelas parcelamentos={emCurso} hoje={hoje} /></section>}
+                {emCurso.length > 0 && <section className="sec"><h2 className="sec__h">Em curso <em>{emCurso.length}</em></h2><GradeParcelas parcelamentos={emCurso} hoje={hoje} somenteVer /></section>}
                 {quitados.length > 0 && (
-                  <details className="sec fold"><summary className="sec__h"><ChevronRight aria-hidden />Quitados <em>{quitados.length}</em></summary><GradeParcelas parcelamentos={quitados} hoje={hoje} /></details>
+                  <details className="sec fold"><summary className="sec__h"><ChevronRight aria-hidden />Quitados <em>{quitados.length}</em></summary><GradeParcelas parcelamentos={quitados} hoje={hoje} somenteVer /></details>
                 )}
               </>
             )}
@@ -491,13 +460,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                       {!c.ok && c.chave === "repetidos" && (
                         <ul className="conf__itens">
                           {grupos.slice(0, 12).map((g) => (
-                            <li key={g[0].dia + g[0].texto}><Link href={`/financas?lm=${g[0].dia.slice(0, 7)}`}>{diaMes(g[0].dia)} · {g[0].texto}</Link><MarcarConferidos ids={g.map((x) => x.id)} /></li>
+                            <li key={g[0].dia + g[0].texto}><span>{diaMes(g[0].dia)} · {g[0].texto}</span></li>
                           ))}
                         </ul>
                       )}
                       {!c.ok && c.chave !== "repetidos" && (
                         <ul className="conf__itens">
-                          {c.itens.slice(0, 12).map((i) => <li key={i.id}>{/^\d{4}-\d{2}-\d{2}$/.test(i.dia) && c.chave !== "parcelas" && c.chave !== "investimentos" ? <Link href={`/financas?lm=${i.dia.slice(0, 7)}`}>{diaMes(i.dia)} · {i.texto}</Link> : <span>{i.texto}</span>}</li>)}
+                          {c.itens.slice(0, 12).map((i) => <li key={i.id}>{/^\d{4}-\d{2}-\d{2}$/.test(i.dia) && c.chave !== "parcelas" && c.chave !== "investimentos" ? <span>{diaMes(i.dia)} · {i.texto}</span> : <span>{i.texto}</span>}</li>)}
                           {c.itens.length > 12 && <li><span>e mais {c.itens.length - 12}</span></li>}
                         </ul>
                       )}
@@ -596,10 +565,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           <div className="nums">
             <div><small>Investido hoje</small><b className="pos">{moeda(investido)}</b></div>
             <div><small>Aportes neste mês</small><b>{moeda(movsMes.filter((m) => m.kind === "aporte").reduce((t, m) => t + m.amount, 0))}</b><span>Resgates: {moeda(movsMes.filter((m) => m.kind === "resgate").reduce((t, m) => t + m.amount, 0))}</span></div>
-            <div><small>Rendeu nos últimos 12 meses</small><b>{moeda(movs.filter((m) => m.kind === "rendimento" && m.happened_on > somarMeses(hoje, -12)).reduce((t, m) => t + m.amount, 0))}</b><span>O que você lançou como rendimento</span></div>
+            <div><small>Rendeu nos últimos 12 meses</small><b>{moeda(movs.filter((m) => m.kind === "rendimento" && m.happened_on > somarMeses(hoje, -12)).reduce((t, m) => t + m.amount, 0))}</b><span>Pela planilha</span></div>
             <div><small>Em 12 meses, no plano</small><b>{moeda(investimentos.filter((i) => i.status === "ativo").reduce((t, i) => t + projetarPlano(i, saldoAtual(i, movs), atual, 12), 0))}</b><span>Com o aporte e a taxa de cada um</span></div>
           </div>
-          <div style={{ marginBottom: 16 }}><NovoInvestimento /></div>
 
           <div className="fin-cols">
             <div>
@@ -617,15 +585,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                   <section key={i.id} className="bloco inv">
                     <div className="inv__head">
                       <div><h2 className="inv__t">{i.name}</h2><small>{TIPOS_INVESTIMENTO[i.kind]}{i.institution ? ` · ${i.institution}` : ""}{i.monthly_rate ? ` · rende ${String(Math.round(i.monthly_rate * 10000) / 100).replace(".", ",")}% ao mês` : ""}</small></div>
-                      <div className="inv__saldo"><b>{moeda(saldo)}</b><small>Pelos lançamentos · <AjustarInvestimento inv={i} saldo={saldo} /></small></div>
+                      <div className="inv__saldo"><b>{moeda(saldo)}</b><small>Pela planilha</small></div>
                     </div>
-                    <Movimentar inv={i} />
+                    <EvolucaoInvestimento linhas={linhasPlano} />
                     {(planoAgora || i.monthly_rate || i.plan_steps?.length) ? (
                       <p className="inv__proj">
                         {planoAgora ? `Pondo ${moeda(planoAgora)} por mês${i.plan_steps?.some((d) => d.de > atual) ? " (e mais nos próximos degraus)" : ""}` : "Sem aportes"}{i.monthly_rate ? "" : ", sem rendimento estimado"}: {anos.map(({ a, v }) => `${moeda(v)} em ${a} ${a === 1 ? "ano" : "anos"}`).join(" · ")}.
                       </p>
                     ) : null}
-                    <div className="inv__plano-acao"><PlanoDegraus inv={i} /></div>
                     {linhasPlano.length > 0 && (
                       <details className="fold" open={!!i.plan_steps?.length}>
                         <summary className="sec__h"><ChevronRight aria-hidden />Plano mês a mês</summary>
@@ -658,7 +625,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                               <time>{rotuloData(m.happened_on, hoje)}</time>
                               <span>{m.note === AJUSTE || m.note === SALDO_INICIAL ? m.note : <>{m.kind === "aporte" ? "Investi" : m.kind === "resgate" ? "Resgatei" : "Rendimento"}{m.note ? ` · ${m.note}` : ""}</>}{m.origem === "lancamento" ? <small> · lançamento</small> : null}</span>
                               <b className={m.kind === "resgate" ? undefined : "pos"}>{m.kind === "resgate" ? "−" : "+"}{moeda(m.amount)}</b>
-                              <ApagarMovimento m={m} />
                             </li>
                           ))}
                         </ul>
@@ -671,7 +637,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
             <aside className="fin-lado">
               <section className="bloco">
-                <h2 className="sec__h">Metas<Link href="/rotas/nova?tipo=financeiro" className="sec__act">Nova meta</Link></h2>
+                <h2 className="sec__h">Metas</h2>
                 <div className="agenda">
                   {metas.filter((m) => m.status === "ativa").map((m) => {
                     const res = resumirRota(m, [], hoje);
@@ -695,7 +661,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
                     </Link>
                   ))}
                 </div>
-                {metas.length === 0 && <div style={{ padding: "6px 6px 4px" }}><Link href="/rotas/nova?tipo=financeiro" className="btn btn--line btn--sm"><Route aria-hidden />Criar uma meta</Link></div>}
               </section>
             </aside>
           </div>

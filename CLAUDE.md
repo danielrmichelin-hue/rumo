@@ -27,7 +27,13 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   Contas em `fin_accounts` (`account_id` nos lançamentos; sem conta = a principal; arquivada fica fora do mês — a
   Conta Empresa de fev/2026 está arquivada). Categorias do Daniel em `fin_categories` (criar, renomear com os
   lançamentos acompanhando, tipo essencial/estilo/objetivos, arquivar), via `FinancasProvider`/`CampoCategoria`.
-  Aba **Lançamentos** (a primeira e a base): mês do calendário pela data, uma lista só, do dia 1 ao fim, com a data na linha e o saldo depois de cada lançamento (extrato de banco), lançar, editar e apagar só ali; Mês (período do salário), Parcelas, Investimentos e Resumo só leem.
+  **Por enquanto Finanças é só para ver (decisão do Daniel, 24/11/2026)**: a planilha manda e entra por "Atualizar da planilha";
+  sem aba Lançamentos e sem botões de lançar, editar, apagar, pagar parcela ou mexer em investimento. Abas: Mês (abre primeiro;
+  período do salário, para pagar, divisão, para onde foi), Parcelas (Pix do mês, "Quando cada uma acaba" = linha do tempo e
+  "Quanto sai por mês" empilhado com o limite, em `src/components/GraficosFinancas.tsx`; consultor, quitar ou manter, quando cada
+  dívida sai, grade), Investimentos (evolução real × previsto × plano, plano mês a mês, metas) e Resumo (conferência, painel).
+  Os componentes de lançar (`NovoLancamento`, `ExtratoMes`, `ConferirExtrato`, `PlanoDegraus`…) ficaram no código para quando
+  o Rumo voltar a ser a base. Cores dos gráficos: `--serie-1…8` (paleta validada, clara e escura) em `globals.css`.
   Parcelas pagas = `paid_before` + lançamentos pagos ligados (`sincronizarParcelas`).
   Pix das parcelas (aba Parcelas, `pixDoMes`): a soma do mês do salário para mandar num Pix só; "Mandei o Pix" lança uma saída
   por parcela. Parcela = total/n no centavo e a última fecha o total (`valorParcela`). Parcela paga na grade não se desmarca.

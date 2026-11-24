@@ -2,12 +2,11 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Check, Trash2, X } from "lucide-react";
-import { apagarLancamento, apagarParcelamento, desfazerParcela, editarLancamento, pagarParcela, salvarParcelamento } from "@/app/(app)/acoes";
+import { apagarLancamento, editarLancamento } from "@/app/(app)/acoes";
 import { numeroBR, somarMeses } from "@/lib/datas";
 import { ehTransferencia, mesCurto, ordemDoDia, moeda, naConta, ROTULO_TIPO, situacaoParcelamento, type Investimento, type Lancamento, type Parcelamento } from "@/lib/financas";
 import { CampoCategoria, CampoConta } from "./FinancasContexto";
 import { useAvisar } from "./Avisos";
-import { Painel } from "./Comuns";
 
 const dataBR = (iso: string) => iso.split("-").reverse().join("/");
 
@@ -164,101 +163,46 @@ function EditarLinha({ l, fechar, investimentos }: { l: Lancamento; fechar: () =
 
 // ---------- Parcelas: a grade de cada parcelamento, parcela por parcela ----------
 
-export function GradeParcelas({ parcelamentos, hoje }: { parcelamentos: Parcelamento[]; hoje: string }) {
-  const [pendente, iniciar] = useTransition();
-  const [editar, setEditar] = useState<Parcelamento | null>(null);
-  const avisar = useAvisar();
+/** A grade de cada parcelamento, parcela por parcela (só para ver: as parcelas pagas vêm da planilha) */
+export function GradeParcelas({ parcelamentos, hoje }: { parcelamentos: Parcelamento[]; hoje: string; somenteVer?: boolean }) {
   const max = Math.max(1, ...parcelamentos.map((p) => p.installments));
-
   return (
-    <>
-      <div className="planilha__rolo">
-        <table className="tabela tabela--grade">
-          <thead>
-            <tr>
-              <th>O que é</th><th className="num">Parcela</th><th className="num">Pagas</th><th className="num">Falta</th><th>Última</th>
-              {Array.from({ length: max }, (_, i) => <th key={i} className="grade__n">{i + 1}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {parcelamentos.map((p) => {
-              const s = situacaoParcelamento(p, hoje);
-              return (
-                <tr key={p.id} className={s.estado === "quitado" ? "is-quitado" : undefined}>
-                  <td><button type="button" className="tabela__nome" onClick={() => setEditar(p)}>{p.title}</button><small>{p.creditor ?? p.category}</small></td>
-                  <td className="num">{moeda(s.parcela)}</td>
-                  <td className="num">{p.paid_count}/{p.installments}</td>
-                  <td className="num">{s.restante > 0 ? moeda(s.restante) : "—"}</td>
-                  <td>{s.estado === "quitado" ? "Quitado" : mesCurto(s.ultima)}</td>
-                  {Array.from({ length: max }, (_, i) => {
-                    if (i >= p.installments) return <td key={i} className="grade__c grade__c--fora" />;
-                    const vence = somarMeses(p.first_due, i);
-                    const paga = i < p.paid_count;
-                    const proxima = i === p.paid_count;
-                    const devida = proxima && vence <= hoje;
-                    return (
-                      <td key={i} className="grade__c">
-                        <button
-                          type="button"
-                          className={`grade__b${paga ? " is-paga" : ""}${proxima ? " is-proxima" : ""}${devida ? " is-devida" : ""}`}
-                          title={`Parcela ${i + 1} · vence ${dataBR(vence)}${paga ? " · paga" : ""}`}
-                          aria-label={`${p.title}, parcela ${i + 1}${paga ? ", paga" : ""}`}
-                          disabled={pendente || !proxima}
-                          onClick={() => iniciar(async () => {
-                            const r = await pagarParcela(p.id);
-                            if (r.ok) avisar({ texto: `${p.title}: parcela ${i + 1} paga.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => desfazerParcela(p.id, r.lancamento)) } });
-                          })}
-                        >
-                          {paga ? <Check aria-hidden /> : <small>{mesCurto(vence).split("/")[0]}</small>}
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="field__hint">Toque na próxima parcela para marcar como paga: o pagamento entra nos Lançamentos de hoje. Para tirar um pagamento, apague o lançamento dele em Lançamentos. Clique no nome para corrigir.</p>
-      {editar && <EditarParcelamento p={editar} fechar={() => setEditar(null)} />}
-    </>
-  );
-}
-
-function EditarParcelamento({ p, fechar }: { p: Parcelamento; fechar: () => void }) {
-  const [v, setV] = useState({ title: p.title, total: String(p.total).replace(".", ","), n: String(p.installments), pagas: String(p.paid_count), first_due: p.first_due, creditor: p.creditor ?? "", category: p.category });
-  const [erro, setErro] = useState<string | null>(null);
-  const [pendente, iniciar] = useTransition();
-  return (
-    <Painel titulo="Corrigir parcelamento" fechar={fechar}>
-      <form className="detail" style={{ gap: 14 }} onSubmit={(e) => {
-        e.preventDefault(); setErro(null);
-        iniciar(async () => {
-          const r = await salvarParcelamento(p.id, { title: v.title, category: v.category, total: numeroBR(v.total), installments: Number(v.n), paid_count: Number(v.pagas), first_due: v.first_due, creditor: v.creditor || null, context_id: null });
-          if (!r.ok) return setErro(r.erro ?? "Não foi possível guardar.");
-          fechar();
-        });
-      }}>
-        <label className="field">O que foi<input className="input" value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} maxLength={120} required /></label>
-        <div className="fields">
-          <label className="field">Valor total<input className="input" inputMode="decimal" value={v.total} onChange={(e) => setV({ ...v, total: e.target.value })} required /></label>
-          <label className="field">Parcelas<input className="input" inputMode="numeric" value={v.n} onChange={(e) => setV({ ...v, n: e.target.value.replace(/\D/g, "") })} required /></label>
-          <label className="field">Já pagas<input className="input" inputMode="numeric" value={v.pagas} onChange={(e) => setV({ ...v, pagas: e.target.value.replace(/\D/g, "") })} /></label>
-        </div>
-        <div className="fields">
-          <label className="field">1ª parcela<input className="input" type="date" value={v.first_due} onChange={(e) => setV({ ...v, first_due: e.target.value })} required /></label>
-          <label className="field">Onde ou com quem<input className="input" value={v.creditor} onChange={(e) => setV({ ...v, creditor: e.target.value })} maxLength={60} /></label>
-          <CampoCategoria kind="saida" value={v.category} onChange={(c) => setV({ ...v, category: c })} />
-        </div>
-        {erro && <p className="note note--err" role="alert">{erro}</p>}
-        <div className="detail__foot">
-          <button className="btn" type="submit" disabled={pendente}>Guardar</button>
-          <button className="btn btn--ghost" type="button" onClick={fechar}>Cancelar</button>
-          <button className="btn btn--ghost btn--sm" type="button" style={{ marginLeft: "auto" }} onClick={() => { if (confirm(`Apagar o parcelamento "${p.title}"? Os pagamentos já lançados continuam.`)) iniciar(async () => { await apagarParcelamento(p.id); fechar(); }); }}><Trash2 aria-hidden />Apagar</button>
-        </div>
-      </form>
-    </Painel>
+    <div className="planilha__rolo">
+      <table className="tabela tabela--grade">
+        <thead>
+          <tr>
+            <th>O que é</th><th className="num">Parcela</th><th className="num">Pagas</th><th className="num">Falta</th><th>Última</th>
+            {Array.from({ length: max }, (_, i) => <th key={i} className="grade__n">{i + 1}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {parcelamentos.map((p) => {
+            const s = situacaoParcelamento(p, hoje);
+            return (
+              <tr key={p.id} className={s.estado === "quitado" ? "is-quitado" : undefined}>
+                <td><span className="tabela__nome">{p.title}</span><small>{p.creditor ?? p.category}</small></td>
+                <td className="num">{moeda(s.parcela)}</td>
+                <td className="num">{p.paid_count}/{p.installments}</td>
+                <td className="num">{s.restante > 0 ? moeda(s.restante) : "—"}</td>
+                <td>{s.estado === "quitado" ? "Quitado" : mesCurto(s.ultima)}</td>
+                {Array.from({ length: max }, (_, i) => {
+                  if (i >= p.installments) return <td key={i} className="grade__c grade__c--fora" />;
+                  const vence = somarMeses(p.first_due, i);
+                  const paga = i < p.paid_count, proxima = i === p.paid_count, devida = proxima && vence <= hoje;
+                  return (
+                    <td key={i} className="grade__c">
+                      <span className={`grade__b${paga ? " is-paga" : ""}${proxima ? " is-proxima" : ""}${devida ? " is-devida" : ""}`} title={`Parcela ${i + 1} · vence ${dataBR(vence)}${paga ? " · paga" : ""}`}>
+                        {paga ? <Check aria-hidden /> : <small>{mesCurto(vence).split("/")[0]}</small>}
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

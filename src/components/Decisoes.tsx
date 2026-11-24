@@ -1,13 +1,10 @@
 "use client";
 
 // Decisões: quitar uma dívida antes do prazo ou deixar o dinheiro rendendo (a conta da aba Decisões da planilha)
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Scale } from "lucide-react";
-import { desfazerQuitacao, quitarParcelamento } from "@/app/(app)/acoes";
 import { numeroBR } from "@/lib/datas";
 import { moeda, quitarOuManter, type Parcelamento } from "@/lib/financas";
-import { useAvisar } from "./Avisos";
-import { Painel } from "./Comuns";
 
 const pct = (v: number) => String(Math.round(v * 10000) / 100).replace(".", ",");
 const taxa = (v: string) => { const n = numeroBR(v); return Number.isFinite(n) && n >= 0 && n < 100 ? n / 100 : 0; };
@@ -16,7 +13,6 @@ export function Decisoes({ parcelamentos, investido, rende, porMes }: { parcelam
   const [id, setId] = useState(parcelamentos[0]?.id ?? "");
   const [juros, setJuros] = useState("0");
   const [rendimento, setRendimento] = useState(pct(rende));
-  const [quitando, setQuitando] = useState(false);
   const p = parcelamentos.find((x) => x.id === id) ?? parcelamentos[0];
   if (!p) return null;
   const c = quitarOuManter(p, investido, taxa(juros), taxa(rendimento));
@@ -60,34 +56,6 @@ export function Decisoes({ parcelamentos, investido, rende, porMes }: { parcelam
           {taxa(juros) === 0 && c.diferenca < 0 ? " Parcelado sem juros é dinheiro emprestado de graça: enquanto o seu rende, adiantar só faz você perder o rendimento." : ""}
         </span>
       </div>
-      <div className="decisao__acao"><button type="button" className="btn btn--line btn--sm" onClick={() => setQuitando(true)}>Quitei {p.title}</button></div>
-      {quitando && <Quitar p={p} sugerido={c.custo} fechar={() => setQuitando(false)} />}
     </section>
-  );
-}
-
-function Quitar({ p, sugerido, fechar }: { p: Parcelamento; sugerido: number; fechar: () => void }) {
-  const [valor, setValor] = useState(sugerido.toFixed(2).replace(".", ","));
-  const [erro, setErro] = useState<string | null>(null);
-  const [pendente, iniciar] = useTransition();
-  const avisar = useAvisar();
-  const faltam = p.installments - p.paid_count;
-  return (
-    <Painel titulo={`Quitar ${p.title}`} fechar={fechar}>
-      <form className="detail" style={{ gap: 14 }} onSubmit={(e) => {
-        e.preventDefault();
-        iniciar(async () => {
-          const r = await quitarParcelamento(p.id, numeroBR(valor));
-          if (!r.ok) return setErro(r.erro ?? "Não foi possível quitar.");
-          fechar();
-          avisar({ texto: `${p.title} quitado: ${moeda(numeroBR(valor))} nos Lançamentos de hoje.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(() => desfazerQuitacao(p.id, r.lancamentos ?? [])) } });
-        });
-      }}>
-        <label className="field">Quanto paguei para quitar<input className="input" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} autoFocus /></label>
-        <p className="field__hint">Entra hoje nos Lançamentos como {faltam} {faltam === 1 ? "saída" : "saídas"} de {p.title}, uma por parcela que faltava, e o parcelamento fica quitado. Se teve desconto, ponha o valor que pagou.</p>
-        {erro && <p className="note note--err" role="alert">{erro}</p>}
-        <div className="detail__foot"><button className="btn" type="submit" disabled={pendente || !(numeroBR(valor) > 0)}>{pendente ? "Lançando…" : "Quitar"}</button></div>
-      </form>
-    </Painel>
   );
 }
