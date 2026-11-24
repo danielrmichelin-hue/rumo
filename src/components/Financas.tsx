@@ -1,7 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { Archive, ArchiveRestore, Check, Plus, Scale, Settings2, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Check, Copy, Plus, Scale, Settings2, Trash2 } from "lucide-react";
 import { apagarInvestimento, apagarLancamento, apagarMovimento, conferirConta, conferirInvestimento, criarCategoria, criarConta, criarInvestimento, planoInvestimento, salvarCategoria, salvarConta, criarParcelamento, criarRotina, desfazerParcela, lancar, marcarLancamentoPago, movimentarInvestimento, pagarParcela, salvarAjustesFinancas, salvarOrcamento } from "@/app/(app)/acoes";
 import { hojeISO, numeroBR, rotuloData } from "@/lib/datas";
 import { moeda, naConta, NATUREZAS, nomesCategorias, ROTULO_TIPO, TIPOS_INVESTIMENTO, type Ajustes, type Categoria, type Conta, type Investimento, type Lancamento, type Movimento, type Natureza, type TipoLancamento } from "@/lib/financas";
@@ -227,7 +227,19 @@ export function PagarParcela({ id, titulo, rotulo }: { id: string; titulo: strin
   );
 }
 
-export function PagarTodas({ ids, total }: { ids: string[]; total: number }) {
+/** Copia o valor para colar no Pix ("1217,23") */
+export function CopiarValor({ valor }: { valor: number }) {
+  const [copiado, setCopiado] = useState(false);
+  return (
+    <button type="button" className="btn btn--line btn--sm" onClick={async () => {
+      try { await navigator.clipboard.writeText(valor.toFixed(2).replace(".", ",")); setCopiado(true); setTimeout(() => setCopiado(false), 1800); } catch { /* sem permissão: o valor está na tela */ }
+    }}>
+      {copiado ? <><Check aria-hidden />Copiado</> : <><Copy aria-hidden />Copiar valor</>}
+    </button>
+  );
+}
+
+export function PagarTodas({ ids, total, rotulo = "Paguei todas" }: { ids: string[]; total: number; rotulo?: string }) {
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
   return (
@@ -237,7 +249,7 @@ export function PagarTodas({ ids, total }: { ids: string[]; total: number }) {
         for (const id of ids) { const r = await pagarParcela(id); if (r.ok) feitos.push({ id, l: r.lancamento }); }
         avisar({ texto: `${feitos.length} ${feitos.length === 1 ? "parcela paga" : "parcelas pagas"}, ${moeda(total)}.`, acao: { rotulo: "Desfazer", fazer: () => iniciar(async () => { for (const f of feitos) await desfazerParcela(f.id, f.l); }) } });
       })}>
-      <Check aria-hidden />Paguei todas
+      <Check aria-hidden />{rotulo}
     </button>
   );
 }

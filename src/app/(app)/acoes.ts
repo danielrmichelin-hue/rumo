@@ -9,7 +9,7 @@ import { CAMPOS_ROTA, chegadaPorPrazo, normalizar, PREFIXO_PASSO, resumirRota, t
 import { CORES_CONTEXTO, type Estado } from "@/lib/tipos";
 import { CORES_MATERIA, INTERVALOS, proximaRevisao, TIPOS_CURSO, type TipoCurso } from "@/lib/estudos";
 import { textoFrequencia } from "@/lib/rotinas";
-import { AJUSTE, CAMPOS_LANCAMENTO, limitesDoMes, mesDoDia, moeda, SALDO_INICIAL, naConta, normalizarLancamento, tipoNoBanco, TIPOS_INVESTIMENTO } from "@/lib/financas";
+import { AJUSTE, CAMPOS_LANCAMENTO, limitesDoMes, mesDoDia, moeda, SALDO_INICIAL, naConta, normalizarLancamento, tipoNoBanco, TIPOS_INVESTIMENTO, valorParcela } from "@/lib/financas";
 import { TIPOS_SAUDE, type TipoMedida, MEDIDAS } from "@/lib/saude";
 
 function atualizar() {
@@ -1293,7 +1293,7 @@ export async function pagarParcela(id: string): Promise<{ ok: boolean; lancament
   const supabase = await createClient();
   const { data: p } = await supabase.from("fin_installments").select("title, category, total, installments, paid_count, context_id").eq("id", id).single();
   if (!p || p.paid_count >= p.installments) return { ok: false };
-  const parcela = Math.round((Number(p.total) / p.installments) * 100) / 100;
+  const parcela = valorParcela({ total: Number(p.total), installments: p.installments }, p.paid_count);
   const numero = p.paid_count + 1;
   const { data: l } = await supabase.from("fin_entries").insert({
     kind: "saida", amount: parcela, description: `${p.title.trim()} · parcela ${numero} de ${p.installments}`.slice(0, 120), category: p.category,

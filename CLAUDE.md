@@ -29,6 +29,8 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   lançamentos acompanhando, tipo essencial/estilo/objetivos, arquivar), via `FinancasProvider`/`CampoCategoria`.
   Aba **Lançamentos** (a primeira e a base): mês do calendário pela data, uma lista só, do dia 1 ao fim, com a data na linha e o saldo depois de cada lançamento (extrato de banco), lançar, editar e apagar só ali; Mês (período do salário), Parcelas, Investimentos e Resumo só leem.
   Parcelas pagas = `paid_before` + lançamentos pagos ligados (`sincronizarParcelas`).
+  Pix das parcelas (aba Parcelas, `pixDoMes`): a soma do mês do salário para mandar num Pix só; "Mandei o Pix" lança uma saída
+  por parcela. Parcela = total/n no centavo e a última fecha o total (`valorParcela`). Parcela paga na grade não se desmarca.
   Consultor "Posso comprar parcelado?" na aba Parcelas (`src/components/Consultor.tsx`): renda e gasto do dia a dia médios
   dos 3 meses fechados, parcelas que já saem nos próximos 12 meses, limite de parcelas e meta de investir; veredito por mês.
 

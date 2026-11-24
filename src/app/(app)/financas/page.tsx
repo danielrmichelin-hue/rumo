@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Download, Plus, Route } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, ConferirConta, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
+import { AjustarInvestimento, AjustesFinancas, ApagarMovimento, ConferirConta, CopiarValor, LimiteCategoria, LinhaLancamento, Movimentar, NovaContaFixa, NovoInvestimento, NovoLancamento, NovoParcelamento, PagarParcela, PagarTodas } from "@/components/Financas";
 import { ChecarRotina } from "@/components/Rotinas";
 import { ExtratoMes, GradeParcelas, RolarAteMes } from "@/components/FinancasPlanilha";
 import { FinancasProvider } from "@/components/FinancasContexto";
@@ -11,7 +11,7 @@ import type { ContextItem } from "@/components/Shell";
 import { diaMes, hojeISO, rotuloData, somarMeses } from "@/lib/datas";
 import {
   AJUSTE, CAMPOS_CATEGORIA, CAMPOS_CONTA, CAMPOS_INVESTIMENTO, CAMPOS_LANCAMENTO, CAMPOS_MOVIMENTO, CAMPOS_PARCELAMENTO, contasDoMes, datasDeSalario, ehAjuste, extratoDoMes, saldoAte, SALDO_INICIAL, type Categoria, type Conta, envelopes, limitesDoMes, mesCurto, mesDoDia, mesVizinho, moeda,
-  movimentosDe, naConta, normalizarAjustes, normalizarInvestimento, normalizarLancamento, normalizarMovimento, normalizarParcelamento, parcelasDoCiclo, projetar, resumoDoMes,
+  movimentosDe, naConta, normalizarAjustes, normalizarInvestimento, normalizarLancamento, normalizarMovimento, normalizarParcelamento, parcelasDoCiclo, pixDoMes, projetar, valorParcela, resumoDoMes,
   NATUREZAS, resumoParcelamentos, saldoAtual, situacaoParcelamento, TIPOS_INVESTIMENTO, type Orcamento,
 } from "@/lib/financas";
 import { CAMPOS_ROTINA, type Marcacao, type Rotina } from "@/lib/rotinas";
@@ -95,7 +95,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
   // Parcelas do mês: as que ainda vencem nele (para marcar) e, na divisão, as pagas mais as que faltam
   const parcelasAPagar = mes >= atual ? parcelasDoCiclo(parcelamentos, inicio, fim, hoje) : [];
-  const parcelasNoMes = lancamentos.filter((l) => l.paid && l.kind === "saida" && l.installment_id).reduce((t, l) => t + l.amount, 0) + parcelasAPagar.reduce((t, x) => t + x.s.parcela, 0);
+  const parcelasNoMes = lancamentos.filter((l) => l.paid && l.kind === "saida" && l.installment_id).reduce((t, l) => t + l.amount, 0) + parcelasAPagar.reduce((t, x) => t + x.valor, 0);
   const movsMes = movs.filter((m) => m.happened_on >= inicio && m.happened_on <= fim);
   const investiu = movsMes.reduce((t, m) => t + (m.kind === "aporte" ? m.amount : m.kind === "resgate" ? -m.amount : 0), 0);
   const gastoLivre = lancamentos.filter((l) => l.paid && l.kind === "saida" && !l.installment_id).reduce((t, l) => t + l.amount, 0);
@@ -225,7 +225,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           <section className="fluxo" aria-label="O mês como extrato">
             <div><small>Saldo inicial</small><b>{moeda(ext.inicial)}</b><span>Sobrou do mês anterior</span></div>
             <div className="fluxo__mais"><small>Entrou</small><b className="pos">{moeda(ext.entrou)}</b>{r.aReceber > 0 ? <span>e {moeda(r.aReceber)} a receber</span> : <span>Renda do mês</span>}</div>
-            <div className="fluxo__menos"><small>Saiu</small><b>{moeda(ext.saiu)}</b>{r.aPagar + parcelasAPagar.reduce((t, x) => t + x.s.parcela, 0) > 0 ? <span>e {moeda(r.aPagar + parcelasAPagar.reduce((t, x) => t + x.s.parcela, 0))} a pagar</span> : <span>Gastos e parcelas</span>}</div>
+            <div className="fluxo__menos"><small>Saiu</small><b>{moeda(ext.saiu)}</b>{r.aPagar + parcelasAPagar.reduce((t, x) => t + x.valor, 0) > 0 ? <span>e {moeda(r.aPagar + parcelasAPagar.reduce((t, x) => t + x.valor, 0))} a pagar</span> : <span>Gastos e parcelas</span>}</div>
             <div className="fluxo__menos"><small>Investiu</small><b className="transf">{ext.investiu < 0 ? "−" : ""}{moeda(Math.abs(ext.investiu))}</b><span>{ext.investiu < 0 ? "Resgatou mais do que pôs" : `Pôs ${moeda(ext.aportes)} · tirou ${moeda(ext.resgates)}`}</span></div>
             {Math.abs(ext.ajustes) >= 0.005 && <div className="fluxo__mais"><small>Ajustes</small><b>{ext.ajustes < 0 ? "−" : "+"}{moeda(Math.abs(ext.ajustes))}</b><span>Para bater com o banco</span></div>}
             <div className="fluxo__igual"><small>{esteMes ? "Saldo agora" : "Saldo final"}</small><b className={ext.final < 0 ? "neg" : undefined}>{moeda(ext.final)}</b><span>{esteMes ? <ConferirConta conta={contaSel ?? principal} calculado={saldoAte(todos, hoje)} /> : "Vira o saldo inicial do próximo"}</span></div>
@@ -236,19 +236,19 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           <div className="fin-cols">
             <div className="fin-principal">
               <section className="bloco">
-                <h2 className="sec__h">Para pagar em {nomeMes} {nAPagar > 0 && <em>{nAPagar}</em>}<span className="sec__act">{parcelasAPagar.length > 1 && <PagarTodas ids={parcelasAPagar.map((x) => x.p.id)} total={parcelasAPagar.reduce((t, x) => t + x.s.parcela, 0)} />}<NovaContaFixa contextos={ctx} /></span></h2>
+                <h2 className="sec__h">Para pagar em {nomeMes} {nAPagar > 0 && <em>{nAPagar}</em>}<span className="sec__act">{parcelasAPagar.length > 1 && <PagarTodas ids={parcelasAPagar.map((x) => x.p.id)} total={parcelasAPagar.reduce((t, x) => t + x.valor, 0)} />}<NovaContaFixa contextos={ctx} /></span></h2>
                 {nAPagar === 0 ? (
                   <p className="bloco__vazio">{fixas.length || parcelamentos.length ? "Tudo pago neste mês." : "Nada para pagar."}</p>
                 ) : (
                   <ul className="list">
-                    {parcelasAPagar.map(({ p, s, numero, vence, atrasada }) => (
+                    {parcelasAPagar.map(({ p, valor, numero, vence, atrasada }) => (
                       <li key={p.id} className="row fin-conta">
                         {esteMes || vence <= hoje ? <PagarParcela id={p.id} titulo={p.title} rotulo={`parcela ${numero} de ${p.installments}`} /> : <span />}
                         <div className="row__body">
                           <span className="row__t">{p.title}</span>
                           <span className="props"><span className="prop">Parcela {numero} de {p.installments}</span><span className={`prop${atrasada || vence < hoje ? " prop--late" : ""}`}>{atrasada || vence < hoje ? `Venceu ${rotuloData(vence, hoje)}` : vence === hoje ? "Vence hoje" : `Dia ${Number(vence.slice(8))}`}</span></span>
                         </div>
-                        <span className="fin-l__v">{moeda(s.parcela)}</span>
+                        <span className="fin-l__v">{moeda(valor)}</span>
                       </li>
                     ))}
                     {contasAbertas.map((c) => (
@@ -336,13 +336,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         const fechados = [1, 2, 3].map((k) => lim(mesVizinho(atual, -k)));
         const media = (f: (l: (typeof todos)[number]) => boolean) => fechados.reduce((t, x) => t + todos.filter((l) => l.paid && !ehAjuste(l) && l.happened_on >= x.inicio && l.happened_on <= x.fim && f(l)).reduce((a, l) => a + l.amount, 0), 0) / 3;
         // Cada parcela cai no mês (do salário) em que vence: um parcelamento que começa em dezembro só pesa de dezembro em diante
-        const vencimentos = parcelamentos.flatMap((p) => { const s = situacaoParcelamento(p, hoje); return Array.from({ length: p.installments }, (_, i) => ({ dia: somarMeses(p.first_due, i), v: s.parcela })); });
+        const vencimentos = parcelamentos.flatMap((p) => { const s = situacaoParcelamento(p, hoje); return Array.from({ length: p.installments }, (_, i) => ({ dia: somarMeses(p.first_due, i), v: valorParcela(p, i) })); });
         const base: BaseConsultor = {
           renda: Math.round(media((l) => l.kind === "entrada")), gasto: Math.round(media((l) => l.kind === "saida" && !l.installment_id)),
           pctParcelas: aj.pct_parcelas, pctInvestir: aj.pct_investir,
           meses: Array.from({ length: 12 }, (_, k) => { const m = mesVizinho(atual, k); const x = lim(m); return { rotulo: mesCurto(`${m}-01`), parcelas: Math.round(vencimentos.filter((v) => v.dia >= x.inicio && v.dia <= x.fim).reduce((t, v) => t + v.v, 0) * 100) / 100 }; }),
         };
         const [esteMes, proximoMes] = base.meses;
+        const lAtual = lim(atual);
+        const pix = pixDoMes(parcelamentos, lAtual.inicio, lAtual.fim);
+        const nomeAtual = diaMes(`${atual}-01`).split(" de ")[1];
         const aComecar = comSit.filter(({ s }) => s.estado === "a_comecar").length;
         return (
           <>
@@ -352,6 +355,23 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
               <div><small>Livre de parcelas em</small><b className="nums__texto">{divida.ultima ? mesCurto(divida.ultima) : "—"}</b><span>{divida.ultima ? diaMes(divida.ultima) : "Nada parcelado"}</span></div>
               <div><small>Já quitados</small><b>{divida.quitados}</b></div>
             </div>
+            {pix.itens.length > 0 && (
+              <section className="bloco pix">
+                <h2 className="sec__h">Pix das parcelas de {nomeAtual}<span className="sec__act">{diaMes(lAtual.inicio)} a {diaMes(lAtual.fim)}</span></h2>
+                <div className="pix__total">
+                  <div><small>{pix.falta ? (pix.pago ? "Falta mandar" : "Mandar no Pix") : "Pago"}</small><b>{moeda(pix.falta || pix.total)}</b>{pix.pago > 0 && pix.falta > 0 && <span>Já mandou {moeda(pix.pago)} de {moeda(pix.total)}</span>}</div>
+                  {pix.falta > 0 && <span className="pix__acoes"><CopiarValor valor={pix.falta} /><PagarTodas ids={pix.itens.filter((i) => !i.paga).map((i) => i.p.id)} total={pix.falta} rotulo="Mandei o Pix" /></span>}
+                </div>
+                <ul className="pix__lista">
+                  {pix.itens.map((i) => (
+                    <li key={`${i.p.id}-${i.numero}`} className={i.paga ? "is-paga" : undefined}>
+                      <span><b>{i.p.title}</b><small>Parcela {i.numero} de {i.p.installments}{i.atrasada ? ` · venceu ${diaMes(i.vence)}` : ""}{i.paga ? " · paga" : ""}</small></span>
+                      <span className="pix__v">{moeda(i.valor)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             <Consultor base={base} />
             <div style={{ margin: "16px 0" }}><NovoParcelamento contextos={ctx} credores={credores} /></div>
             {parcelamentos.length === 0 ? <p className="empty">Nenhum parcelamento.</p> : (

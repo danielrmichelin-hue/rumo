@@ -177,12 +177,29 @@ export function situacaoParcelamento(p: Parcelamento, hoje: string) {
   return { parcela, faltam, restante: faltam ? restante : 0, ultima, proxima, estado };
 }
 
+/** Valor da parcela k (0 = a 1ª): todas iguais, no centavo, e a última fecha o total certinho */
+export function valorParcela(p: Pick<Parcelamento, "total" | "installments">, k: number) {
+  const base = Math.round((p.total / p.installments) * 100) / 100;
+  return k === p.installments - 1 ? Math.round((p.total - base * (p.installments - 1)) * 100) / 100 : base;
+}
+
+/** O Pix das parcelas do mês: as que vencem entre início e fim e as que ficaram para trás sem pagar */
+export function pixDoMes(lista: Parcelamento[], inicio: string, fim: string) {
+  const itens = lista.flatMap((p) => Array.from({ length: p.installments }, (_, k) => k).flatMap((k) => {
+    const vence = somarMeses(p.first_due, k), paga = k < p.paid_count;
+    if (vence > fim || (vence < inicio && paga)) return [];
+    return [{ p, numero: k + 1, vence, valor: valorParcela(p, k), paga, atrasada: vence < inicio }];
+  })).sort((a, b) => Number(a.paga) - Number(b.paga) || a.vence.localeCompare(b.vence) || a.p.title.localeCompare(b.p.title));
+  const soma = (f: (i: (typeof itens)[number]) => boolean) => Math.round(itens.filter(f).reduce((t, i) => t + i.valor, 0) * 100) / 100;
+  return { itens, total: soma(() => true), pago: soma((i) => i.paga), falta: soma((i) => !i.paga) };
+}
+
 /** As parcelas que vencem no ciclo (ou que ficaram de ciclos anteriores): uma por parcelamento, a próxima a pagar */
 export function parcelasDoCiclo(lista: Parcelamento[], inicio: string, fim: string, hoje: string) {
   return lista
     .map((p) => ({ p, s: situacaoParcelamento(p, hoje) }))
     .filter(({ s }) => s.proxima && s.proxima <= fim)
-    .map(({ p, s }) => ({ p, s, numero: p.paid_count + 1, vence: s.proxima!, atrasada: s.proxima! < inicio }))
+    .map(({ p, s }) => ({ p, s, valor: valorParcela(p, p.paid_count), numero: p.paid_count + 1, vence: s.proxima!, atrasada: s.proxima! < inicio }))
     .sort((a, b) => a.vence.localeCompare(b.vence) || a.p.title.localeCompare(b.p.title));
 }
 
