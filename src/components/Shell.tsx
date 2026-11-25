@@ -7,6 +7,7 @@ import { Building2, CalendarDays, CalendarRange, Folder, GraduationCap, HeartPul
 import { AvisosProvider } from "./Avisos";
 import { Captura, useAtalhoCaptura } from "./Captura";
 import { Logo } from "./Logo";
+import { RelogioDoCanto } from "./Relogio";
 import { ehSaude } from "@/lib/saude";
 
 export type EntradaModulo = { chave: "negocios" | "estudos" | "rotinas" | "rotas" | "notas" | "financas" | "saude"; n: number; quente?: boolean };
@@ -171,6 +172,7 @@ export function Shell({ contexts, projetos, nome, email, inbox, hoje, atencao, m
           <Link href="/mais" aria-current={on("/mais") ?? on("/responsabilidades") ?? on("/ajustes") ?? on("/contextos") ?? on("/contexto")}><Menu aria-hidden />Mais</Link>
         </nav>
 
+        <RelogioDoCanto />
         <Captura aberta={captura} abrir={abrir} fechar={() => { setTextoInicial(""); setContextoInicial(null); setDataInicial(undefined); fechar(); }} dataInicial={dataInicial} contextos={contexts} projetos={projetos} textoInicial={textoInicial} contextoInicial={contextoInicial ?? contextoDaPagina} />
       </div>
     </AvisosProvider>

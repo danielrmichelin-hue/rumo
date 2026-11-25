@@ -121,9 +121,11 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   estudo, as N primeiras da fila (ordem dos projetos e das disciplinas, setas ↑↓) com aula dão uma aula cada; quando uma acaba, a
   próxima entra. Roadmap recalculado de hoje com o que falta (`roadmapDaArea`, `aulasDeHoje` em `src/lib/trilhas.ts`; dados em
   `estudos/dados.ts`; gráfico em `src/components/RoadmapEstudos.tsx`). Página `/estudos` (painel, aulas de hoje, por área: roadmap e
-  projetos), `/estudos/d/[id]` (aulas: marcar, título, anotação, data, minutos). No Hoje, as aulas do dia com relógio que continua
-  contando ao trocar de tela (localStorage), zerar, modo pomodoro "25/5" (25 de foco + 5 de pausa, som/vibração/notificação com a tela
-  aberta; "Concluí" grava só os minutos de foco) (`AulaDoDia` em `src/components/Trilhas.tsx`). Em `/estudos` também: constância (mapa dos
+  projetos), `/estudos/d/[id]` (aulas: marcar, título, anotação, data, minutos). No Hoje, as aulas do dia (`AulaDoDia` em `src/components/Trilhas.tsx`):
+  "Começar" põe a aula no **relógio do canto** (`RelogioDoCanto` em `src/components/Relogio.tsx`, montado na casca, em todas as telas;
+  estado no navegador em `src/lib/relogio.ts`): anel grande, livre ou pomodoro "25/5" (25 de foco + 5 de pausa, som/vibração/notificação
+  com a tela aberta), pausar, zerar, minimizar numa pílula, tirar do canto (o tempo fica na aula) e "Concluí" (grava só os minutos de foco);
+  uma aula por vez no canto (começar outra pausa a primeira); a página ganha espaço embaixo (`html[data-relogio]`). Em `/estudos` também: constância (mapa dos
   dias e horas por semana × plano, `constancia`), ritmo da área (aulas adiantadas/atrasadas até ontem, `ritmoDaArea`), meta de data do
   projeto (cabe? com quantas aulas por dia ou primeiro na fila, `metaDoProjeto`) e o horário do aviso das aulas (`LembreteEstudo`).
   As telas antigas (curso, ciclo, matérias) saíram e os endereços levam para `/estudos`; as tabelas antigas ficam no banco.
