@@ -105,7 +105,7 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   pg_cron `rumo-avisos` a cada 5 min chamando a função `avisos`) e 0018 (`study_questions`: exercícios com acertos por matéria/tema;
   `study_mocks`: provas e notas) e 0019 (notas decimais em `study_mocks`) e 0020 (`profiles.hidden_areas`: áreas escondidas da lateral;
   `profiles.capture_token` e as funções `rumo_contextos_por_chave`/`rumo_capturar_por_chave` para o atalho da Siri em
-  `src/app/api/capturar/route.ts`, rota pública com a chave) e 0022 (`fin_accounts`, `account_id`, `fin_categories`, `paid_before`) e 0023 (`plan_steps` nos investimentos: o plano em degraus) e 0024 (`rumo_espelhar_planilha`: o espelho da planilha numa transação) e 0025 (a mesma função com WHERE em todo UPDATE: a API do Supabase recusa UPDATE sem WHERE) e 0021 (`profiles.ical_url`: agenda do Google pelo endereço
+  `src/app/api/capturar/route.ts`, rota pública com a chave) e 0022 (`fin_accounts`, `account_id`, `fin_categories`, `paid_before`) e 0023 (`plan_steps` nos investimentos: o plano em degraus) e 0024 (`rumo_espelhar_planilha`: o espelho da planilha numa transação) e 0025 (a mesma função com WHERE em todo UPDATE: a API do Supabase recusa UPDATE sem WHERE) e 0026 (Estudos refeitos: áreas, projetos, disciplinas e aulas) e 0021 (`profiles.ical_url`: agenda do Google pelo endereço
   secreto iCal, lida em `src/lib/ical.ts` com cache de 5 min e mostrada no Hoje, Calendário e Semana; ids `g-…` abrem o Google
   Agenda; dia inteiro fica de fora) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
@@ -115,12 +115,16 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   (ou o menu ⋮), carga do dia (tarefas e horas de agenda), atrasadas e sem data no topo. O Hoje é montado por `src/lib/hoje.ts`;
   semana do calendário em `src/lib/semana.ts`; resumo de projeto (progresso, entrega, próximo passo) em
   `src/lib/projetos.ts`; cálculo das Rotas (ritmo, previsão, recálculo, próximo passo, igual ao simulador do Book)
-  em `src/lib/rotas.ts`; Estudos como ciclo de estudos (matérias com horas por ciclo, matéria → módulo → aula, revisões 1/7/30 dias, modo foco
-  com pomodoro em `src/components/Foco.tsx`) em `src/lib/estudos.ts`; o curso tem palco (dias para a prova/entrega, semana,
-  % do conteúdo, % de acerto, revisões) e abas Ciclo, Conteúdo (temas de cada matéria), Exercícios, Provas e notas e Desempenho
-  (constância, horas por semana e por matéria) em `estudos/[id]/abas.tsx` e `src/components/Desempenho.tsx`. Não é app de concurso:
-  textos genéricos (pós, faculdade, idioma, curso). Com as
-  sessões como compromissos do Core (events com `course_id`); Rotinas (quando é dia dela, a semana em pontos, sem sequência; mensais "todo dia 10" ficam no Hoje até serem feitas)
+  em `src/lib/rotas.ts`; **Estudos (refeito 24/11/2026, o Daniel estuda com IA)**: Área (Profissional: 2 aulas por dia; Intelectual: 1; seg a sex) >
+  Projeto (Marketing, História…) > Disciplina (Psicologia do Consumidor…) > Aulas numeradas (1 aula = 1 hora), migração 0026
+  (`study_areas`, `study_projects`, `study_disciplines`, `study_lessons`). As disciplinas da área andam em paralelo: a cada dia de
+  estudo, as N primeiras da fila (ordem dos projetos e das disciplinas, setas ↑↓) com aula dão uma aula cada; quando uma acaba, a
+  próxima entra. Roadmap recalculado de hoje com o que falta (`roadmapDaArea`, `aulasDeHoje` em `src/lib/trilhas.ts`; dados em
+  `estudos/dados.ts`; gráfico em `src/components/RoadmapEstudos.tsx`). Página `/estudos` (painel, aulas de hoje, por área: roadmap e
+  projetos), `/estudos/d/[id]` (aulas: marcar, título, anotação, data, minutos). No Hoje, as aulas do dia com relógio que continua
+  contando ao trocar de tela (localStorage) e "Concluí" que grava os minutos (`AulaDoDia` em `src/components/Trilhas.tsx`).
+  As telas antigas (curso, ciclo, matérias) saíram e os endereços levam para `/estudos`; as tabelas antigas ficam no banco.
+  Rotinas (quando é dia dela, a semana em pontos, sem sequência; mensais "todo dia 10" ficam no Hoje até serem feitas)
   em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`; Finanças do mês (resumo, contas fixas = rotinas mensais com valor,
   categorias, planilha CSV; o mês financeiro vai do dia em que recebe (`fin_settings.pay_day`, em Finanças › Ajustes;
   Daniel: 20) até a véspera do próximo, com o nome do mês em que o salário entra (outubro = 20/10 a 19/11), em tudo

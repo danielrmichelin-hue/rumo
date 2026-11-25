@@ -1,4 +1,4 @@
-import { GraduationCap, Pill, Repeat, Wallet } from "lucide-react";
+import { Pill, Repeat, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Lista } from "@/components/Lista";
 import { BotaoNova, ProximoPasso } from "@/components/ProximoPasso";
@@ -8,13 +8,15 @@ import { CAMPOS_LISTA, type Compromisso, type Responsabilidade } from "@/lib/tip
 import Link from "next/link";
 import { Anel } from "@/components/Caminho";
 import { CAMPOS_MARCO, CAMPOS_ROTA, type Marco, normalizar, resumirRota } from "@/lib/rotas";
-import { AZUL_ESTUDO, linhaDoEstudo, CAMPOS_CURSO, CAMPOS_MATERIA, CAMPOS_SESSAO, CAMPOS_TEMA, horas, resumoDoCiclo, temasDa, type Curso, type Materia, type Sessao, type Tema } from "@/lib/estudos";
+import { AZUL_ESTUDO } from "@/lib/estudos";
+import { nomeDaAula } from "@/lib/trilhas";
+import { AulaDoDia } from "@/components/Trilhas";
+import { carregarEstudos } from "../estudos/dados";
 import { CAMPOS_ROTINA, desdeMarcas, feitaEm, hora, type Marcacao, mesDaRotina, type Rotina, rotinasDoDia, semanaDaRotina } from "@/lib/rotinas";
 import { ChecarRotina } from "@/components/Rotinas";
 import { Logo } from "@/components/Logo";
 import { Children } from "react";
 import { agendaExterna } from "@/lib/ical";
-import { RevisoesDoDia } from "@/components/Aulas";
 import { CAMPOS_PARCELAMENTO, moeda, normalizarParcelamento, parcelasDoCiclo } from "@/lib/financas";
 
 export const metadata = { title: "Hoje" };
@@ -27,7 +29,7 @@ export default async function Page() {
   const inicio = inicioDoDia(hoje);
   const fim = fimDoDia(hoje);
 
-  const [{ data: { user } }, { data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }, { data: cursosDb }, { data: materiasDb }, { data: parcDb }] = await Promise.all([
+  const [[{ data: { user } }, { data: perfil }, { data: contextos }, { data: projetos }, { data: abertas }, { data: feitas }, { data: eventos }, { data: rotasDb }, { data: marcosDb }, { data: rotinasDb }, { data: marcasDb }, { data: parcDb }], estudo] = await Promise.all([Promise.all([
     supabase.auth.getUser(),
     supabase.from("profiles").select("display_name, ical_url").maybeSingle(),
     supabase.from("contexts").select("id, name, color, kind").order("position"),
@@ -39,29 +41,13 @@ export default async function Page() {
     supabase.from("route_milestones").select(CAMPOS_MARCO),
     supabase.from("routines").select(CAMPOS_ROTINA).eq("status", "ativa").order("position"),
     supabase.from("routine_checks").select("routine_id, done_on").gte("done_on", desdeMarcas(hoje)),
-    supabase.from("study_courses").select(CAMPOS_CURSO).eq("status", "ativo").order("created_at"),
-    supabase.from("study_subjects").select(CAMPOS_MATERIA).order("position"),
     supabase.from("fin_installments").select(CAMPOS_PARCELAMENTO),
-  ]);
+  ]), carregarEstudos(hoje)]);
   // Parcelas que vencem hoje ou já venceram e ainda não foram pagas
   const parcelasHoje = parcelasDoCiclo((parcDb ?? []).map(normalizarParcelamento), "0000-01-01", hoje, hoje);
-  // Estudos: a matéria da vez em cada ciclo (some quando já há sessão de estudo marcada para hoje)
-  const cursos = (cursosDb ?? []) as Curso[];
-  const materias = (materiasDb ?? []) as Materia[];
-  const [{ data: sessoesDb }, { data: temasDb }, { data: revisoesDb }] = cursos.length
-    ? await Promise.all([
-        supabase.from("events").select(CAMPOS_SESSAO).not("course_id", "is", null).gte("starts_at", inicioDoDia(cursos.map((c) => c.cycle_started_on).sort()[0])),
-        materias.length ? supabase.from("study_topics").select(CAMPOS_TEMA).in("subject_id", materias.map((m) => m.id)).is("done_at", null) : Promise.resolve({ data: [] }),
-        supabase.from("study_topics").select(CAMPOS_TEMA).lte("next_review_on", hoje).order("next_review_on"),
-      ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
-  const revisoes = ((revisoesDb ?? []) as Tema[]).filter((t) => materias.some((m) => m.id === t.subject_id));
-  const cursoDaMateria = (m: Materia) => cursos.find((c) => c.id === m.course_id)?.title ?? "";
-  const sessoes = (sessoesDb ?? []) as Sessao[];
-  const estudos = cursos
-    .map((c) => ({ c, ciclo: resumoDoCiclo(c, materias.filter((m) => m.course_id === c.id), sessoes) }))
-    .filter(({ c, ciclo }) => ciclo.proxima && !ciclo.completo && !sessoes.some((s) => s.course_id === c.id && hojeISO(new Date(s.starts_at)) === hoje && !s.done_at))
-    .map(({ c, ciclo }) => ({ c, linha: ciclo.proxima!, tema: temasDa(ciclo.proxima!.materia, (temasDb ?? []) as Tema[]).proximo }));
+  // Estudos: as aulas de hoje de cada área (uma por disciplina na roda)
+  const aulasHoje = estudo.porArea.flatMap((x) => x.hoje);
+  const estudosPendentes = aulasHoje.filter((x) => !x.feita).length;
   const rotas = (rotasDb ?? []).map((x) => {
     const r = normalizar(x);
     return { r, resumo: resumirRota(r, ((marcosDb ?? []) as Marco[]).filter((m) => m.route_id === r.id), hoje) };
@@ -95,7 +81,7 @@ export default async function Page() {
           <div>
             <p className="palco__data">{dataPorExtenso(hoje)}</p>
             <h1 className="palco__t">{saudacao(agora)}, {primeiroNome}</h1>
-            <p className="palco__resumo">{resumoDoDia(dia, rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length, estudos.length)}</p>
+            <p className="palco__resumo">{resumoDoDia(dia, rotinas.filter((r) => !feitaEm(r, marcas, hoje)).length, estudosPendentes)}</p>
           </div>
           <div className="hide-mobile"><BotaoNova /></div>
         </div>
@@ -214,23 +200,10 @@ export default async function Page() {
             </Bloco>
           )}
 
-          <Bloco titulo="Estudos" n={estudos.length + revisoes.length} acao={<Link href="/estudos" className="sec__act">Estudos</Link>} vazio={cursos.length ? "Sessão de estudo já marcada para hoje, ou ciclo completo." : "Monte o seu ciclo de estudos para ver aqui a matéria da vez."}>
-              {revisoes.length > 0 && <RevisoesDoDia temas={revisoes} materias={materias} cursoDe={cursoDaMateria} />}
-              {estudos.length > 0 && (
-                <ul className="list">
-                  {estudos.map(({ c, linha, tema }) => (
-                    <li key={c.id} className="row">
-                      <GraduationCap className="row__ic" aria-hidden style={{ color: linha.materia.color }} />
-                      <div className="row__body">
-                        <Link href={`/estudos/${c.id}`} className="row__t">{linha.materia.title}{tema ? ` · ${tema.title}` : ""}</Link>
-                        <span className="props">
-                          <span className="prop">{c.title}</span>
-                          {linha.meta && <span className="prop">faltam {horas(linha.meta - linha.feito)} no ciclo</span>}
-                          {c.exam_date && <span className="prop prop--today">{linhaDoEstudo(c, hoje).split(" · ")[0]}</span>}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
+          <Bloco titulo="Estudos" n={estudosPendentes} acao={<Link href="/estudos" className="sec__act">Estudos</Link>} vazio={estudo.areas.length ? "Nenhuma aula para hoje." : "Monte as áreas, projetos e disciplinas em Estudos."}>
+              {aulasHoje.length > 0 && (
+                <ul className="aulas-dia">
+                  {aulasHoje.map(({ d, p, aula, feita }) => <AulaDoDia key={aula.id} aula={aula} titulo={nomeDaAula(d, aula)} projeto={p.name} cor={p.color} feita={feita} />)}
                 </ul>
               )}
             </Bloco>

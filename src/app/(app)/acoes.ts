@@ -11,6 +11,7 @@ import { CORES_MATERIA, INTERVALOS, proximaRevisao, TIPOS_CURSO, type TipoCurso 
 import { textoFrequencia } from "@/lib/rotinas";
 import { AJUSTE, CAMPOS_LANCAMENTO, limitesDoMes, mesDoDia, moeda, SALDO_INICIAL, naConta, normalizarLancamento, tipoNoBanco, TIPOS_INVESTIMENTO, valorParcela, dividir } from "@/lib/financas";
 import { CONFERIDO } from "@/lib/conferencia";
+import { CORES_PROJETO } from "@/lib/trilhas";
 import { TIPOS_SAUDE, type TipoMedida, MEDIDAS } from "@/lib/saude";
 
 function atualizar() {
@@ -1774,4 +1775,135 @@ export async function salvarAgendaExterna(url: string): Promise<{ ok: boolean; e
   const { error } = await supabase.from("profiles").update({ ical_url: u || null }).not("user_id", "is", null);
   atualizar();
   return { ok: !error };
+}
+
+// ---------- Estudos: áreas > projetos > disciplinas > aulas ----------
+
+const nomeOk = (v: string, max = 80) => v.trim().replace(/\s+/g, " ").slice(0, max);
+
+/** As duas áreas do começo: Profissional (2 aulas por dia) e Intelectual (1), de segunda a sexta */
+export async function criarAreasEstudo() {
+  const supabase = await createClient();
+  const { count } = await supabase.from("study_areas").select("id", { count: "exact", head: true });
+  if (count) return;
+  await supabase.from("study_areas").insert([{ name: "Profissional", daily_lessons: 2, position: 0 }, { name: "Intelectual", daily_lessons: 1, position: 1 }]);
+  atualizar();
+}
+
+export async function salvarAreaEstudo(id: string, d: { name: string; daily_lessons: number; weekdays: number[] }): Promise<{ ok: boolean; erro?: string }> {
+  if (!ehId(id)) return { ok: false, erro: "Área inválida." };
+  const name = nomeOk(d.name, 60);
+  if (!name) return { ok: false, erro: "Dê um nome à área." };
+  if (!Number.isInteger(d.daily_lessons) || d.daily_lessons < 0 || d.daily_lessons > 12) return { ok: false, erro: "Aulas por dia: de 0 a 12." };
+  const dias = [...new Set(d.weekdays.filter((x) => Number.isInteger(x) && x >= 0 && x <= 6))].sort();
+  const supabase = await createClient();
+  const { error } = await supabase.from("study_areas").update({ name, daily_lessons: d.daily_lessons, weekdays: dias }).eq("id", id);
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true };
+}
+
+export async function criarProjetoEstudo(areaId: string, nome: string): Promise<{ ok: boolean; erro?: string }> {
+  const name = nomeOk(nome);
+  if (!ehId(areaId) || !name) return { ok: false, erro: "Dê um nome ao projeto." };
+  const supabase = await createClient();
+  const { data: irmaos } = await supabase.from("study_projects").select("position").eq("area_id", areaId);
+  const position = Math.max(-1, ...(irmaos ?? []).map((x) => x.position)) + 1;
+  const { error } = await supabase.from("study_projects").insert({ area_id: areaId, name, position, color: CORES_PROJETO[position % CORES_PROJETO.length] });
+  if (error) return { ok: false, erro: "Não foi possível criar." };
+  atualizar();
+  return { ok: true };
+}
+
+export async function salvarProjetoEstudo(id: string, d: { name: string; area_id: string; archived: boolean }): Promise<{ ok: boolean; erro?: string }> {
+  const name = nomeOk(d.name);
+  if (!ehId(id) || !ehId(d.area_id) || !name) return { ok: false, erro: "Dê um nome ao projeto." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("study_projects").update({ name, area_id: d.area_id, archived: d.archived }).eq("id", id);
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true };
+}
+
+export async function apagarProjetoEstudo(id: string) { await apagarPorId("study_projects", id); }
+export async function apagarDisciplina(id: string) { await apagarPorId("study_disciplines", id); }
+
+/** Sobe ou desce na fila (projeto entre os da área; disciplina entre as do projeto) */
+export async function moverNaFila(tabela: "study_projects" | "study_disciplines", id: string, direcao: -1 | 1) {
+  if (!ehId(id)) return;
+  const supabase = await createClient();
+  const pai = tabela === "study_projects" ? "area_id" : "project_id";
+  const { data: item } = await supabase.from(tabela).select(`id, ${pai}`).eq("id", id).maybeSingle();
+  if (!item) return;
+  const { data: irmaos } = await supabase.from(tabela).select("id, position, name").eq(pai, (item as Record<string, string>)[pai]).order("position").order("name");
+  const lista = (irmaos ?? []).map((x) => x.id);
+  const i = lista.indexOf(id), j = i + direcao;
+  if (i < 0 || j < 0 || j >= lista.length) return;
+  [lista[i], lista[j]] = [lista[j], lista[i]];
+  for (const [k, x] of lista.entries()) await supabase.from(tabela).update({ position: k }).eq("id", x);
+  atualizar();
+}
+
+export async function criarDisciplina(projetoId: string, nome: string, aulas: number): Promise<{ ok: boolean; erro?: string }> {
+  const name = nomeOk(nome);
+  if (!ehId(projetoId) || !name) return { ok: false, erro: "Dê um nome à disciplina." };
+  if (!Number.isInteger(aulas) || aulas < 1 || aulas > 1000) return { ok: false, erro: "Quantas aulas? De 1 a 1000." };
+  const supabase = await createClient();
+  const { data: irmaos } = await supabase.from("study_disciplines").select("position").eq("project_id", projetoId);
+  const { data: d, error } = await supabase.from("study_disciplines").insert({ project_id: projetoId, name, position: Math.max(-1, ...(irmaos ?? []).map((x) => x.position)) + 1 }).select("id").single();
+  if (error || !d) return { ok: false, erro: "Não foi possível criar." };
+  const { error: e2 } = await supabase.from("study_lessons").insert(Array.from({ length: aulas }, (_, i) => ({ discipline_id: d.id, number: i + 1 })));
+  if (e2) { await supabase.from("study_disciplines").delete().eq("id", d.id); return { ok: false, erro: "Não foi possível criar as aulas." }; }
+  atualizar();
+  return { ok: true };
+}
+
+/** Renomear e mudar quantas aulas tem (só tira aulas do fim que ainda não foram feitas) */
+export async function salvarDisciplina(id: string, d: { name: string; aulas: number; project_id: string }): Promise<{ ok: boolean; erro?: string }> {
+  const name = nomeOk(d.name);
+  if (!ehId(id) || !ehId(d.project_id) || !name) return { ok: false, erro: "Dê um nome à disciplina." };
+  if (!Number.isInteger(d.aulas) || d.aulas < 1 || d.aulas > 1000) return { ok: false, erro: "Quantas aulas? De 1 a 1000." };
+  const supabase = await createClient();
+  const { data: aulas } = await supabase.from("study_lessons").select("id, number, done_on").eq("discipline_id", id).order("number");
+  const atual = aulas ?? [];
+  const sobrando = atual.filter((a) => a.number > d.aulas);
+  if (sobrando.some((a) => a.done_on)) return { ok: false, erro: `A aula ${sobrando.find((a) => a.done_on)!.number} já foi feita: não dá para ter menos aulas que isso.` };
+  const { error } = await supabase.from("study_disciplines").update({ name, project_id: d.project_id }).eq("id", id);
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  if (sobrando.length) await supabase.from("study_lessons").delete().in("id", sobrando.map((a) => a.id));
+  const maior = Math.max(0, ...atual.map((a) => a.number));
+  if (d.aulas > maior) await supabase.from("study_lessons").insert(Array.from({ length: d.aulas - maior }, (_, i) => ({ discipline_id: id, number: maior + i + 1 })));
+  atualizar();
+  return { ok: true };
+}
+
+/** Concluí a aula: hoje, com os minutos do relógio (se usou) */
+export async function concluirAula(id: string, minutos: number | null): Promise<{ ok: boolean }> {
+  if (!ehId(id)) return { ok: false };
+  const m = minutos === null || !Number.isFinite(minutos) ? null : Math.max(0, Math.min(1440, Math.round(minutos)));
+  const supabase = await createClient();
+  const { error } = await supabase.from("study_lessons").update({ done_on: hojeISO(), minutes: m }).eq("id", id);
+  atualizar();
+  return { ok: !error };
+}
+
+export async function desfazerAula(id: string) {
+  if (!ehId(id)) return;
+  const supabase = await createClient();
+  await supabase.from("study_lessons").update({ done_on: null, minutes: null }).eq("id", id);
+  atualizar();
+}
+
+/** Título e anotação da aula (o resumo, o link da conversa com a IA) */
+export async function salvarAula(id: string, d: { title: string; note: string; done_on: string | null; minutes: number | null }): Promise<{ ok: boolean; erro?: string }> {
+  if (!ehId(id)) return { ok: false, erro: "Aula inválida." };
+  if (d.done_on && (!DATA.test(d.done_on) || d.done_on > hojeISO())) return { ok: false, erro: "Data inválida." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("study_lessons").update({
+    title: d.title.trim().slice(0, 160) || null, note: d.note.trim().slice(0, 4000) || null,
+    done_on: d.done_on || null, minutes: d.done_on && d.minutes !== null && Number.isFinite(d.minutes) ? Math.max(0, Math.min(1440, Math.round(d.minutes))) : null,
+  }).eq("id", id);
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true };
 }

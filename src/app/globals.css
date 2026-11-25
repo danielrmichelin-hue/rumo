@@ -1739,3 +1739,66 @@ body:has(.capture) { overflow: hidden; }
 .inv__head small { overflow-wrap: anywhere; }
 .painel-fin .barras__t { flex-wrap: wrap; row-gap: 0; white-space: normal; }
 .painel-fin .barras__t small { margin-left: 0; }
+
+/* Estudos: áreas > projetos > disciplinas > aulas */
+.estudo-area { display: grid; gap: 14px; margin: 26px 0 8px; }
+.estudo-area__cab { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.estudo-area__cab h2 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.02em; }
+.estudo-area__cab small { font-size: 13px; color: var(--text-2); }
+.estudo-projetos { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 14px; align-items: start; }
+.estudo-proj { display: grid; gap: 10px; padding: 16px 16px 12px; }
+.estudo-proj.is-pausado { opacity: .6; }
+.estudo-proj__cab { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+.estudo-proj__cab > i { width: 12px; height: 12px; border-radius: 4px; }
+.estudo-proj__cab b { display: block; font-size: 16px; font-weight: 600; line-height: 1.3; }
+.estudo-proj__cab small { font-size: 12.5px; color: var(--text-2); }
+.estudo-proj__barra, .estudo-disc__barra { display: block; height: 6px; border-radius: 99px; background: var(--sunk); overflow: hidden; }
+.estudo-proj__barra i, .estudo-disc__barra i { display: block; height: 100%; border-radius: 99px; }
+.estudo-discs { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.estudo-discs > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.estudo-disc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(70px, 120px); column-gap: 12px; row-gap: 4px; align-items: center; padding: 8px 8px; border-radius: 12px; color: inherit; text-decoration: none; }
+.estudo-disc:hover { background: var(--hover); }
+.estudo-disc b { grid-column: 1 / -1; font-size: 14px; font-weight: 500; }
+.estudo-disc small { grid-row: 2; grid-column: 1; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.estudo-disc .estudo-disc__barra { grid-row: 2; grid-column: 2; }
+.trilha-mover { display: inline-flex; }
+.trilha-mover .icon-btn { width: 28px; height: 28px; }
+.trilha-novo { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.trilha-novo--disc { grid-template-columns: minmax(0, 1fr) 92px auto; }
+.trilha-novo .input { height: 36px; font-size: 14px; }
+.trilha-novo__n { display: flex; align-items: center; gap: 6px; }
+.trilha-novo__n .input { width: 56px; text-align: center; }
+.trilha-novo__n small { font-size: 12px; color: var(--text-2); }
+.gantt--estudos { grid-template-columns: minmax(150px, 230px) repeat(var(--n), minmax(14px, 1fr)); min-width: calc(160px + var(--n) * 14px); }
+.gantt__nome a { overflow: hidden; color: inherit; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.gantt__nome a:hover b { text-decoration: underline; }
+.gantt__barra--progresso { background: linear-gradient(90deg, var(--c) var(--p), color-mix(in srgb, var(--c) 28%, transparent) var(--p)); }
+.gantt__hoje { z-index: 2; justify-self: start; width: 2px; height: 100%; background: var(--accent); opacity: .5; pointer-events: none; }
+
+/* A aula do dia, com o relógio */
+.aulas-dia { display: grid; gap: 8px; margin: 0; padding: 0 2px 6px; list-style: none; }
+.aula-dia { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 16px; background: var(--sunk); }
+.aula-dia.is-rodando { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.aula-dia.is-feita { grid-template-columns: 34px minmax(0, 1fr) auto; opacity: .75; }
+.aula-dia__t { display: grid; gap: 1px; min-width: 0; }
+.aula-dia__t a { min-width: 0; color: inherit; text-decoration: none; }
+.aula-dia__t b { display: block; font-size: 14.5px; font-weight: 600; line-height: 1.3; }
+.aula-dia__t small { font-size: 12.5px; color: var(--text-2); }
+.aula-dia__anel { width: 34px; height: 34px; border-radius: 99px; background: conic-gradient(var(--c) calc(var(--p) * 360deg), var(--line) 0); -webkit-mask: radial-gradient(circle, transparent 11px, #000 12px); mask: radial-gradient(circle, transparent 11px, #000 12px); }
+.aula-dia__marca { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 99px; color: #fff; }
+.aula-dia__marca svg { width: 18px; height: 18px; }
+.aula-dia__tempo { min-width: 44px; font-size: 18px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.aula-dia__acoes { display: flex; gap: 6px; }
+@media (max-width: 640px) {
+  .aula-dia { grid-template-columns: 34px minmax(0, 1fr) auto; }
+  .aula-dia__acoes { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
+/* As aulas de uma disciplina */
+.aulas { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 4px 12px; margin: 0; padding: 0 4px 8px; list-style: none; }
+.aula { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px 6px; border-radius: 12px; }
+.aula.is-proxima { background: var(--accent-soft); }
+.aula__t { display: grid; gap: 1px; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.aula__t b { overflow: hidden; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.aula__t small { font-size: 12px; color: var(--text-2); }
+.aula.is-feita .aula__t b { color: var(--text-2); }
