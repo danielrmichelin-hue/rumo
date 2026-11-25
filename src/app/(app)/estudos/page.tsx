@@ -1,8 +1,9 @@
 // Estudos: o painel geral, as aulas de hoje e, por área, o roadmap e os projetos com as disciplinas
 import Link from "next/link";
 import { hojeISO, SEMANA_CURTA } from "@/lib/datas";
-import { nomeDaAula } from "@/lib/trilhas";
-import { AulaDoDia, CriarAreas, EditarArea, EditarProjeto, MoverFila, NovaArea, NovaDisciplina, NovoProjeto } from "@/components/Trilhas";
+import { constancia, metaDoProjeto, nomeDaAula } from "@/lib/trilhas";
+import { createClient } from "@/lib/supabase/server";
+import { AulaDoDia, CriarAreas, EditarArea, EditarProjeto, LembreteEstudo, MoverFila, NovaArea, NovaDisciplina, NovoProjeto } from "@/components/Trilhas";
 import { RoadmapEstudos } from "@/components/RoadmapEstudos";
 import { carregarEstudos } from "./dados";
 
@@ -18,7 +19,11 @@ const dias = (w: number[]) => {
 
 export default async function Page() {
   const hoje = hojeISO();
-  const { areas, projetos, aulas, porArea } = await carregarEstudos(hoje);
+  const supabase = await createClient();
+  const [{ areas, projetos, aulas, aulasDe, porArea }, { data: perfil }] = await Promise.all([carregarEstudos(hoje), supabase.from("profiles").select("study_reminder").maybeSingle()]);
+  const c = constancia(aulas, hoje, 22);
+  const metaSemana = porArea.reduce((t, x) => t + x.area.daily_lessons * x.area.weekdays.length, 0); // aulas (= horas) por semana no plano
+  const maiorSemana = Math.max(metaSemana * 60, ...c.porSemana.slice(-8).map((x) => x.min), 60);
 
   const total = aulas.length, feitas = aulas.filter((a) => a.done_on).length;
   const minutos = aulas.reduce((t, a) => t + (a.done_on ? a.minutes ?? 0 : 0), 0);
@@ -28,7 +33,10 @@ export default async function Page() {
 
   return (
     <div className="page page--wide">
-      <div className="page__head"><div><h1 className="page__t">Estudos</h1></div></div>
+      <div className="page__head">
+        <div><h1 className="page__t">Estudos</h1></div>
+        {areas.length > 0 && <div className="page__actions"><LembreteEstudo hora={perfil?.study_reminder ?? null} /></div>}
+      </div>
 
       {!areas.length ? (
         <section className="bloco"><p className="bloco__vazio">Profissional com 2 aulas por dia e Intelectual com 1, de segunda a sexta.</p><div style={{ padding: "0 8px 12px" }}><CriarAreas /></div></section>
@@ -50,7 +58,31 @@ export default async function Page() {
             </section>
           )}
 
-          {porArea.map(({ area, roadmap }) => {
+          {aulas.some((a) => a.done_on) && (
+            <div className="estudo-ritmo">
+              <section className="bloco">
+                <h2 className="sec__h">Constância<span className="sec__act">{c.ultimos30} {c.ultimos30 === 1 ? "dia" : "dias"} de estudo nos últimos 30</span></h2>
+                <div className="mapa" role="img" aria-label={`${c.ultimos30} dias de estudo nos últimos 30`}>
+                  {c.dias.map((d) => <i key={d.dia} data-n={d.futuro ? undefined : Math.min(4, d.aulas)} className={d.futuro ? "is-futuro" : undefined} title={`${dm(d.dia)}${d.aulas ? ` · ${d.aulas} ${d.aulas === 1 ? "aula" : "aulas"}${d.min ? ` · ${horas(d.min)}` : ""}` : ""}`} />)}
+                </div>
+                <p className="mapa__leg"><span>Menos</span>{[0, 1, 2, 3, 4].map((n) => <i key={n} data-n={n} />)}<span>Mais</span></p>
+              </section>
+              <section className="bloco">
+                <h2 className="sec__h">Horas por semana<span className="sec__act">plano: {metaSemana}h</span></h2>
+                <div className="colunas">
+                  {metaSemana > 0 && <i className="colunas__meta" style={{ bottom: `calc(26px + (100% - 48px) * ${(metaSemana * 60) / maiorSemana})` }} />}
+                  {c.porSemana.slice(-8).map((s) => (
+                    <div key={s.ini} className={s.atual ? "is-atual" : undefined} title={`${s.aulas} ${s.aulas === 1 ? "aula" : "aulas"} · ${horas(s.min)}`}>
+                      <span style={{ height: `${(s.min / maiorSemana) * 100}%` }}>{s.min > 0 && <em>{horas(s.min)}</em>}</span>
+                      <small>{dm(s.ini).slice(0, 5)}</small>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
+
+          {porArea.map(({ area, roadmap, ritmo, fila }) => {
             const projs = projetos.filter((p) => p.area_id === area.id).sort((a, b) => Number(a.archived) - Number(b.archived) || a.position - b.position);
             const tot = roadmap.reduce((t, r) => t + r.total, 0), fe = roadmap.reduce((t, r) => t + r.feitas, 0);
             const fim = roadmap.map((r) => r.fim).filter((f): f is string => !!f).sort().pop();
@@ -60,6 +92,7 @@ export default async function Page() {
                   <div>
                     <h2>{area.name}</h2>
                     <small>{area.daily_lessons} {area.daily_lessons === 1 ? "aula" : "aulas"} por dia · {dias(area.weekdays)} · {fe}/{tot} aulas ({pct(fe, tot)}%){fim ? ` · termina em ${dm(fim)}` : ""}</small>
+                    {ritmo && <span className={`ritmo ritmo--${ritmo.diferenca < 0 ? "atras" : ritmo.diferenca > 0 ? "frente" : "em-dia"}`}>{ritmo.diferenca < 0 ? `${-ritmo.diferenca} ${ritmo.diferenca === -1 ? "aula atrasada" : "aulas atrasadas"}` : ritmo.diferenca > 0 ? `${ritmo.diferenca} ${ritmo.diferenca === 1 ? "aula adiantada" : "aulas adiantadas"}` : "No ritmo"}<small> · desde {dm(ritmo.desde)}: {ritmo.feitas} de {ritmo.esperado} até ontem</small></span>}
                   </div>
                   <EditarArea area={area} />
                 </header>
@@ -75,6 +108,7 @@ export default async function Page() {
                     const t = discs.reduce((s, r) => s + r.total, 0), f = discs.reduce((s, r) => s + r.feitas, 0);
                     const fimP = discs.map((r) => r.fim).filter((x): x is string => !!x).sort().pop();
                     const ativos = projs.filter((x) => !x.archived);
+                    const meta = p.archived ? null : metaDoProjeto(area, fila, aulasDe, hoje, p);
                     return (
                       <section key={p.id} className={`bloco estudo-proj${p.archived ? " is-pausado" : ""}`}>
                         <header className="estudo-proj__cab">
@@ -84,6 +118,12 @@ export default async function Page() {
                           <EditarProjeto projeto={p} areas={areas} />
                         </header>
                         <span className="estudo-proj__barra"><i style={{ width: `${pct(f, t)}%`, background: p.color }} /></span>
+                        {meta && (
+                          <p className={`estudo-meta estudo-meta--${meta.cabe ? "ok" : "nao"}`}>
+                            <b>Meta {dm(meta.alvo)}: {meta.cabe ? "cabe" : "não cabe"}</b>
+                            <span>{meta.fim ? `No ritmo atual termina em ${dm(meta.fim)}.` : "Sem previsão (a área está sem aulas por dia)."}{!meta.cabe && meta.aulasPorDia ? ` Com ${meta.aulasPorDia.n} aulas por dia em ${area.name}, termina em ${dm(meta.aulasPorDia.fim)}.` : ""}{!meta.cabe && meta.primeiro ? ` Se for o primeiro da fila, termina em ${dm(meta.primeiro)}${meta.primeiro <= meta.alvo ? " e cabe" : ""}.` : ""}{!meta.cabe && !meta.aulasPorDia && !(meta.primeiro && meta.primeiro <= meta.alvo) ? " Mais aulas por dia não adiantam (cada disciplina dá uma aula por dia): vale mudar a data." : ""}</span>
+                          </p>
+                        )}
                         <ul className="estudo-discs">
                           {discs.map((r, k) => (
                             <li key={r.d.id}>

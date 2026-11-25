@@ -1,5 +1,6 @@
 // Avisos do Rumo no celular (web push). Roda a cada 5 minutos (pg_cron) e manda, uma vez cada:
-// resumo da manhã (7h30), compromisso 15 min antes, remédio ou rotina no horário, contas e parcelas do dia (9h).
+// resumo da manhã (7h30), compromisso 15 min antes, remédio ou rotina no horário, contas e parcelas do dia (9h),
+// e as aulas de estudo do dia no horário escolhido em Estudos (profiles.study_reminder).
 // Com o login do app em vez do token do agendador, manda só uma notificação de teste para quem pediu.
 // ?simular=1 devolve o que seria enviado, sem enviar nem registrar.
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -70,6 +71,29 @@ async function avisosDe(sb: any, uid: string, fingida: number | null): Promise<A
     if (r.days && !r.days.includes(dow)) continue;
     const h = minutos(r.at_time);
     if (min >= h && min < h + 10) avisos.push({ chave: `rot:${r.id}:${dia}`, title: r.dose ? "Remédio" : "Rotina", body: r.dose ? `${r.title} · ${r.dose}` : r.title, url: r.dose ? "/saude" : "/hoje" });
+  }
+
+  // Estudos: no horário escolhido, as aulas de hoje que ainda faltam (a mesma conta de src/lib/trilhas.ts)
+  const { data: perfil } = await sb.from("profiles").select("study_reminder").eq("user_id", uid).maybeSingle();
+  if (perfil?.study_reminder && min >= minutos(perfil.study_reminder) && min < minutos(perfil.study_reminder) + 10) {
+    const [{ data: areas }, { data: projs }, { data: discs }, { data: aulas }] = await Promise.all([
+      sb.from("study_areas").select("id, daily_lessons, weekdays, position").eq("user_id", uid).order("position"),
+      sb.from("study_projects").select("id, area_id, position, name, archived").eq("user_id", uid).eq("archived", false),
+      sb.from("study_disciplines").select("id, project_id, name, position").eq("user_id", uid),
+      sb.from("study_lessons").select("discipline_id, number, done_on").eq("user_id", uid).range(0, 9999),
+    ]);
+    const pendentes: string[] = [];
+    for (const a of areas ?? []) {
+      if (!(a.weekdays ?? []).includes(dow) || a.daily_lessons <= 0) continue;
+      const fila = (projs ?? []).filter((p: { area_id: string }) => p.area_id === a.id).sort((x: { position: number }, y: { position: number }) => x.position - y.position)
+        .flatMap((p: { id: string }) => (discs ?? []).filter((d: { project_id: string }) => d.project_id === p.id).sort((x: { position: number }, y: { position: number }) => x.position - y.position));
+      const naRoda = fila.map((d: { id: string; name: string }) => {
+        const minhas = (aulas ?? []).filter((l: { discipline_id: string }) => l.discipline_id === d.id).sort((x: { number: number }, y: { number: number }) => x.number - y.number);
+        return { d, proxima: minhas.find((l: { done_on: string | null }) => !l.done_on), hoje: minhas.some((l: { done_on: string | null }) => l.done_on === dia) };
+      }).filter((x: { proxima?: unknown; hoje: boolean }) => x.proxima || x.hoje).slice(0, a.daily_lessons);
+      for (const x of naRoda) if (!x.hoje && x.proxima) pendentes.push(`${x.d.name} · Aula ${x.proxima.number}`);
+    }
+    if (pendentes.length) avisos.push({ chave: `estudo:${dia}`, title: pendentes.length === 1 ? "Aula de hoje" : `${pendentes.length} aulas de hoje`, body: pendentes.join(" · "), url: "/hoje" });
   }
 
   // Contas e parcelas: às 9h

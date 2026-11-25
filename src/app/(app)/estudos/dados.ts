@@ -1,7 +1,7 @@
 // Os dados de Estudos (áreas, projetos, disciplinas e aulas), lidos de uma vez para a página e o Hoje
 import { createClient, todasAsLinhas } from "@/lib/supabase/server";
 import {
-  aulasDeHoje, CAMPOS_AREA, CAMPOS_AULA, CAMPOS_DISCIPLINA, CAMPOS_PROJETO_ESTUDO, filaDaArea, normalizarArea, roadmapDaArea,
+  aulasDeHoje, ritmoDaArea, CAMPOS_AREA, CAMPOS_AULA, CAMPOS_DISCIPLINA, CAMPOS_PROJETO_ESTUDO, filaDaArea, normalizarArea, roadmapDaArea,
   type Aula, type Disciplina, type ProjetoEstudo,
 } from "@/lib/trilhas";
 
@@ -22,7 +22,7 @@ export async function carregarEstudos(hoje: string) {
   const aulasDe = (id: string) => porDisc.get(id) ?? [];
   const porArea = areas.map((area) => {
     const fila = filaDaArea(area, projetos, disciplinas);
-    return { area, fila, roadmap: roadmapDaArea(area, fila, aulasDe, hoje), hoje: aulasDeHoje(area, fila, aulasDe, hoje) };
+    return { area, fila, roadmap: roadmapDaArea(area, fila, aulasDe, hoje), hoje: aulasDeHoje(area, fila, aulasDe, hoje), ritmo: ritmoDaArea(area, fila, aulasDe, hoje) };
   });
   return { areas, projetos, disciplinas, aulas, aulasDe, porArea };
 }

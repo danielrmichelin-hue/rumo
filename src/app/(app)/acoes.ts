@@ -1846,11 +1846,12 @@ export async function criarProjetoEstudo(areaId: string, nome: string): Promise<
   return { ok: true };
 }
 
-export async function salvarProjetoEstudo(id: string, d: { name: string; area_id: string; archived: boolean }): Promise<{ ok: boolean; erro?: string }> {
+export async function salvarProjetoEstudo(id: string, d: { name: string; area_id: string; archived: boolean; target_on?: string | null }): Promise<{ ok: boolean; erro?: string }> {
   const name = nomeOk(d.name);
   if (!ehId(id) || !ehId(d.area_id) || !name) return { ok: false, erro: "Dê um nome ao projeto." };
+  if (d.target_on && !DATA.test(d.target_on)) return { ok: false, erro: "Data da meta inválida." };
   const supabase = await createClient();
-  const { error } = await supabase.from("study_projects").update({ name, area_id: d.area_id, archived: d.archived }).eq("id", id);
+  const { error } = await supabase.from("study_projects").update({ name, area_id: d.area_id, archived: d.archived, target_on: d.target_on || null }).eq("id", id);
   if (error) return { ok: false, erro: "Não foi possível guardar." };
   atualizar();
   return { ok: true };
@@ -1934,6 +1935,18 @@ export async function salvarAula(id: string, d: { title: string; note: string; d
     title: d.title.trim().slice(0, 160) || null, note: d.note.trim().slice(0, 4000) || null,
     done_on: d.done_on || null, minutes: d.done_on && d.minutes !== null && Number.isFinite(d.minutes) ? Math.max(0, Math.min(1440, Math.round(d.minutes))) : null,
   }).eq("id", id);
+  if (error) return { ok: false, erro: "Não foi possível guardar." };
+  atualizar();
+  return { ok: true };
+}
+
+/** O horário do aviso das aulas do dia no celular (vazio desliga) */
+export async function salvarLembreteEstudo(hora: string | null): Promise<{ ok: boolean; erro?: string }> {
+  if (hora && !/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) return { ok: false, erro: "Horário inválido." };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, erro: "Entre de novo." };
+  const { error } = await supabase.from("profiles").update({ study_reminder: hora || null }).eq("user_id", user.id);
   if (error) return { ok: false, erro: "Não foi possível guardar." };
   atualizar();
   return { ok: true };

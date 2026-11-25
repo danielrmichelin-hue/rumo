@@ -2,11 +2,11 @@
 
 // Estudos: o relógio da aula, os formulários (área, projeto, disciplina) e a lista de aulas de uma disciplina.
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
-import { ArrowDown, ArrowUp, Check, Pause, Pencil, Play, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { ArrowDown, ArrowUp, Bell, BellOff, Check, Pause, Pencil, Play, Plus, RotateCcw, Trash2 } from "lucide-react";
 import {
   apagarAreaEstudo, apagarAula, apagarDisciplina, apagarProjetoEstudo, concluirAula, criarAreaEstudo, criarAreasEstudo, criarDisciplina, criarProjetoEstudo, desfazerAula,
-  moverNaFila, salvarAreaEstudo, salvarAula, salvarDisciplina, salvarProjetoEstudo,
+  moverNaFila, salvarAreaEstudo, salvarAula, salvarDisciplina, salvarLembreteEstudo, salvarProjetoEstudo,
 } from "@/app/(app)/acoes";
 import { hojeISO, numeroBR, SEMANA_CURTA } from "@/lib/datas";
 import type { Area, Aula, Disciplina, ProjetoEstudo } from "@/lib/trilhas";
@@ -25,13 +25,46 @@ const gravar = (id: string, e: Estado | null) => { try { if (e) localStorage.set
 const passado = (e: Estado) => e.acumulado + (e.desde ? Date.now() - e.desde : 0);
 const relogio = (ms: number) => { const s = Math.floor(ms / 1000); const h = Math.floor(s / 3600); return `${h ? `${h}:` : ""}${String(Math.floor((s % 3600) / 60)).padStart(h ? 2 : 1, "0")}:${String(s % 60).padStart(2, "0")}`; };
 
-/** Uma aula do dia: o relógio (continua contando se trocar de tela) e o "Concluí", que grava os minutos */
+const MIN = 60000;
+const FOCO = 25 * MIN, CICLO = 30 * MIN; // pomodoro: 25 de foco + 5 de pausa
+const MODO = "rumo:relogio:modo";
+
+/** No pomodoro: em que bloco está, quanto falta nele e quanto já foi de foco */
+function pomodoro(ms: number) {
+  const n = Math.floor(ms / CICLO), pos = ms % CICLO;
+  const foco = pos < FOCO;
+  return { numero: n + 1, foco, falta: foco ? FOCO - pos : CICLO - pos, focoMs: n * FOCO + Math.min(pos, FOCO), pct: foco ? pos / FOCO : (pos - FOCO) / (CICLO - FOCO) };
+}
+
+/** Aviso de fim de bloco: som curto, vibração e notificação (com a tela aberta) */
+function alertar(titulo: string, corpo: string) {
+  try {
+    const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AC();
+    [0, 0.25].forEach((t, k) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = k ? 880 : 660; o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + t); g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.2);
+      o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.22);
+    });
+  } catch { /* sem som */ }
+  try { navigator.vibrate?.([200, 100, 200]); } catch { /* sem vibração */ }
+  try {
+    if ("Notification" in window && Notification.permission === "granted") {
+      navigator.serviceWorker?.ready.then((r) => r.showNotification(titulo, { body: corpo, tag: "rumo-relogio" })).catch(() => new Notification(titulo, { body: corpo }));
+    }
+  } catch { /* sem notificação */ }
+}
+
+/** Uma aula do dia: o relógio (livre ou pomodoro; continua contando se trocar de tela) e o "Concluí", que grava os minutos */
 export function AulaDoDia({ aula, titulo, projeto, cor, feita, minutosMeta = 60 }: { aula: Aula; titulo: string; projeto: string; cor: string; feita: boolean; minutosMeta?: number }) {
   const [e, setE] = useState<Estado>({ acumulado: 0, desde: null });
+  const [modoPomodoro, setModoPomodoro] = useState(false);
   const [agora, setAgora] = useState(0);
   const [pendente, iniciar] = useTransition();
   const avisar = useAvisar();
-  useEffect(() => { setE(ler(aula.id)); }, [aula.id]);
+  const ultimo = useRef<string | null>(null);
+  useEffect(() => { setE(ler(aula.id)); try { setModoPomodoro(localStorage.getItem(MODO) === "pomodoro"); } catch { /* livre */ } }, [aula.id]);
   useEffect(() => {
     if (!e.desde) return;
     const t = setInterval(() => setAgora(Date.now()), 1000);
@@ -39,8 +72,28 @@ export function AulaDoDia({ aula, titulo, projeto, cor, feita, minutosMeta = 60 
   }, [e.desde]);
   void agora;
   const ms = passado(e);
-  const mudar = (n: Estado) => { setE(n); gravar(aula.id, n); };
-  const pct = Math.min(1, ms / (minutosMeta * 60000));
+  const po = pomodoro(ms);
+  const focoMs = modoPomodoro ? po.focoMs : ms;
+  // Avisos: troca de bloco no pomodoro e 1 hora de aula (uma vez cada)
+  useEffect(() => {
+    if (!e.desde) return;
+    const marca = `${modoPomodoro ? `${po.numero}-${po.foco ? "foco" : "pausa"}` : "livre"}|${focoMs >= minutosMeta * MIN ? "hora" : ""}`;
+    if (ultimo.current === null) { ultimo.current = marca; return; }
+    if (marca === ultimo.current) return;
+    const [antes, horaAntes] = ultimo.current.split("|");
+    const [fase, hora] = marca.split("|");
+    ultimo.current = marca;
+    if (hora && !horaAntes) alertar("1 hora de aula", `${titulo}: dá para concluir.`);
+    else if (modoPomodoro && fase !== antes) alertar(po.foco ? `Foco ${po.numero}` : "Pausa de 5 min", po.foco ? `De volta: ${titulo}` : "Levanta, toma água.");
+  });
+  const mudar = (n: Estado) => { setE(n); gravar(aula.id, n); if (!n.desde) ultimo.current = null; };
+  const trocarModo = () => { const v = !modoPomodoro; setModoPomodoro(v); ultimo.current = null; try { localStorage.setItem(MODO, v ? "pomodoro" : "livre"); } catch { /* segue */ } };
+  const pct = modoPomodoro ? (ms > 0 ? po.pct : 0) : Math.min(1, ms / (minutosMeta * MIN));
+  const comecar = () => {
+    try { if ("Notification" in window && Notification.permission === "default") void Notification.requestPermission(); } catch { /* segue */ }
+    ultimo.current = null;
+    mudar({ acumulado: e.acumulado, desde: Date.now() });
+  };
 
   if (feita) {
     return (
@@ -52,17 +105,18 @@ export function AulaDoDia({ aula, titulo, projeto, cor, feita, minutosMeta = 60 
     );
   }
   return (
-    <li className={`aula-dia${e.desde ? " is-rodando" : ""}`}>
-      <span className="aula-dia__anel" style={{ "--p": pct, "--c": cor } as React.CSSProperties} aria-hidden />
-      <div className="aula-dia__t"><Link href={`/estudos/d/${aula.discipline_id}`}><b>{titulo}</b></Link><small>{projeto}</small></div>
-      <span className="aula-dia__tempo" aria-live="off">{ms > 0 ? relogio(ms) : ""}</span>
+    <li className={`aula-dia${e.desde ? " is-rodando" : ""}${modoPomodoro && ms > 0 && !po.foco ? " is-pausa" : ""}`}>
+      <span className="aula-dia__anel" style={{ "--p": pct, "--c": modoPomodoro && ms > 0 && !po.foco ? "var(--ok)" : cor } as React.CSSProperties} aria-hidden />
+      <div className="aula-dia__t"><Link href={`/estudos/d/${aula.discipline_id}`}><b>{titulo}</b></Link><small>{projeto}{modoPomodoro && ms > 0 ? ` · ${po.foco ? `foco ${po.numero}` : "pausa"} · ${relogio(focoMs)} de foco` : ""}</small></div>
+      <span className="aula-dia__tempo" aria-live="off">{ms > 0 ? (modoPomodoro ? relogio(po.falta) : relogio(ms)) : ""}</span>
       <span className="aula-dia__acoes">
+        <button type="button" className="chip aula-dia__modo" aria-pressed={modoPomodoro} title={modoPomodoro ? "Pomodoro: 25 min de foco + 5 de pausa" : "Relógio livre"} onClick={trocarModo}>25/5</button>
         {ms > 0 && <button type="button" className="icon-btn" aria-label="Zerar o relógio" title="Zerar" onClick={() => { if (confirm("Zerar o relógio desta aula?")) mudar({ acumulado: 0, desde: null }); }}><RotateCcw size={15} /></button>}
         {e.desde
           ? <button type="button" className="icon-btn" aria-label="Pausar" onClick={() => mudar({ acumulado: passado(e), desde: null })}><Pause size={16} /></button>
-          : <button type="button" className="btn btn--line btn--sm" onClick={() => mudar({ acumulado: e.acumulado, desde: Date.now() })}><Play aria-hidden />{ms > 0 ? "Continuar" : "Começar"}</button>}
+          : <button type="button" className="btn btn--line btn--sm" onClick={comecar}><Play aria-hidden />{ms > 0 ? "Continuar" : "Começar"}</button>}
         <button type="button" className="btn btn--sm" disabled={pendente} onClick={() => iniciar(async () => {
-          const minutos = ms > 0 ? Math.max(1, Math.round(ms / 60000)) : null;
+          const minutos = focoMs > 0 ? Math.max(1, Math.round(focoMs / MIN)) : null;
           const r = await concluirAula(aula.id, minutos);
           if (!r.ok) return avisar({ texto: "Não foi possível registrar." });
           gravar(aula.id, null); setE({ acumulado: 0, desde: null });
@@ -162,7 +216,7 @@ export function MoverFila({ tabela, id, primeiro, ultimo }: { tabela: "study_pro
 
 export function EditarProjeto({ projeto, areas }: { projeto: ProjetoEstudo; areas: Area[] }) {
   const [aberto, setAberto] = useState(false);
-  const [v, setV] = useState({ name: projeto.name, area_id: projeto.area_id, archived: projeto.archived });
+  const [v, setV] = useState({ name: projeto.name, area_id: projeto.area_id, archived: projeto.archived, target_on: projeto.target_on ?? "" });
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
   return (
@@ -173,6 +227,7 @@ export function EditarProjeto({ projeto, areas }: { projeto: ProjetoEstudo; area
           <form className="detail" style={{ gap: 14 }} onSubmit={(e) => { e.preventDefault(); iniciar(async () => { const r = await salvarProjetoEstudo(projeto.id, v); if (!r.ok) return setErro(r.erro ?? "Erro."); setAberto(false); }); }}>
             <label className="field">Nome<input className="input" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} maxLength={80} /></label>
             <label className="field">Área<select className="input" value={v.area_id} onChange={(e) => setV({ ...v, area_id: e.target.value })}>{areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
+            <label className="field">Meta: terminar até (opcional)<input className="input" type="date" value={v.target_on} onChange={(e) => setV({ ...v, target_on: e.target.value })} /></label>
             <label className="check-line"><input type="checkbox" checked={v.archived} onChange={(e) => setV({ ...v, archived: e.target.checked })} />Pausado (sai da fila e do roadmap)</label>
             {erro && <p className="note note--err" role="alert">{erro}</p>}
             <div className="detail__foot">
@@ -252,5 +307,23 @@ export function LinhaAula({ aula, proxima }: { aula: Aula; proxima: boolean }) {
         </Painel>
       )}
     </li>
+  );
+}
+
+/** O horário do aviso das aulas do dia no celular */
+export function LembreteEstudo({ hora }: { hora: string | null }) {
+  const [v, setV] = useState(hora?.slice(0, 5) ?? "");
+  const [pendente, iniciar] = useTransition();
+  const avisar = useAvisar();
+  const guardar = (h: string | null) => iniciar(async () => {
+    const r = await salvarLembreteEstudo(h);
+    avisar({ texto: r.ok ? (h ? `Aviso das aulas às ${h}, nos dias de estudo.` : "Aviso das aulas desligado.") : r.erro ?? "Erro." });
+  });
+  return (
+    <form className="lembrete" onSubmit={(e) => { e.preventDefault(); guardar(v || null); }}>
+      <label><Bell size={15} aria-hidden /><span>Aviso das aulas</span><input className="input" type="time" value={v} onChange={(e) => setV(e.target.value)} aria-label="Horário do aviso das aulas" /></label>
+      {v !== (hora?.slice(0, 5) ?? "") && <button className="btn btn--sm" type="submit" disabled={pendente}>Guardar</button>}
+      {hora && v === hora.slice(0, 5) && <button className="icon-btn" type="button" aria-label="Desligar o aviso" disabled={pendente} onClick={() => { setV(""); guardar(null); }}><BellOff size={15} /></button>}
+    </form>
   );
 }

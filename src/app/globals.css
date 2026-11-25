@@ -1389,7 +1389,7 @@ a.route__t:hover { color: var(--accent-text); }
 .grafico__l { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 6px 10px color-mix(in srgb, var(--accent) 35%, transparent)); }
 .grafico__p { fill: var(--surface); stroke: var(--accent); stroke-width: 3; }
 /* mapa de constância: 18 semanas, uma coluna por semana */
-.mapa { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 16px); grid-auto-columns: 16px; gap: 5px; justify-content: start; padding: 4px 8px; overflow-x: auto; }
+.mapa { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 16px); grid-auto-columns: 16px; gap: 5px; justify-content: end; padding: 4px 8px; overflow: hidden; }
 .mapa i { border-radius: 4px; background: var(--sunk); }
 @media (max-width: 560px) { .mapa { grid-template-rows: repeat(7, 13px); grid-auto-columns: 13px; gap: 4px; } }
 .mapa i[data-n="1"] { background: color-mix(in srgb, var(--accent) 28%, var(--sunk)); }
@@ -1405,13 +1405,13 @@ a.route__t:hover { color: var(--accent-text); }
 .mapa__leg i[data-n="4"] { background: var(--accent); }
 .mapa__leg span { margin: 0 4px; }
 /* colunas: horas por semana, com a linha da meta */
-.colunas { position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; height: 190px; padding: 8px 8px 26px; }
+.colunas { position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; height: 190px; padding: 22px 8px 26px; }
 .colunas > div { position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
 .colunas > div > span { position: relative; width: 100%; max-width: 38px; min-height: 3px; border-radius: 10px 10px 4px 4px; background: color-mix(in srgb, var(--accent) 35%, var(--sunk)); transition: height var(--dur-panel) var(--ease); }
 .colunas > div.is-atual > span { background: linear-gradient(180deg, #8F74F5, var(--accent)); box-shadow: 0 8px 18px -8px rgba(108, 78, 217, .8); }
 .colunas em { position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); font-style: normal; font-size: 10.5px; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .colunas small { position: absolute; bottom: -20px; font-size: 10.5px; color: var(--text-3); white-space: nowrap; }
-.colunas__meta { position: absolute; left: 8px; right: 8px; margin-bottom: 26px; border-top: 1.5px dashed color-mix(in srgb, var(--ok) 70%, transparent); pointer-events: none; }
+.colunas__meta { position: absolute; left: 8px; right: 8px; border-top: 1.5px dashed color-mix(in srgb, var(--ok) 70%, transparent); pointer-events: none; }
 @media (max-width: 860px) {
   .prova { padding: 10px 12px; } .prova b { font-size: 32px; }
   .palco--estudo .palco__topo { flex-wrap: wrap; }
@@ -1804,3 +1804,23 @@ body:has(.capture) { overflow: hidden; }
 .aula__t b { overflow: hidden; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .aula__t small { font-size: 12px; color: var(--text-2); }
 .aula.is-feita .aula__t b { color: var(--text-2); }
+
+/* Estudos: ritmo, constância, meta e aviso */
+.estudo-ritmo { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; margin-bottom: 8px; }
+@media (max-width: 900px) { .estudo-ritmo { grid-template-columns: minmax(0, 1fr); } }
+.mapa i.is-futuro { opacity: .25; }
+.ritmo { display: inline-block; margin-top: 4px; padding: 2px 10px; border-radius: 99px; font-size: 12.5px; font-weight: 600; }
+.ritmo small { font-weight: 500; opacity: .85; }
+.ritmo--atras { background: var(--danger-bg); color: var(--danger); }
+.ritmo--frente { background: var(--ok-bg); color: var(--ok); }
+.ritmo--em-dia { background: var(--accent-soft); color: var(--accent-text); }
+.estudo-meta { display: grid; gap: 2px; margin: 0; padding: 8px 10px; border-radius: 12px; font-size: 12.5px; line-height: 1.45; }
+.estudo-meta b { font-size: 13px; }
+.estudo-meta--ok { background: var(--ok-bg); color: var(--ok); }
+.estudo-meta--nao { background: var(--warn-bg); color: var(--warn); }
+.lembrete { display: flex; align-items: center; gap: 6px; }
+.lembrete label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+.lembrete .input { width: 110px; height: 34px; }
+@media (max-width: 640px) { .lembrete label span { display: none; } }
+.aula-dia__modo { height: 30px; padding: 0 10px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.aula-dia.is-pausa { box-shadow: inset 0 0 0 1.5px var(--ok); }

@@ -105,7 +105,7 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   pg_cron `rumo-avisos` a cada 5 min chamando a função `avisos`) e 0018 (`study_questions`: exercícios com acertos por matéria/tema;
   `study_mocks`: provas e notas) e 0019 (notas decimais em `study_mocks`) e 0020 (`profiles.hidden_areas`: áreas escondidas da lateral;
   `profiles.capture_token` e as funções `rumo_contextos_por_chave`/`rumo_capturar_por_chave` para o atalho da Siri em
-  `src/app/api/capturar/route.ts`, rota pública com a chave) e 0022 (`fin_accounts`, `account_id`, `fin_categories`, `paid_before`) e 0023 (`plan_steps` nos investimentos: o plano em degraus) e 0024 (`rumo_espelhar_planilha`: o espelho da planilha numa transação) e 0025 (a mesma função com WHERE em todo UPDATE: a API do Supabase recusa UPDATE sem WHERE) e 0026 (Estudos refeitos: áreas, projetos, disciplinas e aulas) e 0021 (`profiles.ical_url`: agenda do Google pelo endereço
+  `src/app/api/capturar/route.ts`, rota pública com a chave) e 0022 (`fin_accounts`, `account_id`, `fin_categories`, `paid_before`) e 0023 (`plan_steps` nos investimentos: o plano em degraus) e 0024 (`rumo_espelhar_planilha`: o espelho da planilha numa transação) e 0025 (a mesma função com WHERE em todo UPDATE: a API do Supabase recusa UPDATE sem WHERE) e 0026 (Estudos refeitos: áreas, projetos, disciplinas e aulas) e 0027 (`study_projects.target_on`: meta de data do projeto; `profiles.study_reminder`: horário do aviso das aulas) e 0021 (`profiles.ical_url`: agenda do Google pelo endereço
   secreto iCal, lida em `src/lib/ical.ts` com cache de 5 min e mostrada no Hoje, Calendário e Semana; ids `g-…` abrem o Google
   Agenda; dia inteiro fica de fora) já aplicadas. Mudanças de banco = **nova migração numerada**, nunca editar
   a anterior depois de aplicada.
@@ -122,7 +122,10 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   próxima entra. Roadmap recalculado de hoje com o que falta (`roadmapDaArea`, `aulasDeHoje` em `src/lib/trilhas.ts`; dados em
   `estudos/dados.ts`; gráfico em `src/components/RoadmapEstudos.tsx`). Página `/estudos` (painel, aulas de hoje, por área: roadmap e
   projetos), `/estudos/d/[id]` (aulas: marcar, título, anotação, data, minutos). No Hoje, as aulas do dia com relógio que continua
-  contando ao trocar de tela (localStorage) e "Concluí" que grava os minutos (`AulaDoDia` em `src/components/Trilhas.tsx`).
+  contando ao trocar de tela (localStorage), zerar, modo pomodoro "25/5" (25 de foco + 5 de pausa, som/vibração/notificação com a tela
+  aberta; "Concluí" grava só os minutos de foco) (`AulaDoDia` em `src/components/Trilhas.tsx`). Em `/estudos` também: constância (mapa dos
+  dias e horas por semana × plano, `constancia`), ritmo da área (aulas adiantadas/atrasadas até ontem, `ritmoDaArea`), meta de data do
+  projeto (cabe? com quantas aulas por dia ou primeiro na fila, `metaDoProjeto`) e o horário do aviso das aulas (`LembreteEstudo`).
   As telas antigas (curso, ciclo, matérias) saíram e os endereços levam para `/estudos`; as tabelas antigas ficam no banco.
   Rotinas (quando é dia dela, a semana em pontos, sem sequência; mensais "todo dia 10" ficam no Hoje até serem feitas)
   em `src/lib/rotinas.ts`; Notas (onde mora, rótulo, data) em `src/lib/notas.ts`; Finanças do mês (resumo, contas fixas = rotinas mensais com valor,
@@ -141,7 +144,7 @@ Toda a comunicação, a interface e os textos são em **português do Brasil**.
   o logo oficial em `src/components/Logo.tsx`; o anel e o caminho das Rotas em `src/components/Caminho.tsx`.
 - Notificações (web push): `public/sw.js`, cartão em Ajustes (`src/components/Notificacoes.tsx`, chave pública em
   `src/lib/avisos.ts`), ações `salvarInscricao`/`apagarInscricao`/`testarAviso`. O envio é a função do Supabase
-  `supabase/functions/avisos` (resumo 7h30, compromisso 15 min antes, remédio/rotina no horário, contas e parcelas 9h;
+  `supabase/functions/avisos` (resumo 7h30, compromisso 15 min antes, remédio/rotina no horário, contas e parcelas 9h; aulas de estudo que faltam no horário escolhido em Estudos;
   `?simular=1&hora=HH:MM` mostra sem enviar). Chaves VAPID e token no cofre (vault) do Supabase, nunca no repositório.
   No iPhone só funciona com o Rumo adicionado à Tela de Início.
 - Publicação: a Vercel publica a `main` em produção (rumo-iter-midia.vercel.app). O Daniel autorizou levar à
