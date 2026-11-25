@@ -908,8 +908,8 @@ a.route__t:hover { color: var(--accent-text); }
 .rotina__conta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; margin-top: 6px; }
 
 /* Finanças: o mês numa tela */
-.nums { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
-.nums > div { display: grid; align-content: start; gap: 6px; padding: 18px 18px 16px; border-radius: 22px; background: var(--surface); box-shadow: var(--ring); }
+.nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; margin-bottom: 16px; }
+.nums > div { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; align-content: start; gap: 6px; padding: 18px 18px 16px; border-radius: 22px; background: var(--surface); box-shadow: var(--ring); }
 .nums small { font-size: 11.5px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
 .nums b { font: 650 26px/1.15 var(--font); letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
 .nums b.pos { color: var(--ok); }
@@ -949,7 +949,7 @@ a.route__t:hover { color: var(--accent-text); }
 .fin-cat__bar u { position: absolute; top: -3px; width: 2px; height: 13px; border-radius: 1px; background: var(--text-2); }
 .fin-cats li.is-passou .fin-cat__bar i { background: var(--warn-mark); }
 .fin-cats li.is-passou .fin-cat__t > span { color: var(--text); }
-@media (max-width: 1100px) { .fin-cols { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .fin-cols { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 760px) {
   .nums { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .nums > div { padding: 14px 14px 12px; border-radius: 18px; }
@@ -1084,7 +1084,7 @@ a.route__t:hover { color: var(--accent-text); }
 .fin-form__linha--inv { grid-template-columns: minmax(0, 1fr) 230px 170px; }
 .fin-form__linha--inv2 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
-.inv { display: grid; gap: 12px; padding: 16px 18px 12px; }
+.inv { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; padding: 16px 18px 12px; }
 .inv__head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; }
 .inv__t { margin: 0; font-size: 16px; font-weight: 600; }
 .inv__head small { font-size: 12.5px; color: var(--text-2); }
@@ -1733,3 +1733,9 @@ body:has(.capture) { overflow: hidden; }
 .fin-conta__marca { width: 10px; height: 10px; margin: 0 4px; border-radius: 99px; border: 2px solid var(--line-2, var(--line)); }
 .fin-conta__marca.is-late { border-color: var(--danger); }
 @media (max-width: 640px) { .gantt { grid-template-columns: 118px repeat(var(--n), minmax(22px, 1fr)); min-width: calc(118px + var(--n) * 22px); } }
+/* Nada sai do cartão: grades de uma coluna encolhem e o que é largo rola dentro */
+.fin-cols > div > *, .fin-lado > * { min-width: 0; }
+.inv__head > div { min-width: 0; }
+.inv__head small { overflow-wrap: anywhere; }
+.painel-fin .barras__t { flex-wrap: wrap; row-gap: 0; white-space: normal; }
+.painel-fin .barras__t small { margin-left: 0; }
