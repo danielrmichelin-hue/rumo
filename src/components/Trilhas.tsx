@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { ArrowDown, ArrowUp, Check, Pause, Pencil, Play, Plus, RotateCcw, Trash2 } from "lucide-react";
 import {
-  apagarDisciplina, apagarProjetoEstudo, concluirAula, criarAreasEstudo, criarDisciplina, criarProjetoEstudo, desfazerAula,
+  apagarAreaEstudo, apagarAula, apagarDisciplina, apagarProjetoEstudo, concluirAula, criarAreaEstudo, criarAreasEstudo, criarDisciplina, criarProjetoEstudo, desfazerAula,
   moverNaFila, salvarAreaEstudo, salvarAula, salvarDisciplina, salvarProjetoEstudo,
 } from "@/app/(app)/acoes";
 import { hojeISO, numeroBR, SEMANA_CURTA } from "@/lib/datas";
@@ -57,6 +57,7 @@ export function AulaDoDia({ aula, titulo, projeto, cor, feita, minutosMeta = 60 
       <div className="aula-dia__t"><Link href={`/estudos/d/${aula.discipline_id}`}><b>{titulo}</b></Link><small>{projeto}</small></div>
       <span className="aula-dia__tempo" aria-live="off">{ms > 0 ? relogio(ms) : ""}</span>
       <span className="aula-dia__acoes">
+        {ms > 0 && <button type="button" className="icon-btn" aria-label="Zerar o relógio" title="Zerar" onClick={() => { if (confirm("Zerar o relógio desta aula?")) mudar({ acumulado: 0, desde: null }); }}><RotateCcw size={15} /></button>}
         {e.desde
           ? <button type="button" className="icon-btn" aria-label="Pausar" onClick={() => mudar({ acumulado: passado(e), desde: null })}><Pause size={16} /></button>
           : <button type="button" className="btn btn--line btn--sm" onClick={() => mudar({ acumulado: e.acumulado, desde: Date.now() })}><Play aria-hidden />{ms > 0 ? "Continuar" : "Começar"}</button>}
@@ -98,11 +99,28 @@ export function EditarArea({ area }: { area: Area }) {
               ))}</span>
             </div>
             {erro && <p className="note note--err" role="alert">{erro}</p>}
-            <div className="detail__foot"><button className="btn" type="submit" disabled={pendente}>{pendente ? "Guardando…" : "Guardar"}</button></div>
+            <div className="detail__foot">
+              <button className="btn btn--ghost btn--sm" type="button" onClick={() => { if (confirm(`Apagar a área "${area.name}" com todos os projetos, disciplinas e aulas dela?`)) iniciar(async () => { await apagarAreaEstudo(area.id); setAberto(false); }); }}><Trash2 aria-hidden />Apagar</button>
+              <button className="btn" type="submit" disabled={pendente} style={{ marginLeft: "auto" }}>{pendente ? "Guardando…" : "Guardar"}</button>
+            </div>
           </form>
         </Painel>
       )}
     </>
+  );
+}
+
+export function NovaArea() {
+  const [nome, setNome] = useState("");
+  const [aulas, setAulas] = useState("1");
+  const [pendente, iniciar] = useTransition();
+  const avisar = useAvisar();
+  return (
+    <form className="trilha-novo trilha-novo--disc" onSubmit={(e) => { e.preventDefault(); iniciar(async () => { const r = await criarAreaEstudo(nome, Number(aulas)); if (!r.ok) return avisar({ texto: r.erro ?? "Erro." }); setNome(""); }); }}>
+      <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nova área (ex.: Idiomas)" maxLength={60} aria-label="Nova área" />
+      <label className="trilha-novo__n"><input className="input" inputMode="numeric" value={aulas} onChange={(e) => setAulas(e.target.value.replace(/\D/g, "").slice(0, 2))} aria-label="Aulas por dia" /><small>por dia</small></label>
+      <button className="btn btn--line btn--sm" type="submit" disabled={pendente || !nome.trim()}><Plus aria-hidden />Área</button>
+    </form>
   );
 }
 
@@ -226,7 +244,10 @@ export function LinhaAula({ aula, proxima }: { aula: Aula; proxima: boolean }) {
               <label className="field">Minutos<input className="input" inputMode="numeric" value={v.minutes} onChange={(e) => setV({ ...v, minutes: e.target.value.replace(/\D/g, "").slice(0, 4) })} disabled={!v.done_on} /></label>
             </div>
             {erro && <p className="note note--err" role="alert">{erro}</p>}
-            <div className="detail__foot"><button className="btn" type="submit" disabled={pendente}>{pendente ? "Guardando…" : "Guardar"}</button></div>
+            <div className="detail__foot">
+              <button className="btn btn--ghost btn--sm" type="button" onClick={() => { if (confirm(`Apagar a aula ${aula.number}? As seguintes sobem um número.`)) iniciar(async () => { const r = await apagarAula(aula.id); if (!r.ok) return setErro(r.erro ?? "Erro."); setAberto(false); }); }}><Trash2 aria-hidden />Apagar aula</button>
+              <button className="btn" type="submit" disabled={pendente} style={{ marginLeft: "auto" }}>{pendente ? "Guardando…" : "Guardar"}</button>
+            </div>
           </form>
         </Painel>
       )}

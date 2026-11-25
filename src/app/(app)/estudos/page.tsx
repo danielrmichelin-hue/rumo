@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { hojeISO, SEMANA_CURTA } from "@/lib/datas";
 import { nomeDaAula } from "@/lib/trilhas";
-import { AulaDoDia, CriarAreas, EditarArea, EditarProjeto, MoverFila, NovaDisciplina, NovoProjeto } from "@/components/Trilhas";
+import { AulaDoDia, CriarAreas, EditarArea, EditarProjeto, MoverFila, NovaArea, NovaDisciplina, NovoProjeto } from "@/components/Trilhas";
 import { RoadmapEstudos } from "@/components/RoadmapEstudos";
 import { carregarEstudos } from "./dados";
 
@@ -105,6 +105,7 @@ export default async function Page() {
               </section>
             );
           })}
+          <section className="estudo-area"><NovaArea /></section>
         </>
       )}
     </div>

@@ -1790,6 +1790,37 @@ export async function criarAreasEstudo() {
   atualizar();
 }
 
+export async function criarAreaEstudo(nome: string, aulasPorDia: number): Promise<{ ok: boolean; erro?: string }> {
+  const name = nomeOk(nome, 60);
+  if (!name) return { ok: false, erro: "Dê um nome à área." };
+  if (!Number.isInteger(aulasPorDia) || aulasPorDia < 0 || aulasPorDia > 12) return { ok: false, erro: "Aulas por dia: de 0 a 12." };
+  const supabase = await createClient();
+  const { data: irmaos } = await supabase.from("study_areas").select("position");
+  const { error } = await supabase.from("study_areas").insert({ name, daily_lessons: aulasPorDia, position: Math.max(-1, ...(irmaos ?? []).map((x) => x.position)) + 1 });
+  if (error) return { ok: false, erro: "Não foi possível criar." };
+  atualizar();
+  return { ok: true };
+}
+
+/** Apaga a área com os projetos, disciplinas e aulas dela */
+export async function apagarAreaEstudo(id: string) { await apagarPorId("study_areas", id); }
+
+/** Apaga uma aula e renumera as seguintes (a 5 vira a 4…) */
+export async function apagarAula(id: string): Promise<{ ok: boolean; erro?: string }> {
+  if (!ehId(id)) return { ok: false, erro: "Aula inválida." };
+  const supabase = await createClient();
+  const { data: a } = await supabase.from("study_lessons").select("discipline_id, number").eq("id", id).maybeSingle();
+  if (!a) return { ok: false, erro: "Aula não encontrada." };
+  const { count } = await supabase.from("study_lessons").select("id", { count: "exact", head: true }).eq("discipline_id", a.discipline_id);
+  if ((count ?? 0) <= 1) return { ok: false, erro: "A disciplina precisa de pelo menos uma aula. Para tirar tudo, apague a disciplina." };
+  const { error } = await supabase.from("study_lessons").delete().eq("id", id);
+  if (error) return { ok: false, erro: "Não foi possível apagar." };
+  const { data: depois } = await supabase.from("study_lessons").select("id, number").eq("discipline_id", a.discipline_id).gt("number", a.number).order("number");
+  for (const x of depois ?? []) await supabase.from("study_lessons").update({ number: x.number - 1 }).eq("id", x.id);
+  atualizar();
+  return { ok: true };
+}
+
 export async function salvarAreaEstudo(id: string, d: { name: string; daily_lessons: number; weekdays: number[] }): Promise<{ ok: boolean; erro?: string }> {
   if (!ehId(id)) return { ok: false, erro: "Área inválida." };
   const name = nomeOk(d.name, 60);
