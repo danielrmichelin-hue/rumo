@@ -1789,7 +1789,9 @@ body:has(.capture) { overflow: hidden; }
 .aula-dia__marca svg { width: 18px; height: 18px; }
 .aula-dia__tempo { min-width: 44px; font-size: 18px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .aula-dia__acoes { display: flex; gap: 6px; }
-@media (max-width: 640px) {
+/* Em bloco estreito (a coluna do Hoje, o celular): o nome inteiro em cima, os botões embaixo */
+.aulas-dia { container-type: inline-size; }
+@container (max-width: 560px) {
   .aula-dia { grid-template-columns: 34px minmax(0, 1fr) auto; }
   .aula-dia__acoes { grid-column: 1 / -1; justify-content: flex-end; }
 }
